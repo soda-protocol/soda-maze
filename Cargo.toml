@@ -1,0 +1,12 @@
+[package]
+name = "soda-maze"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-r1cs-std = "0.3.1"
+arkworks-gadgets = "0.4.20"
+ark-ff = "0.3.0"
+ark-relations = "0.3.0"
