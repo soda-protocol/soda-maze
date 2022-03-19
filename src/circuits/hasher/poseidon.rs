@@ -1,13 +1,11 @@
-use std::marker::PhantomData;
-
+use ark_std::marker::PhantomData;
 use ark_ff::PrimeField;
 use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
 use ark_relations::r1cs::SynthesisError;
 use arkworks_gadgets::poseidon::constraints::{PoseidonParametersVar, CRHGadget as PoseidonCRHGadget};
 
-use crate::primitives::poseidon::PoseidonHasher;
-
-use super::hasher::FieldHasherGadget;
+use crate::vanilla::hasher::poseidon::PoseidonHasher;
+use super::FieldHasherGadget;
 
 pub struct PoseidonHasherGadget<F>(PhantomData<F>);
 

@@ -1,14 +1,16 @@
+pub mod poseidon;
+
 use ark_ff::PrimeField;
 use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar};
 use ark_relations::r1cs::SynthesisError;
 
-use crate::primitives::hasher::FieldHasher;
+use crate::vanilla::hasher::FieldHasher;
 
-pub trait FieldHasherGadget<F: PrimeField, H: FieldHasher<F>> {
-    type ParametersVar: AllocVar<H::Parameters, F> + Clone;
+pub trait FieldHasherGadget<F: PrimeField, FH: FieldHasher<F>> {
+    type ParametersVar: AllocVar<FH::Parameters, F> + Clone;
 
     fn empty_hash_var() -> FpVar<F> {
-        FpVar::Constant(H::empty_hash())
+        FpVar::Constant(FH::empty_hash())
     }
 
     fn hash_gadget(params: &Self::ParametersVar, inputs: &[FpVar<F>]) -> Result<FpVar<F>, SynthesisError>;

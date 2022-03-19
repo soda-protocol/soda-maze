@@ -3,13 +3,11 @@ use ark_ff::PrimeField;
 
 use super::hasher::FieldHasher;
 
-pub fn gen_merkle_path<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8>(
+pub fn gen_merkle_path<F: PrimeField, FH: FieldHasher<F>>(
     inner_params: &FH::Parameters,
     friends: &[(bool, F)],
     leaf_hash: F,
 ) -> Result<Vec<F>, Error> {
-    assert_eq!(friends.len(), HEIGHT as usize);
-
     let mut previous = leaf_hash;
     friends
         .into_iter()

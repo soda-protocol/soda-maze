@@ -1,10 +1,17 @@
 use ark_ff::{PrimeField, FpParameters};
-use ark_std::{rand::Rng, UniformRand};
+use ark_std::{rand::RngCore, UniformRand};
 use bitvec::{view::BitView, order::Lsb0, field::BitField};
 
 pub type Pubkey = Array<32>;
 
+#[derive(Clone, Copy)]
 pub struct Array<const N: usize>([u8; N]);
+
+impl<const N: usize> Default for Array<N> {
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
 
 impl<const N: usize> Array<N> {
     pub fn new(value: [u8; N]) -> Self {
@@ -32,7 +39,7 @@ impl<const N: usize> Array<N> {
 }
 
 impl<const N: usize> UniformRand for Array<N> {
-    fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    fn rand<R: RngCore + ?Sized>(rng: &mut R) -> Self {
         let mut value = [0u8; N];
         value.iter_mut().for_each(|v| *v = u8::rand(rng));
 

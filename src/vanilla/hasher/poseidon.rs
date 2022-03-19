@@ -4,8 +4,9 @@ use ark_crypto_primitives::Error;
 use arkworks_utils::poseidon::{PoseidonParameters, PoseidonError};
 use arkworks_gadgets::poseidon::CRH as PoseidonCRH;
 
-use super::hasher::FieldHasher;
+use super::FieldHasher;
 
+#[derive(Clone)]
 pub struct PoseidonHasher<F>(PhantomData<F>);
 
 impl<F: PrimeField> FieldHasher<F> for PoseidonHasher<F> {

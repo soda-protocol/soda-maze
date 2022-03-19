@@ -12,10 +12,16 @@ arkworks-gadgets = "0.4.20"
 arkworks-utils = "0.4.20"
 ark-ff = "0.3.0"
 ark-relations = "0.3.0"
+ark-ec = "0.3.0"
 ark-std = "0.3.0"
+ark-groth16 = "0.3.0"
 ark-crypto-primitives = "0.3.0"
 bitvec = "1.0.0"
 concat-arrays = "0.1.2"
+ark-bn254 = "0.3.0"
 
 [dev-dependencies]
-ark-bn254 = "0.3.0"
+
+[features]
+default = ["bn254"]
+bn254 = []
