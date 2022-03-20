@@ -1,2 +1,3 @@
-/target
+maze-lib/target
+maze-bin/target
 Cargo.lock

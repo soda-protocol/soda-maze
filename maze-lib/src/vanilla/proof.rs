@@ -25,7 +25,7 @@ impl<F: PrimeField, const HEIGHT: u8> Default for DepositOriginInputs<F, HEIGHT>
             node_map: BTreeMap::from_iter(
                 (0..HEIGHT)
                     .into_iter()
-                    .map(|layer| ((layer, 0), F::zero())),
+                    .map(|layer| ((layer, 1), F::zero())),
             ),
             leaf_index: 0,
             mint: Default::default(),
@@ -133,7 +133,7 @@ impl<F: PrimeField, const HEIGHT: u8> Default for WithdrawOriginInputs<F, HEIGHT
             node_map: BTreeMap::from_iter(
                 (0..HEIGHT)
                     .into_iter()
-                    .map(|layer| ((layer, 0), F::zero())),
+                    .map(|layer| ((layer, 1), F::zero())),
             ),
             leaf_index: 0,
             mint: Default::default(),

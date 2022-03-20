@@ -1,5 +1,5 @@
 [package]
-name = "soda-maze"
+name = "soda-maze-lib"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,14 +14,16 @@ ark-ff = "0.3.0"
 ark-relations = "0.3.0"
 ark-ec = "0.3.0"
 ark-std = "0.3.0"
-ark-groth16 = "0.3.0"
+# ark-groth16 = "0.3.0"
 ark-crypto-primitives = "0.3.0"
 bitvec = "1.0.0"
-concat-arrays = "0.1.2"
-ark-bn254 = "0.3.0"
+structopt = { version = "0.3", default-features = false }
 
 [dev-dependencies]
+ark-bn254 = "0.3.0"
+criterion = "0.3.5"
 
 [features]
 default = ["bn254"]
 bn254 = []
+

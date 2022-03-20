@@ -2,13 +2,11 @@ use ark_crypto_primitives::snark::SNARK;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 
-use crate::vanilla::hasher::FieldHasher;
-use crate::vanilla::proof::*;
+use crate::vanilla::{hasher::FieldHasher, proof::*};
 use crate::circuits::{DepositCircuit, WithdrawCircuit, FieldHasherGadget};
 
 use super::ProofScheme;
 
-#[derive(Default)]
 pub struct DepositProof<F, FH, FHG, S, const HEIGHT: u8>
 where
     F: PrimeField,
@@ -66,7 +64,6 @@ where
     }
 }
 
-#[derive(Default)]
 pub struct WithdrawProof<F, FH, FHG, S, const HEIGHT: u8>
 where
     F: PrimeField,
