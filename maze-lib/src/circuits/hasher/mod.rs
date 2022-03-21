@@ -9,6 +9,8 @@ use crate::vanilla::hasher::FieldHasher;
 pub trait FieldHasherGadget<F: PrimeField, FH: FieldHasher<F>> {
     type ParametersVar: AllocVar<FH::Parameters, F> + Clone;
 
+    fn domain_type_var(width: u8) -> FpVar<F>;
+
     fn empty_hash_var() -> FpVar<F> {
         FpVar::Constant(FH::empty_hash())
     }

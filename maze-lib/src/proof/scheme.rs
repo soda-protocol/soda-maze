@@ -45,7 +45,7 @@ where
     }
 
     fn generate_circuit(
-        params: &ConstParams<F, FH>,
+        params: &DepositConstParams<F, FH>,
         pub_in: &DepositPublicInputs<F>,
         priv_in: &DepositPrivateInputs<F>,
     ) -> DepositCircuit<F, FH, FHG> {
@@ -100,7 +100,7 @@ where
     }
 
     fn generate_circuit(
-        params: &ConstParams<F, FH>,
+        params: &WithdrawConstParams<F, FH>,
         pub_in: &WithdrawPublicInputs<F>,
         priv_in: &WithdrawPrivateInputs<F>,
     ) -> WithdrawCircuit<F, FH, FHG> {
@@ -110,6 +110,7 @@ where
             priv_in.deposit_amount,
             priv_in.secret,
             pub_in.nullifier,
+            params.nullifier_params.clone(),
             params.leaf_params.clone(),
             pub_in.root,
             priv_in.friend_nodes.clone(),

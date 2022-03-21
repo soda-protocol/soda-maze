@@ -96,6 +96,7 @@ where
     deposit_amount: u64,
     secret: F,
     nullifier: F,
+    nullifier_params: Rc<FH::Parameters>,
     leaf_params: Rc<FH::Parameters>,
     merkle_proof: LeafExistance<F, FH, FHG>,
 }
@@ -109,6 +110,7 @@ where
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
         // alloc constant
         let leaf_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
+        let nullifier_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.nullifier_params)?;
         // alloc input
         let mint_var = FpVar::new_input(cs.clone(), || Ok(self.mint.to_field_element::<F>()))?;
         let withdraw_amount_var = Uint64::new_input(cs.clone(), || Ok(self.withdraw_amount))?;
@@ -118,7 +120,7 @@ where
         let secret_var = FpVar::new_witness(cs.clone(), || Ok(self.secret))?;
 
         // hash for leaf
-        let secret_hash_var = FHG::hash_gadget(&leaf_params_var, &[secret_var.clone()])?;
+        let secret_hash_var = FHG::hash_gadget(&nullifier_params_var, &[secret_var.clone()])?;
         secret_hash_var.enforce_equal(&nullifier_var)?;
 
         // restrain withdraw amount is less and equal than deposit amount
@@ -146,6 +148,7 @@ where
         deposit_amount: u64,
         secret: F,
         nullifier: F,
+        nullifier_params: FH::Parameters,
         leaf_params: FH::Parameters,
         root: F,
         friend_nodes: Vec<(bool, F)>,
@@ -157,6 +160,7 @@ where
             deposit_amount,
             secret,
             nullifier,
+            nullifier_params: Rc::new(nullifier_params),
             leaf_params: Rc::new(leaf_params),
             merkle_proof: LeafExistance::new(
                 root,
@@ -172,7 +176,7 @@ mod test {
     use ark_bn254::Fr;
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, ConstraintSynthesizer};
-	use arkworks_utils::utils::common::{Curve, setup_params_x3_3, setup_params_x3_5};
+	use arkworks_utils::utils::common::{Curve, setup_params_x5_2, setup_params_x5_3, setup_params_x5_4};
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::poseidon::PoseidonHasherGadget;
@@ -193,8 +197,8 @@ mod test {
     #[test]
     fn test_deposit() {
         let rng = &mut test_rng();
-        let inner_params = setup_params_x3_3::<Fr>(Curve::Bn254);
-        let leaf_params = setup_params_x3_5::<Fr>(Curve::Bn254);
+        let inner_params = setup_params_x5_3::<Fr>(Curve::Bn254);
+        let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         // deposit data
         let mint = Pubkey::new(<[u8; 32]>::rand(rng));
         let amount = u64::rand(rng);
@@ -248,8 +252,9 @@ mod test {
     }
 
     fn test_withdraw_inner(rng: &mut StdRng, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
-        let inner_params = setup_params_x3_3::<Fr>(Curve::Bn254);
-        let leaf_params = setup_params_x3_5::<Fr>(Curve::Bn254);
+        let nullifier_params = setup_params_x5_2(Curve::Bn254);
+        let inner_params = setup_params_x5_3::<Fr>(Curve::Bn254);
+        let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         // deposit data
         let mint = Pubkey::new(<[u8; 32]>::rand(rng));
         let secret = Fr::rand(rng);
@@ -258,7 +263,7 @@ mod test {
         let deposit_amount_fp = Fr::from(deposit_amount);
         let preimage = vec![mint_fp, deposit_amount_fp, secret];
         let leaf = PoseidonHasher::hash(&leaf_params, &preimage[..]).unwrap();
-        let nullifier = PoseidonHasher::hash(&leaf_params, &[secret]).unwrap();
+        let nullifier = PoseidonHasher::hash(&nullifier_params, &[secret]).unwrap();
         let friend_nodes = get_random_merkle_friends(rng);
 
         let root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
@@ -277,6 +282,7 @@ mod test {
             deposit_amount,
             secret,
             nullifier,
+            nullifier_params,
             leaf_params,
             root,
             friend_nodes,
