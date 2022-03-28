@@ -1,3 +1,4 @@
 maze-lib/target
 maze-bench/target
-Cargo.lock
+program/target
+*Cargo.lock

@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
 use std::{path::PathBuf, fs::OpenOptions};
 use ark_groth16::{ProvingKey, Proof, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use arkworks_utils::poseidon::PoseidonParameters;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
+use soda_maze_lib::vanilla::hasher::FieldHasher;
 use soda_maze_lib::vanilla::proof::*;
 use soda_maze_lib::vanilla::{array::Pubkey as ArrayPubkey, hasher::poseidon::PoseidonHasher, VanillaProof};
 use soda_maze_lib::vanilla::proof::{DepositConstParams, WithdrawConstParams};
@@ -19,7 +22,7 @@ use ark_bls12_381::{Bls12_381, Fr};
 #[cfg(feature = "groth16")]
 use ark_groth16::Groth16;
 
-const HEIGHT: u8 = 24;
+const HEIGHT: u8 = 26;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>, HEIGHT>;
@@ -94,7 +97,6 @@ fn get_withdraw_const_params() -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     let curve = Curve::Bls381;
 
     WithdrawConstParams {
-        nullifier_params: setup_params_x5_2(curve),
         leaf_params: setup_params_x5_4::<Fr>(curve),
         inner_params: setup_params_x5_3::<Fr>(curve),
     }
@@ -121,6 +123,67 @@ impl RngCore for XSRng {
 }
 
 impl CryptoRng for XSRng {}
+
+struct MerkleTree {
+    tree: BTreeMap<(u8, u64), Fr>,
+    blank: Vec<Fr>,
+}
+
+impl MerkleTree {
+    pub fn new(params: &PoseidonParameters<Fr>) -> Self {
+        let mut nodes = Vec::with_capacity(HEIGHT as usize);
+        let mut hash = PoseidonHasher::empty_hash();
+
+        (0..HEIGHT)
+            .into_iter()
+            .for_each(|_| {
+                nodes.push(hash);
+                hash = PoseidonHasher::hash_two(params, hash, hash)
+                    .expect("poseidon hash error");
+            });
+
+        Self {
+            tree: BTreeMap::new(),
+            blank: nodes,
+        }
+    }
+
+    pub fn get_friends(&self, index: u64) -> Vec<Fr> {
+        (0..HEIGHT)
+            .into_iter()
+            .map(|layer| {
+                if ((index >> layer) & 1) == 1 {
+                    if let Some(v) = self.tree.get(&(layer, index - 1)) {
+                        *v
+                    } else {
+                        self.blank[layer as usize]
+                    }
+                } else {
+                    if let Some(v) = self.tree.get(&(layer, index + 1)) {
+                        *v
+                    } else {
+                        self.blank[layer as usize]
+                    }
+                }
+            })
+            .collect()
+    }
+
+    pub fn add_leaf(&mut self, params: &PoseidonParameters<Fr>, index: u64, mut hash: Fr) {
+        (0..HEIGHT)
+            .into_iter()
+            .for_each(|layer| {
+                self.tree.insert((layer, index >> layer), hash);
+
+                let friend = self.blank[layer as usize];
+                if ((index >> layer) & 1) == 1 {
+                    hash = PoseidonHasher::hash_two(params, friend, hash).expect("poseidon hash error");
+                } else {
+                    hash = PoseidonHasher::hash_two(params, hash, friend).expect("poseidon hash error");
+                }
+            });
+    }
+}
 
 #[derive(StructOpt)]
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
@@ -150,22 +213,20 @@ enum Opt {
         amount: u64,
     },
     ProveWithdraw {
-        #[structopt(long = "pk-path", short = "pp", parse(from_os_str))]
+        #[structopt(long = "pk-path", short = "p", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long, short = "s")]
+        #[structopt(long)]
         seed: Option<String>,
-        #[structopt(long = "friend-nodes", short = "fn")]
-        friend_nodes: String,
-        #[structopt(long = "leaf-index", short = "li", default_value = "0")]
-        leaf_index: u64,
-        #[structopt(long, short = "m")]
+        #[structopt(long = "index-1")]
+        leaf_index_1: u64,
+        #[structopt(long = "index-2")]
+        leaf_index_2: u64,
+        #[structopt(long)]
         mint: Pubkey,
-        #[structopt(long = "deposit-amount", short = "da")]
+        #[structopt(long = "deposit-amount", short = "d")]
         deposit_amount: u64,
-        #[structopt(long = "withdraw-amount", short = "wa")]
+        #[structopt(long = "withdraw-amount", short = "w")]
         withdraw_amount: u64,
-        #[structopt(long, short = "s")]
-        secret: String,
     },
     VerifyDeposit {
         #[structopt(long = "verifying-key", short = "vk")]
@@ -190,10 +251,14 @@ enum Opt {
         verifying_key: String,
         #[structopt(long, short = "p")]
         proof: String,
-        #[structopt(long, short = "r")]
-        root: String,
-        #[structopt(long, short = "n")]
-        nullifier: String,
+        #[structopt(long = "old-root", short = "r")]
+        old_root: String,
+        #[structopt(long = "new-leaf", short = "nl")]
+        new_leaf: String,
+        #[structopt(long = "update-nodes", short = "un")]
+        update_nodes: String,
+        #[structopt(long = "leaf-index", default_value = "0")]
+        leaf_index: u64,
         #[structopt(long, short = "m")]
         mint: Pubkey,
         #[structopt(long = "withdraw-amount", short = "wa")]
@@ -237,10 +302,10 @@ fn main() {
             amount,
         } => {
             let const_params = get_deposit_const_params();
-            let friend_nodes = (0..HEIGHT).into_iter().map(|_| Fr::rand(&mut OsRng)).collect::<Vec<_>>();
-            let friend_nodes_hex = write_to_hex(&friend_nodes);
-            println!("friend nodes: {:?}", friend_nodes_hex);
-
+            let friend_nodes = (0..HEIGHT)
+                .into_iter()
+                .map(|_| Fr::rand(&mut OsRng))
+                .collect::<Vec<_>>();
             let secret = Fr::rand(&mut OsRng);
             let origin_inputs = DepositOriginInputs {
                 friend_nodes,
@@ -270,23 +335,39 @@ fn main() {
         Opt::ProveWithdraw {
             pk_path,
             seed,
-            friend_nodes,
-            leaf_index,
+            leaf_index_1,
+            leaf_index_2,
             mint,
             deposit_amount,
             withdraw_amount,
-            secret,
         } => {
             let const_params = get_withdraw_const_params();
-            let friend_nodes: Vec<Fr> = read_from_hex(friend_nodes);
-            let secret = read_from_hex(secret);
+            let mut merkle_tree = MerkleTree::new(&const_params.inner_params);
+            let friend_nodes_1 = merkle_tree.blank.clone();
+            
+            let secret = Fr::rand(&mut OsRng);
+            let preimage = vec![
+                ArrayPubkey::new(mint.to_bytes()).to_field_element(),
+                Fr::from(deposit_amount),
+                secret,
+            ];
+            let leaf = PoseidonHasher::hash(
+                &const_params.leaf_params,
+                &preimage[..],
+            ).expect("hash failed");
+            merkle_tree.add_leaf(&const_params.inner_params, leaf_index_1, leaf);
+
+            let friend_nodes_2 = merkle_tree.get_friends(leaf_index_2);
+
             let origin_inputs = WithdrawOriginInputs {
-                friend_nodes,
-                leaf_index,
                 mint: ArrayPubkey::new(mint.to_bytes()),
                 deposit_amount,
                 withdraw_amount,
+                leaf_index_1,
+                leaf_index_2,
                 secret,
+                friend_nodes_1,
+                friend_nodes_2,
             };
 
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
@@ -294,8 +375,11 @@ fn main() {
             let (pub_in, priv_in) = WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
                 .expect("generate vanilla proof failed");
 
-            println!("root: {:?}", write_to_hex(&pub_in.root));
-            println!("nullifier: {:?}", write_to_hex(&pub_in.nullifier));
+            let update_nodes_hex = write_to_hex(&pub_in.update_nodes);
+            println!("update nodes: {}", update_nodes_hex);
+            println!("secret: {}", write_to_hex(&priv_in.secret));
+            println!("old root: {:?}", write_to_hex(&pub_in.old_root));
+            println!("new leaf: {}", write_to_hex(&pub_in.new_leaf));
 
             let proof = WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
                 .expect("generate snark proof failed");
@@ -337,9 +421,11 @@ fn main() {
         Opt::VerifyWithdraw {
             verifying_key,
             proof,
-            root,
-            nullifier,
+            old_root,
+            new_leaf,
+            update_nodes,
             mint,
+            leaf_index,
             withdraw_amount,
         } => {
             let vk: VerifyingKey<_> = read_from_hex(verifying_key);
@@ -348,8 +434,10 @@ fn main() {
             let pub_in = WithdrawPublicInputs {
                 mint: ArrayPubkey::new(mint.to_bytes()),
                 withdraw_amount,
-                root: read_from_hex(root),
-                nullifier: read_from_hex(nullifier),
+                old_root: read_from_hex(old_root),
+                new_leaf_index: leaf_index,
+                new_leaf: read_from_hex(new_leaf),
+                update_nodes: read_from_hex(update_nodes),
             };
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)

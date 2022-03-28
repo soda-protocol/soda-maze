@@ -12,23 +12,11 @@ pub struct DepositVanillaProof<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: 
 
 #[derive(Clone)]
 pub struct DepositOriginInputs<F: PrimeField, const HEIGHT: u8> {
-    pub friend_nodes: Vec<F>,
-    pub leaf_index: u64,
     pub mint: Pubkey,
     pub amount: u64,
     pub secret: F,
-}
-
-impl<F: PrimeField, const HEIGHT: u8> Default for DepositOriginInputs<F, HEIGHT> {
-    fn default() -> Self {
-        Self {
-            friend_nodes: vec![F::zero(); HEIGHT as usize],
-            leaf_index: 0,
-            mint: Default::default(),
-            amount: 0,
-            secret: F::zero(),
-        }
-    }
+    pub leaf_index: u64,
+    pub friend_nodes: Vec<F>,
 }
 
 pub struct DepositConstParams<F: PrimeField, FH: FieldHasher<F>> {
@@ -41,8 +29,8 @@ pub struct DepositPublicInputs<F: PrimeField> {
     pub mint: Pubkey,
     pub amount: u64,
     pub old_root: F,
-    pub new_leaf: F,
     pub leaf_index: u64,
+    pub new_leaf: F,
     pub update_nodes: Vec<F>,
 }
 
@@ -58,12 +46,25 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
     type PublicInputs = DepositPublicInputs<F>;
     type PrivateInputs = DepositPrivateInputs<F>;
 
+    fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
+        let orig_in = DepositOriginInputs {
+            mint: Default::default(),
+            amount: 0,
+            secret: F::zero(),
+            leaf_index: 0,
+            friend_nodes: vec![FH::empty_hash(); HEIGHT as usize],
+        };
+
+        Self::generate_vanilla_proof(params, &orig_in)
+    }
+
     fn generate_vanilla_proof(
         params: &DepositConstParams<F, FH>,
         orig_in: &DepositOriginInputs<F, HEIGHT>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         assert_eq!(orig_in.friend_nodes.len(), HEIGHT as usize);
         assert!(orig_in.leaf_index < (1 << HEIGHT));
+        assert!(orig_in.amount > 0, "amount must be greater than 0");
 
         let friend_nodes = orig_in.friend_nodes
             .iter()
@@ -93,8 +94,8 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
             mint: orig_in.mint,
             amount: orig_in.amount,
             old_root,
-            new_leaf,
             leaf_index: orig_in.leaf_index,
+            new_leaf,
             update_nodes,
         };
         let priv_in = DepositPrivateInputs {
@@ -115,45 +116,36 @@ pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>, const HEIGHT:
 pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {
     pub inner_params: FH::Parameters,
     pub leaf_params: FH::Parameters,
-    pub nullifier_params: FH::Parameters,
 }
 
 #[derive(Clone)]
 pub struct WithdrawOriginInputs<F: PrimeField, const HEIGHT: u8> {
-    pub friend_nodes: Vec<F>,
-    pub leaf_index: u64,
     pub mint: Pubkey,
     pub deposit_amount: u64,
     pub withdraw_amount: u64,
+    pub leaf_index_1: u64,
+    pub leaf_index_2: u64,
     pub secret: F,
-}
-
-impl<F: PrimeField, const HEIGHT: u8> Default for WithdrawOriginInputs<F, HEIGHT> {
-    fn default() -> Self {
-        Self {
-            friend_nodes: vec![F::zero(); HEIGHT as usize],
-            leaf_index: 0,
-            mint: Default::default(),
-            deposit_amount: 0,
-            withdraw_amount: 0,
-            secret: F::zero(),
-        }
-    }
+    pub friend_nodes_1: Vec<F>,
+    pub friend_nodes_2: Vec<F>,
 }
 
 #[derive(Clone)]
 pub struct WithdrawPublicInputs<F: PrimeField> {
     pub mint: Pubkey,
     pub withdraw_amount: u64,
-    pub root: F,
-    pub nullifier: F,
+    pub old_root: F,
+    pub new_leaf_index: u64,
+    pub new_leaf: F,
+    pub update_nodes: Vec<F>,
 }
 
 #[derive(Clone)]
 pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub deposit_amount: u64,
     pub secret: F,
-    pub friend_nodes: Vec<(bool, F)>,
+    pub friend_nodes_1: Vec<(bool, F)>,
+    pub friend_nodes_2: Vec<(bool, F)>,
 }
 
 impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for WithdrawVanillaProof<F, FH, HEIGHT> {
@@ -162,41 +154,96 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
     type PublicInputs = WithdrawPublicInputs<F>;
     type PrivateInputs = WithdrawPrivateInputs<F>;
 
+    fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
+        let preimage = vec![
+            Pubkey::default().to_field_element(),
+            F::zero(),
+            F::zero(),
+        ];
+        let leaf = FH::hash(&params.leaf_params, &preimage)
+            .map_err(|e| anyhow!("hash error: {}", e))?;
+
+        let friend_nodes_1 = vec![FH::empty_hash(); HEIGHT as usize];
+        let mut friend_nodes_2 = vec![FH::empty_hash(); HEIGHT as usize];
+        friend_nodes_2[0] = leaf;
+
+        let origin_inputs = WithdrawOriginInputs {
+            mint: Pubkey::default(),
+            deposit_amount: 0,
+            withdraw_amount: 0,
+            leaf_index_1: 0,
+            leaf_index_2: 1,
+            secret: F::zero(),
+            friend_nodes_1,
+            friend_nodes_2,
+        };
+
+        Self::generate_vanilla_proof(params, &origin_inputs)
+    }
+
     fn generate_vanilla_proof(
         params: &WithdrawConstParams<F, FH>,
         orig_in: &WithdrawOriginInputs<F, HEIGHT>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        assert_eq!(orig_in.friend_nodes.len(), HEIGHT as usize);
-        assert!(orig_in.leaf_index < (1 << HEIGHT));
+        assert_eq!(orig_in.friend_nodes_1.len(), HEIGHT as usize);
+        assert_eq!(orig_in.friend_nodes_2.len(), HEIGHT as usize);
+        assert!(orig_in.leaf_index_2 < (1 << HEIGHT));
+        assert!(orig_in.leaf_index_1 < orig_in.leaf_index_2, "leaf_index_1 must be less than leaf_index_2");
+        assert!(orig_in.withdraw_amount > 0, "withdraw amount must be greater than 0");
+        assert!(orig_in.deposit_amount >= orig_in.withdraw_amount, "deposit amount must be greater or equal than withdraw amount");
 
-        let friend_nodes = orig_in.friend_nodes
+        let friend_nodes_1 = orig_in.friend_nodes_1
             .iter()
             .enumerate()
             .map(|(layer, node)| {
-                let is_left = ((orig_in.leaf_index >> layer) & 1) == 1;
+                let is_left = ((orig_in.leaf_index_1 >> layer) & 1) == 1;
                 Ok((is_left, node.clone()))
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let nullifier = FH::hash(&params.nullifier_params, &[orig_in.secret]).unwrap();
-        let preimage = vec![orig_in.mint.to_field_element(), F::from(orig_in.deposit_amount), orig_in.secret];
-        let leaf = FH::hash(&params.leaf_params, &preimage[..]).unwrap();
-        let root = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes, leaf.clone())
+        let friend_nodes_2 = orig_in.friend_nodes_2
+            .iter()
+            .enumerate()
+            .map(|(layer, node)| {
+                let is_left = ((orig_in.leaf_index_2 >> layer) & 1) == 1;
+                Ok((is_left, node.clone()))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let preimage = vec![
+            orig_in.mint.to_field_element(),
+            F::from(orig_in.deposit_amount),
+            orig_in.secret,
+        ];
+        let leaf_1 = FH::hash(&params.leaf_params, &preimage[..]).unwrap();
+        let old_root = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_1, leaf_1)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
             .unwrap()
             .clone();
 
+        let preimage = vec![
+            orig_in.mint.to_field_element(),
+            F::from(orig_in.deposit_amount - orig_in.withdraw_amount),
+            orig_in.secret,
+        ];
+        let leaf_2 = FH::hash(&params.leaf_params, &preimage[..]).unwrap();
+        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_2, leaf_2.clone())
+            .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
+
         let pub_in = WithdrawPublicInputs {
             mint: orig_in.mint,
             withdraw_amount: orig_in.withdraw_amount,
-            root,
-            nullifier,
+            new_leaf_index: orig_in.leaf_index_2,
+            old_root,
+            new_leaf: leaf_2,
+            update_nodes,
         };
         let priv_in = WithdrawPrivateInputs {
             deposit_amount: orig_in.deposit_amount,
             secret: orig_in.secret,
-            friend_nodes,
+            friend_nodes_1,
+            friend_nodes_2,
         };
 
         Ok((pub_in, priv_in))

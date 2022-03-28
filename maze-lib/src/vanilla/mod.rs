@@ -8,15 +8,11 @@ use ark_ff::PrimeField;
 
 pub trait VanillaProof<F: PrimeField> {
     type ConstParams;
-    type OriginInputs: Clone + Default;
+    type OriginInputs: Clone;
     type PublicInputs: Clone;
-    type PrivateInputs;
+    type PrivateInputs: Clone;
 
-    fn blank_proof(
-        params: &Self::ConstParams,
-    ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        Self::generate_vanilla_proof(params, &Default::default())
-    }
+    fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)>;
 
     fn generate_vanilla_proof(
         params: &Self::ConstParams,

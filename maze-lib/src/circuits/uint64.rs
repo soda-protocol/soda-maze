@@ -1,4 +1,3 @@
-use ark_std::cmp::Ordering;
 use ark_r1cs_std::{uint64::UInt64, boolean::Boolean, fields::fp::FpVar, alloc::AllocVar, eq::EqGadget, R1CSVar, ToBitsGadget};
 use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
 use ark_ff::PrimeField;
@@ -44,15 +43,6 @@ impl<F: PrimeField> Uint64<F> {
 
     pub fn fp_var(&self) -> &FpVar<F> {
         &self.variable
-    }
-
-    pub fn is_less_and_equal_than(&self, other: &Self) -> Result<(), SynthesisError> {
-        // uint is always less than (p-1)/2
-        self.variable.enforce_cmp_unchecked(
-            &other.variable,
-            Ordering::Less,
-            true,
-        )
     }
 }
 
