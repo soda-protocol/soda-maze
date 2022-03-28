@@ -3,6 +3,9 @@
 pub mod error;
 pub mod bn;
 pub mod verifier;
+pub mod entrypoint;
+pub mod instruction;
+pub mod processor;
 
 solana_program::declare_id!("9M9mU2tt5TByh9qkgowiYvu4csN4XiCHUg5qjm826p21");
 
