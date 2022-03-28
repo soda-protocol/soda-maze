@@ -1,3 +1,5 @@
+#![feature(const_fn_trait_bound)]
+
 mod g1;
 mod g2;
 mod group;
