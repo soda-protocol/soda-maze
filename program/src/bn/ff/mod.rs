@@ -11,7 +11,7 @@ pub use integer::*;
 
 use crate::{adc, mac_with_carry};
 
-use core::ops::{Neg, Add, Sub, Mul, AddAssign, SubAssign, MulAssign};
+use std::ops::{Neg, Add, Sub, Mul, AddAssign, SubAssign, MulAssign};
 use num_traits::{Zero, One};
 
 impl_Fp!(

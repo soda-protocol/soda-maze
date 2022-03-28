@@ -182,7 +182,7 @@ macro_rules! bigint_impl {
         impl Ord for $name {
             #[inline]
             fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
-                use core::cmp::Ordering;
+                use std::cmp::Ordering;
                 for i in 0..$num_limbs {
                     let a = &self.0[$num_limbs - i - 1];
                     let b = &other.0[$num_limbs - i - 1];

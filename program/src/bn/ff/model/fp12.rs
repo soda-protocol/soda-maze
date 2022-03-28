@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use core::ops::{AddAssign, SubAssign};
+use std::ops::{AddAssign, SubAssign};
 
 use super::{Fp6Parameters, Fp2, QuadExtField, Fp6, QuadExtParameters};
 use crate::bn::Field;

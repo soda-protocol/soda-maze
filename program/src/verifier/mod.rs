@@ -2,7 +2,7 @@ pub mod state;
 pub mod params;
 pub mod key;
 
-use core::ops::AddAssign;
+use std::ops::AddAssign;
 
 use solana_program::{entrypoint::ProgramResult, account_info::{AccountInfo, next_account_info}, pubkey::Pubkey, clock::Clock, sysvar::Sysvar};
 

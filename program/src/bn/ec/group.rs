@@ -38,10 +38,22 @@ impl<P: ModelParameters> GroupAffine<P> {
         res
     }
 
+    fn mul_bits_by_range(&self, value: &mut GroupProjective<P>, bits: &[bool]) {
+        for i in bits {
+            value.double_in_place();
+            if *i {
+                value.add_assign_mixed(&self)
+            }
+        }
+    }
+
     #[inline]
     pub fn mul(&self, by: P::ScalarField) -> GroupProjective<P> {
-        let bits = BitIteratorBE::new(by);
-        self.mul_bits(bits)
+        let bits = BitIteratorBE::new(by).collect::<Vec<_>>();
+        let mut res = GroupProjective::zero();
+        self.mul_bits_by_range(&mut res, bits.get(0..4).unwrap());
+
+        res
     }
 }
 

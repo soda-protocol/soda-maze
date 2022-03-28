@@ -1,44 +1,48 @@
-use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult, log::sol_log_compute_units};
+use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
 use crate::verifier::process_test;
 
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    input: &[u8],
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _input: &[u8],
 ) -> ProgramResult {
-    sol_log_compute_units();
     process_test();
-    sol_log_compute_units();
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use solana_program_test::*;
-    use solana_sdk::{transaction::Transaction, signer::Signer};
+    use solana_program::instruction::Instruction;
+    use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
+    use solana_client::rpc_client::{RpcClient};
 
     use crate::{id, processor::process_instruction};
 
-    #[tokio::test]
-    async fn test_instruction() {
-        let mut test = ProgramTest::new(
-            "test",
-            id(),
-            processor!(process_instruction),
-        );
-        test.set_compute_max_units(200_000);
+    const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
+    const DEVNET: &str = "https://api.devnet.solana.com";
 
-        let (mut banks_client, payer, recent_blockhash) = test.start().await;
+    #[test]
+    fn test_instruction() {
+        let client = RpcClient::new_with_commitment(DEVNET, CommitmentConfig {
+            commitment: CommitmentLevel::Processed,
+        });
+
+        let blockhash = client.get_latest_blockhash().unwrap();
+        let user = Keypair::from_base58_string(USER_KEYPAIR);
 
         let transaction = Transaction::new_signed_with_payer(
-            &[],
-            Some(&payer.pubkey()),
-            &[&payer],
-            recent_blockhash,
+            &[Instruction {
+                program_id: id(),
+                accounts: vec![],
+                data: vec![],
+            }],
+            Some(&user.pubkey()),
+            &[&user],
+            blockhash,
         );
 
-        banks_client.process_transaction(transaction).await.unwrap();
+        client.send_transaction(&transaction).unwrap();
     }
 }

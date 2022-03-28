@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use core::ops::{AddAssign, SubAssign, MulAssign};
+use std::ops::{AddAssign, SubAssign, MulAssign};
 
 use super::{Fp2Parameters, Fp2, CubicExtField, CubicExtParameters};
 
