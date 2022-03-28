@@ -126,7 +126,7 @@ impl<P: QuadExtParameters> Clone for QuadExtField<P> {
 impl<P: QuadExtParameters> Copy for QuadExtField<P> {}
  
 impl<P: QuadExtParameters> QuadExtField<P> {
-    pub const fn new(c0: P::BaseField, c1: P::BaseField) -> Self {
+    pub fn new(c0: P::BaseField, c1: P::BaseField) -> Self {
         QuadExtField {
             c0,
             c1,

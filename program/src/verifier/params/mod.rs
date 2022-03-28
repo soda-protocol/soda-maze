@@ -29,7 +29,7 @@ impl BnParameters for BN254Parameters {
 
     const TWIST_TYPE: TwistType = TwistType::D;
 
-    const TWIST_MUL_BY_Q_X: Fq2 = Fq2::new(
+    const TWIST_MUL_BY_Q_X: Fq2 = Fq2::new_const(
         Fq::new(BigInteger::new([
             13075984984163199792,
             3782902503040509012,
@@ -44,7 +44,7 @@ impl BnParameters for BN254Parameters {
         ])),
     );
 
-    const TWIST_MUL_BY_Q_Y: Fq2 = Fq2::new(
+    const TWIST_MUL_BY_Q_Y: Fq2 = Fq2::new_const(
         Fq::new(BigInteger::new([
             16482010305593259561,
             13488546290961988299,

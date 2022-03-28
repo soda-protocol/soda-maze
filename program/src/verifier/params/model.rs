@@ -26,7 +26,7 @@ impl ModelParameters for G2Parameters {
     type ScalarField = Fr;
 
     const COEFF_A: Fq2 = FQ2_ZERO;
-    const COEFF_B: Fq2 = Fq2::new(
+    const COEFF_B: Fq2 = Fq2::new_const(
         Fq::new(BigInteger::new([
             4321547867055981224,
             147241268046680925,

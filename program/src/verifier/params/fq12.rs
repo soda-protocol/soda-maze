@@ -11,13 +11,13 @@ pub struct Fq12Parameters;
 impl Fp12Parameters for Fq12Parameters {
     type Fp6Params = Fq6Parameters;
 
-    const NONRESIDUE: Fq6 = Fq6::new(FQ2_ZERO, FQ2_ONE, FQ2_ZERO);
+    const NONRESIDUE: Fq6 = Fq6::new_const(FQ2_ZERO, FQ2_ONE, FQ2_ZERO);
 
     const FROBENIUS_COEFF_FP12_C1: &'static [Fq2] = &[
         // Fp2::NONRESIDUE^(((q^0) - 1) / 6)
         FQ2_ONE,
         // Fp2::NONRESIDUE^(((q^1) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 12653890742059813127,
                 14585784200204367754,
@@ -32,7 +32,7 @@ impl Fp12Parameters for Fq12Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^2) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 14595462726357228530,
                 17349508522658994025,
@@ -42,7 +42,7 @@ impl Fp12Parameters for Fq12Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^3) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 3914496794763385213,
                 790120733010914719,
@@ -57,7 +57,7 @@ impl Fp12Parameters for Fq12Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^4) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 3697675806616062876,
                 9065277094688085689,
@@ -67,7 +67,7 @@ impl Fp12Parameters for Fq12Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^5) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 9707350126413123702,
                 4651080606516098580,
@@ -82,7 +82,7 @@ impl Fp12Parameters for Fq12Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^6) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 7548957153968385962,
                 10162512645738643279,
@@ -92,7 +92,7 @@ impl Fp12Parameters for Fq12Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^7) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 10125470202929394752,
                 14778084017983066882,
@@ -107,7 +107,7 @@ impl Fp12Parameters for Fq12Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^8) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 8183898218631979349,
                 12014359695528440611,
@@ -117,7 +117,7 @@ impl Fp12Parameters for Fq12Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^9) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 418120076516271050,
                 10127003411466968302,
@@ -132,7 +132,7 @@ impl Fp12Parameters for Fq12Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^10) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 634941064663593387,
                 1851847049789797332,
@@ -142,7 +142,7 @@ impl Fp12Parameters for Fq12Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^11) - 1) / 6)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 13072010818576084177,
                 6266043537961784440,

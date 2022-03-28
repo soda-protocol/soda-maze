@@ -62,7 +62,7 @@ impl<P: CubicExtParameters> Clone for CubicExtField<P> {
 impl<P: CubicExtParameters> Copy for CubicExtField<P> {}
 
 impl<P: CubicExtParameters> CubicExtField<P> {
-    pub const fn new(c0: P::BaseField, c1: P::BaseField, c2: P::BaseField) -> Self {
+    pub fn new(c0: P::BaseField, c1: P::BaseField, c2: P::BaseField) -> Self {
         CubicExtField {
             c0,
             c1,

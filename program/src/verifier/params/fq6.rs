@@ -1,8 +1,20 @@
-use crate::bn::{Fp6Parameters, BigInteger256 as BigInteger, Field, Fp2Parameters, Fp6};
+use std::marker::PhantomData;
+
+use crate::bn::{Fp6Parameters, BigInteger256 as BigInteger, Field, Fp2Parameters, Fp6, Fp6ParamsWrapper, CubicExtParameters};
 
 use super::{Fq2Parameters, Fq2, Fq, FQ_ONE, FQ_ZERO, FQ2_ONE};
 
 pub type Fq6 = Fp6<Fq6Parameters>;
+
+impl Fq6 {
+    pub const fn new_const(
+        c0: <Fp6ParamsWrapper<Fq6Parameters> as CubicExtParameters>::BaseField,
+        c1: <Fp6ParamsWrapper<Fq6Parameters> as CubicExtParameters>::BaseField,
+        c2: <Fp6ParamsWrapper<Fq6Parameters> as CubicExtParameters>::BaseField,
+    ) -> Self {
+        Self { c0, c1, c2, _parameters: PhantomData }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct Fq6Parameters;
@@ -11,7 +23,7 @@ impl Fp6Parameters for Fq6Parameters {
     type Fp2Params = Fq2Parameters;
 
     /// NONRESIDUE = U+9
-    const NONRESIDUE: Fq2 = Fq2::new(
+    const NONRESIDUE: Fq2 = Fq2::new_const(
         Fq::new(BigInteger::new([
             17727935934370775031,
             3403999273406943249,
@@ -25,7 +37,7 @@ impl Fp6Parameters for Fq6Parameters {
         // Fp2::NONRESIDUE^(((q^0) - 1) / 3)
         FQ2_ONE,
         // Fp2::NONRESIDUE^(((q^1) - 1) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 13075984984163199792,
                 3782902503040509012,
@@ -40,7 +52,7 @@ impl Fp6Parameters for Fq6Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^2) - 1) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 3697675806616062876,
                 9065277094688085689,
@@ -50,7 +62,7 @@ impl Fp6Parameters for Fq6Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^3) - 1) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 14532872967180610477,
                 12903226530429559474,
@@ -65,7 +77,7 @@ impl Fp6Parameters for Fq6Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^(((q^4) - 1) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 8183898218631979349,
                 12014359695528440611,
@@ -75,7 +87,7 @@ impl Fp6Parameters for Fq6Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^(((q^5) - 1) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 17949863938634605489,
                 5148119255485697554,
@@ -95,7 +107,7 @@ impl Fp6Parameters for Fq6Parameters {
         // Fp2::NONRESIDUE^((2*(q^0) - 2) / 3)
         FQ2_ONE,
         // Fp2::NONRESIDUE^((2*(q^1) - 2) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 8314163329781907090,
                 11942187022798819835,
@@ -110,7 +122,7 @@ impl Fp6Parameters for Fq6Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^((2*(q^2) - 2) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 8183898218631979349,
                 12014359695528440611,
@@ -120,7 +132,7 @@ impl Fp6Parameters for Fq6Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^((2*(q^3) - 2) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 4938922280314430175,
                 13823286637238282975,
@@ -135,7 +147,7 @@ impl Fp6Parameters for Fq6Parameters {
             ])),
         ),
         // Fp2::NONRESIDUE^((2*(q^4) - 2) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 3697675806616062876,
                 9065277094688085689,
@@ -145,7 +157,7 @@ impl Fp6Parameters for Fq6Parameters {
             FQ_ZERO,
         ),
         // Fp2::NONRESIDUE^((2*(q^5) - 2) / 3)
-        Fq2::new(
+        Fq2::new_const(
             Fq::new(BigInteger::new([
                 9526275334892870614,
                 3598394558150331826,
@@ -169,6 +181,6 @@ impl Fp6Parameters for Fq6Parameters {
         let c0 = f.c0 + fe.c0 + Fq2Parameters::mul_fp_by_nonresidue(&fe.c1);
         let c1 = f.c1 + fe.c1 + fe.c0;
         
-        Fq2::new(c0, c1)
+        Fq2::new_const(c0, c1)
     }
 }

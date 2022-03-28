@@ -1,7 +1,18 @@
-use crate::bn::{Fp2Parameters, BigInteger256 as BigInteger, Fp2};
+use std::marker::PhantomData;
+
+use crate::bn::{Fp2Parameters, BigInteger256 as BigInteger, Fp2, Fp2ParamsWrapper, QuadExtParameters};
 use super::{Fq, FQ_ONE, FQ_ZERO};
 
 pub type Fq2 = Fp2<Fq2Parameters>;
+
+impl Fq2 {
+    pub const fn new_const(
+        c0: <Fp2ParamsWrapper<Fq2Parameters> as QuadExtParameters>::BaseField,
+        c1: <Fp2ParamsWrapper<Fq2Parameters> as QuadExtParameters>::BaseField,
+    ) -> Self {
+        Self { c0, c1, _parameters: PhantomData }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct Fq2Parameters;
@@ -47,5 +58,5 @@ impl Fp2Parameters for Fq2Parameters {
     }
 }
 
-pub const FQ2_ZERO: Fq2 = Fq2::new(FQ_ZERO, FQ_ZERO);
-pub const FQ2_ONE: Fq2 = Fq2::new(FQ_ONE, FQ_ZERO);
+pub const FQ2_ZERO: Fq2 = Fq2::new_const(FQ_ZERO, FQ_ZERO);
+pub const FQ2_ONE: Fq2 = Fq2::new_const(FQ_ONE, FQ_ZERO);
