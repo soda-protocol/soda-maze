@@ -2,10 +2,10 @@ use crate::bn::{BigInteger256 as BigInteger, Fp256};
 use crate::bn::{Fp256Parameters, FpParameters};
 
 pub const FQ_TWO_INV: &'static Fq = &Fq::new(BigInteger([
-    0,
-    0,
-    0,
-    0,
+    9781510331150239090,
+    15059239858463337189,
+    10331104244869713732,
+    2249375503248834476,
 ]));
 
 pub type Fq = Fp256<FqParameters>;
@@ -96,3 +96,19 @@ pub const FQ_ONE: Fq = Fq::new(BigInteger::new([
     7381016538464732716,
     1011752739694698287,
 ]));
+
+#[cfg(test)]
+mod tests {
+    use num_traits::One;
+
+    use crate::bn::Field;
+
+    use super::Fq;
+
+    #[test]
+    fn test_two_inv() {
+        let two_inv = Fq::one().double().inverse().unwrap();
+
+        println!("{:?}", two_inv.0.0);
+    }
+}

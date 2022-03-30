@@ -8,7 +8,7 @@ pub mod instruction;
 pub mod processor;
 pub mod key;
 
-solana_program::declare_id!("3BbdJLwfjjP7iNRpK9ntsAja2uQ8yxgd7okXYrN22LX8");
+solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
 
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{

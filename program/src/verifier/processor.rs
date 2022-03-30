@@ -1,68 +1,91 @@
 use std::ops::AddAssign;
-
+use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
+use solana_program::msg;
 
-use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step}, OperationType};
+use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char}, OperationType};
 
 use super::{state::{VerifyStage, Proof}, params::*};
 use super::params::{Fr, Bn254Parameters as BnParameters};
 
-#[inline(never)]
-pub fn process_compress_inputs(
-    mut input_index: u8,
-    mut g_ic: G1Projective254,
-    mut bit_index: u8,
-    mut tmp: G1Projective254,
-    public_inputs: Vec<Fr>,
-    proof_type: OperationType,
-) -> VerifyStage {
-    let public_input = public_inputs[input_index as usize];
-    let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct PrepareInputsCtx {
+    input_index: u8,
+    bit_index: u8,
+    g_ic: G1Projective254,
+    tmp: G1Projective254,
+}
 
-    const MAX_COMPRESS_CYCLE: usize = 4;
-    let start = bit_index as usize;
-    let end = start + MAX_COMPRESS_CYCLE;
-    let (end, finished) = if end < bits.len() {
-        (end, false)
-    } else {
-        (bits.len(), true)
-    };
-
-    let pvk = proof_type.verifying_key();
-    for bit in &bits[start..end] {
-        tmp.double_in_place();
-        if *bit {
-            tmp.add_assign_mixed(&pvk.gamma_abc_g1[input_index as usize]);
+impl PrepareInputsCtx {
+    pub fn process(mut self, proof_type: OperationType, public_inputs: &[Fr]) -> VerifyStage {
+        let public_input = public_inputs[self.input_index as usize];
+        let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
+    
+        const MAX_COMPRESS_CYCLE: usize = 4;
+        let start = self.bit_index as usize;
+        let end = start + MAX_COMPRESS_CYCLE;
+        let (end, finished) = if end < bits.len() {
+            (end, false)
+        } else {
+            (bits.len(), true)
+        };
+    
+        let pvk = proof_type.verifying_key();
+        for bit in &bits[start..end] {
+            self.tmp.double_in_place();
+            if *bit {
+                self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
+            }
         }
-    }
-
-    if finished {
-        g_ic.add_assign(&tmp);
-        input_index += 1;
-        if public_inputs.get(input_index as usize).is_some() {
-            bit_index = 0;
-            tmp = G1Projective254::zero();
-            g_ic = *pvk.g_ic_init;
-
-            VerifyStage::CompressInputs {
-                input_index,
-                g_ic,
-                bit_index,
-                tmp,
+    
+        if finished {
+            self.g_ic.add_assign(&self.tmp);
+            self.input_index += 1;
+            if public_inputs.get(self.input_index as usize).is_some() {
+                self.bit_index = 0;
+                self.tmp = G1Projective254::zero();
+                self.g_ic = *pvk.g_ic_init;
+    
+                VerifyStage::PrepareInputs(self)
+            } else {
+                VerifyStage::FinalizeInputs(FinalizeInputsCtx {
+                    proof_type,
+                    compressed_input: self.g_ic,
+                })
             }
         } else {
-            VerifyStage::PrepareInput {
-                proof_type,
-                compressed_input: g_ic,
-            }
+            self.bit_index = end as u8;
+            VerifyStage::PrepareInputs(self)
         }
-    } else {
-        VerifyStage::CompressInputs {
-            input_index,
-            g_ic,
-            bit_index: end as u8,
-            tmp,
-        }
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalizeInputsCtx {
+    compressed_input: G1Projective254,
+    proof_type: OperationType,
+}
+
+impl FinalizeInputsCtx {
+    pub fn process(self, proof: Proof) -> VerifyStage {
+        let prepared_input = G1Affine254::from(self.compressed_input);
+        let r = G2HomProjective254 {
+            x: proof.b.x,
+            y: proof.b.y,
+            z: Fq2::one(),
+        };
+
+        let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
+        VerifyStage::MillerLoop(MillerLoopCtx {
+            step: 0,
+            index,
+            coeff_index: 0,
+            proof_type: self.proof_type,
+            prepared_input,
+            proof,
+            r,
+            f: Fqk254::one(),
+        })
     }
 }
 
@@ -85,88 +108,209 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     }
 }
 
-pub fn process_prepare_input(
-    compressed_input: G1Projective254,
-    proof_type: OperationType,
-    proof: Proof,
-) -> VerifyStage {
-    let prepared_input = G1Affine254::from(compressed_input);
-    let rb = G2HomProjective254 {
-        x: proof.b.x,
-        y: proof.b.y,
-        z: Fq2::one(),
-    };
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct MillerLoopCtx {
+    pub step: u8,
+    pub index: u8,
+    pub coeff_index: u8,
+    pub proof_type: OperationType,
+    pub prepared_input: G1Affine254,
+    pub proof: Proof,
+    pub r: G2HomProjective254,
+    pub f: Fqk254,
+}
 
-    let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
-    let negb = -proof.b;
-    VerifyStage::MillerLoop {
-        index,
-        coeff_index: 0,
-        proof_type,
-        prepared_input,
-        rb,
-        negb,
-        f: Fqk254::one(),
+impl MillerLoopCtx {
+    pub fn process(mut self) -> VerifyStage {
+        match self.step {
+            0 => {
+                if self.index as usize != <BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1 {
+                    self.f.square_in_place();
+                }
+                self.index -= 1;
+            
+                let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
+                ell(&mut self.f, &coeff, &self.proof.a);
+            
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            1 => {
+                let pvk = self.proof_type.verifying_key();
+                ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+            
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            2 => {
+                let pvk = self.proof_type.verifying_key();
+                ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
+
+                let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+                if bit == 0 {
+                    if self.index == 0 {
+                        let q1 = mul_by_char::<BnParameters>(self.proof.b);
+                        let mut q2 = mul_by_char::<BnParameters>(q1);
+        
+                        if <BnParameters as Bn>::X_IS_NEGATIVE {
+                            self.r.y = -self.r.y;
+                            self.f.conjugate();
+                        }
+        
+                        q2.y = -q2.y;
+                        return VerifyStage::MillerFinalize(MillerFinalizeCtx {
+                            step: 0,
+                            proof_type: self.proof_type,
+                            prepared_input: self.prepared_input,
+                            proof_a: self.proof.a,
+                            proof_c: self.proof.c,
+                            q1,
+                            q2,
+                            r: self.r,
+                            f: self.f,
+                        });
+                    }
+                }
+
+                self.coeff_index += 1;
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            3 => {
+                let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+                let coeff = match bit {
+                    1 => addition_step(&mut self.r, &self.proof.b),
+                    -1 => {
+                        let neg_b = -self.proof.b;
+                        addition_step(&mut self.r, &neg_b)
+                    }
+                    _ => unreachable!("bit is always be 1 or -1 at hear"),
+                };
+                ell(&mut self.f, &coeff, &self.proof.a);
+
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            4 => {
+                let pvk = self.proof_type.verifying_key();
+                ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            5 => {
+                let pvk = self.proof_type.verifying_key();
+                ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+
+                if self.index == 0 {
+                    let q1 = mul_by_char::<BnParameters>(self.proof.b);
+                    let mut q2 = mul_by_char::<BnParameters>(q1);
+    
+                    if <BnParameters as Bn>::X_IS_NEGATIVE {
+                        self.r.y = -self.r.y;
+                        self.f.conjugate();
+                    }
+    
+                    q2.y = -q2.y;
+                    VerifyStage::MillerFinalize(MillerFinalizeCtx {
+                        step: 0,
+                        proof_type: self.proof_type,
+                        prepared_input: self.prepared_input,
+                        proof_a: self.proof.a,
+                        proof_c: self.proof.c,
+                        q1,
+                        q2,
+                        r: self.r,
+                        f: self.f,
+                    })
+                } else {
+                    self.coeff_index += 1;
+                    self.step = 0;
+                    VerifyStage::MillerLoop(self)
+                }
+            }
+            _ => unreachable!("step is always in range [0, 5]"),
+        }
     }
 }
 
-pub fn process_miller_loop_step_1(
-    proof_type: OperationType,
-    proof: &Proof,
-    prepared_input: G1Affine254,
-    negb: G2Affine254,
-    mut index: u8,
-    mut coeff_index: u8,
-    mut rb: G2HomProjective254,
-    mut f: Fqk254,
-) -> Option<VerifyStage> {
-    if index as usize != <BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1 {
-        f.square_in_place();
-    }
-    index -= 1;
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct MillerFinalizeCtx {
+    pub step: u8,
+    pub proof_type: OperationType,
+    pub prepared_input: G1Affine254,
+    pub proof_a: G1Affine254,
+    pub proof_c: G1Affine254,
+    pub q1: G2Affine254,
+    pub q2: G2Affine254,
+    pub r: G2HomProjective254,
+    pub f: Fqk254,
+}
 
-    let pvk = proof_type.verifying_key();
-    
-    let coeff = doubling_step(&mut rb, FQ_TWO_INV);
-    ell(&mut f, &coeff, &proof.a);
+impl MillerFinalizeCtx {
+    pub fn process(mut self) -> VerifyStage {
+        match self.step {
+            0 => {
+                let coeff = addition_step(&mut self.r, &self.q1);
+                ell(&mut self.f, &coeff, &self.proof_a);
 
-    ell(&mut f, &pvk.gamma_g2_neg_pc[coeff_index as usize], &prepared_input);
-    ell(&mut f, &pvk.delta_g2_neg_pc[coeff_index as usize], &proof.c);
-    coeff_index += 1;
+                self.step += 1;
+                VerifyStage::MillerFinalize(self)
+            }
+            1 => {
+                let pvk = self.proof_type.verifying_key();
+                let index = pvk.gamma_g2_neg_pc.len() - 2;
+                ell(&mut self.f, &pvk.gamma_g2_neg_pc[index], &self.prepared_input);
 
-    let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[index as usize];
-    match bit {
-        1 => {
-            let coeff = addition_step(&mut rb, &proof.b);
-            ell(&mut f, &coeff, &proof.a);
+                self.step += 1;
+                VerifyStage::MillerFinalize(self)
+            }
+            2 => {
+                let pvk = self.proof_type.verifying_key();
+                let index = pvk.delta_g2_neg_pc.len() - 2;
+                ell(&mut self.f, &pvk.delta_g2_neg_pc[index], &self.proof_c);
 
-            ell(&mut f, &pvk.gamma_g2_neg_pc[coeff_index as usize], &prepared_input);
-            ell(&mut f, &pvk.delta_g2_neg_pc[coeff_index as usize], &proof.c);
-            coeff_index += 1;
+                self.step += 1;
+                VerifyStage::MillerFinalize(self) 
+            }
+            3 => {
+                let coeff = addition_step(&mut self.r, &self.q2);
+                ell(&mut self.f, &coeff, &self.proof_a);
+
+                self.step += 1;
+                VerifyStage::MillerFinalize(self)
+            }
+            4 => {
+                let pvk = self.proof_type.verifying_key();
+                let index = pvk.gamma_g2_neg_pc.len() - 1;
+                ell(&mut self.f, &pvk.gamma_g2_neg_pc[index], &self.prepared_input);
+
+                self.step += 1;
+                VerifyStage::MillerFinalize(self)
+            }
+            5 => {
+                let pvk = self.proof_type.verifying_key();
+                let index = pvk.delta_g2_neg_pc.len() - 1;
+                ell(&mut self.f, &pvk.delta_g2_neg_pc[index], &self.proof_c);
+
+                VerifyStage::MillerFinalize(self) 
+            }
+            _ => unreachable!("step is always in range [0, 5]"),
         }
-        -1 => {
-            let coeff = addition_step(&mut rb, &negb);
-            ell(&mut f, &coeff, &proof.a);
-
-            ell(&mut f, &pvk.gamma_g2_neg_pc[coeff_index as usize], &prepared_input);
-            ell(&mut f, &pvk.delta_g2_neg_pc[coeff_index as usize], &proof.c);
-            coeff_index += 1;
-        }
-        _ => {}
     }
+}
 
-    if index == 0 {
-        None
-    } else {
-        Some(VerifyStage::MillerLoop {
-            index,
-            coeff_index,
-            proof_type,
-            prepared_input,
-            rb,
-            negb,
-            f,
-        })
+pub struct FinalExponentCtx {
+    pub f: Fqk254,
+}
+
+impl FinalExponentCtx {
+    pub fn process(mut self) -> VerifyStage {
+        self.f.inverse().map(|_| {
+            msg!("can inverse");
+        });
+
+        VerifyStage::Finished(true)
     }
 }
 

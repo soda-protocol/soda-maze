@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{processor::process_miller_loop_step_1, state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254}}, OperationType};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::FinalExponentCtx}, OperationType};
 use crate::bn::BigInteger256 as BigInteger;
 
 const PROOF: Proof = Proof {
@@ -28,37 +28,57 @@ const PROOF: Proof = Proof {
     ),
 };
 
-const PREPARED_INPUT: G1Affine254 = G1Affine254::new_const(
-    Fq::new(BigInteger::new([9497411607956386375, 268351533763702874, 18353951159736685747, 1825167008963268151])),
-    Fq::new(BigInteger::new([5487945063526916415, 2251437326952299004, 2432273193309581731, 2595211258581520627])),
-    false
-);
-
 pub fn process_instruction(
     _program_id: &Pubkey,
     _accounts: &[AccountInfo],
     _input: &[u8],
 ) -> ProgramResult {
-    let neg_b = -PROOF.b;
-
-    let rb = G2HomProjective254 {
-        x: PROOF.b.x,
-        y: PROOF.b.y,
-        z: Fq2::one(),
-    };
-
-    let proof_type = OperationType::Deposit;
-
-    process_miller_loop_step_1(
-        proof_type,
-        &PROOF,
-        PREPARED_INPUT,
-        neg_b,
-        64,
-        0,
-        rb,
-        Fqk254::one(),
+    let v = Fqk254::new_const(
+        Fq6::new_const(
+            Fq2::new_const(
+                Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+                Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+            ),
+            Fq2::new_const(
+                Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+                Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+            ),
+            Fq2::new_const(
+                Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+                Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+            ),
+        ),
+        Fq6::new_const(
+            Fq2::new_const(
+                Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+                Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+            ),
+            Fq2::new_const(
+                Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+                Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+            ),
+            Fq2::new_const(
+                Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+                Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+            ),
+        ),
     );
+
+    let ctx = FinalExponentCtx {
+        f: v,
+    };
+    ctx.process();
+
+    // process_miller_loop_step_1(
+    //     proof_type,
+    //     &PROOF,
+    //     PREPARED_INPUT,
+    //     neg_b,
+    //     64,
+    //     0,
+    //     rb,
+    //     Fqk254::one(),
+    // );
 
     Ok(())
 }
@@ -70,8 +90,6 @@ mod tests {
     use solana_client::rpc_client::{RpcClient};
 
     use crate::{id, processor::process_instruction};
-
-    use super::PROOF;
 
     const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
     const DEVNET: &str = "https://api.devnet.solana.com";

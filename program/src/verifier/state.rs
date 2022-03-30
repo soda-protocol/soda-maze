@@ -1,42 +1,27 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
 
-use crate::{bn::{G1Projective, G1Affine, G1Prepared, G2Affine, G2Prepared, Fqk, EllCoeff, G2HomProjective}, Packer, OperationType};
-use super::params::{Fr, Bn254Parameters as BnParameters, Fq2, G1Projective254, G1Affine254};
+use crate::{Packer, OperationType};
+use super::{params::{Fr, G1Affine254, Fqk254, G2Affine254}, processor::{MillerLoopCtx, PrepareInputsCtx, FinalizeInputsCtx, MillerFinalizeCtx}};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Proof {
     /// The `A` element in `G1`.
-    pub a: G1Affine<BnParameters>,
+    pub a: G1Affine254,
     /// The `B` element in `G2`.
-    pub b: G2Affine<BnParameters>,
+    pub b: G2Affine254,
     /// The `C` element in `G1`.
-    pub c: G1Affine<BnParameters>,
+    pub c: G1Affine254,
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub enum VerifyStage {
-    CompressInputs {
-        input_index: u8,
-        g_ic: G1Projective<BnParameters>,
-        bit_index: u8,
-        tmp: G1Projective<BnParameters>,
-    },
-    PrepareInput {
-        compressed_input: G1Projective<BnParameters>,
-        proof_type: OperationType,
-    },
-    MillerLoop {
-        index: u8,
-        coeff_index: u8,
-        proof_type: OperationType,
-        prepared_input: G1Affine<BnParameters>,
-        rb: G2HomProjective<BnParameters>,
-        negb: G2Affine<BnParameters>,
-        f: Fqk<BnParameters>,
-    },
-    FinalExponent(Fqk<BnParameters>),
-    Verified,
+    PrepareInputs(PrepareInputsCtx),
+    FinalizeInputs(FinalizeInputsCtx),
+    MillerLoop(MillerLoopCtx),
+    MillerFinalize(MillerFinalizeCtx),
+    FinalExponent(Fqk254),
+    Finished(bool),
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
