@@ -46,7 +46,7 @@ impl OperationType {
                 gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
                 delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
             },
-            OperationType::Withdraw => todo!(),
+            OperationType::Withdraw => unimplemented!(),
         }
     }
 }
