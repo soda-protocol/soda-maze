@@ -46,7 +46,14 @@ impl OperationType {
                 gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
                 delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
             },
-            OperationType::Withdraw => unimplemented!(),
+            // TODO: implement withdraw
+            OperationType::Withdraw => &PreparedVerifyingKey {
+                g_ic_init: DEPOSIT_G_IC_INIT,
+                gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
+                alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,
+                gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
+                delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
+            }
         }
     }
 }
