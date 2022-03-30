@@ -12,12 +12,18 @@ pub use fq6::*;
 pub use fq12::*;
 pub use model::*;
 
-use crate::bn::{BnParameters, TwistType, BigInteger256 as BigInteger};
+use std::marker::PhantomData;
 
-pub struct BN254Parameters;
+use crate::bn::{BnParameters, TwistType, BigInteger256 as BigInteger, G1Projective, G2Projective, G1Affine, G2Affine, G2Prepared, EllCoeff, Fqk, G2HomProjective};
 
-impl BnParameters for BN254Parameters {
-    const X: &'static [u64] = &[4965661367192848881];
+#[derive(Clone, Copy)]
+pub struct Bn254Parameters;
+
+impl BnParameters for Bn254Parameters {
+    const NAF: &'static [i8] = &[
+        1, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0,
+        0, 0, 1, 0, -1, 0, -1, 0, -1, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+    ];
 
     const X_IS_NEGATIVE: bool = false;
 
@@ -66,3 +72,77 @@ impl BnParameters for BN254Parameters {
     type G1Parameters = G1Parameters;
     type G2Parameters = G2Parameters;
 }
+
+pub type G1Projective254 = G1Projective<Bn254Parameters>;
+
+impl G1Projective254 {
+    pub const fn new_const(
+        x: Fq,
+        y: Fq,
+        z: Fq,
+    ) -> Self {
+        Self { x, y, z, _p: PhantomData }   
+    }
+}
+
+pub type G2Projective254 = G2Projective<Bn254Parameters>;
+
+impl G2Projective254 {
+    pub const fn new_const(
+        x: Fq2,
+        y: Fq2,
+        z: Fq2,
+    ) -> Self {
+        Self { x, y, z, _p: PhantomData }   
+    }
+}
+
+pub type G1Affine254 = G1Affine<Bn254Parameters>;
+
+impl G1Affine254 {
+    pub const fn new_const(
+        x: Fq,
+        y: Fq,
+        infinity: bool,
+    ) -> Self {
+        Self { x, y, infinity, _p: PhantomData }   
+    }
+}
+
+pub type G2Affine254 = G2Affine<Bn254Parameters>;
+
+impl G2Affine254 {
+    pub const fn new_const(
+        x: Fq2,
+        y: Fq2,
+        infinity: bool,
+    ) -> Self {
+        Self { x, y, infinity, _p: PhantomData }   
+    }
+}
+
+pub type EllCoeffFq2 = EllCoeff<Fq2>;
+
+pub type G2Prepared254 = G2Prepared<Bn254Parameters>;
+
+impl G2Prepared254 {
+    pub const fn new_const(
+        ell_coeffs: Vec<EllCoeffFq2>,
+        infinity: bool,
+    ) -> Self {
+        Self { ell_coeffs, infinity }
+    }
+}
+
+pub type Fqk254 = Fqk<Bn254Parameters>;
+
+impl Fqk254 {
+    pub const fn new_const(
+        c0: Fq6,
+        c1: Fq6,
+    ) -> Self {
+        Self { c0, c1, _p: PhantomData }
+    }
+}
+
+pub type G2HomProjective254 = G2HomProjective<Bn254Parameters>;

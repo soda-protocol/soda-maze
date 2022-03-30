@@ -6,6 +6,7 @@ pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
 pub mod processor;
+pub mod key;
 
 solana_program::declare_id!("3BbdJLwfjjP7iNRpK9ntsAja2uQ8yxgd7okXYrN22LX8");
 
@@ -16,6 +17,7 @@ use solana_program::{
     program_error::ProgramError,
 };
 use crate::error::MazeError;
+use crate::key::*;
 
 pub const HEIGHT: usize = 24;
 pub const DEPOSIT_INPUTS: usize = 28;
@@ -32,6 +34,19 @@ impl OperationType {
         match self {
             OperationType::Deposit => DEPOSIT_INPUTS,
             OperationType::Withdraw => WITHDRAW_INPUTS,
+        }
+    }
+
+    pub const fn verifying_key(&self) -> &PreparedVerifyingKey {
+        match self {
+            OperationType::Deposit => &PreparedVerifyingKey {
+                g_ic_init: DEPOSIT_G_IC_INIT,
+                gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
+                alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,
+                gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
+                delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
+            },
+            OperationType::Withdraw => todo!(),
         }
     }
 }

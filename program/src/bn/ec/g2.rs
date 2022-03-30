@@ -19,10 +19,11 @@ pub struct G2Prepared<P: BnParameters> {
 
 pub(crate) type EllCoeff<F> = (F, F, F);
 
-struct G2HomProjective<P: BnParameters> {
-    x: Fp2<P::Fp2Params>,
-    y: Fp2<P::Fp2Params>,
-    z: Fp2<P::Fp2Params>,
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct G2HomProjective<P: BnParameters> {
+    pub x: Fp2<P::Fp2Params>,
+    pub y: Fp2<P::Fp2Params>,
+    pub z: Fp2<P::Fp2Params>,
 }
 
 impl<P: BnParameters> From<G2Affine<P>> for G2Prepared<P> {
@@ -97,7 +98,7 @@ fn mul_by_char<P: BnParameters>(r: G2Affine<P>) -> G2Affine<P> {
     s
 }
 
-fn doubling_step<B: BnParameters>(
+pub fn doubling_step<B: BnParameters>(
     r: &mut G2HomProjective<B>,
     two_inv: &B::Fp,
 ) -> EllCoeff<Fp2<B::Fp2Params>> {
@@ -126,7 +127,7 @@ fn doubling_step<B: BnParameters>(
     }
 }
 
-fn addition_step<B: BnParameters>(
+pub fn addition_step<B: BnParameters>(
     r: &mut G2HomProjective<B>,
     q: &G2Affine<B>,
 ) -> EllCoeff<Fp2<B::Fp2Params>> {

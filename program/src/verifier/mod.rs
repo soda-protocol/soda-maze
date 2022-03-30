@@ -1,73 +1,112 @@
 pub mod state;
 pub mod params;
-pub mod key;
+pub mod processor;
 
 use std::ops::AddAssign;
 
-use solana_program::{entrypoint::ProgramResult, account_info::{AccountInfo, next_account_info}, pubkey::Pubkey, clock::Clock, sysvar::Sysvar};
+use num_traits::Zero;
+use solana_program::{entrypoint::ProgramResult, account_info::{AccountInfo, next_account_info}, pubkey::Pubkey, clock::Clock, sysvar::Sysvar, program_error::ProgramError};
 
-use crate::{bn::{BnParameters, ModelParameters, G1Affine, G1Prepared, G1Projective, BigInteger256 as BigInteger}, Packer};
+use crate::{bn::{G1Affine, G1Prepared, G1Projective, BigInteger256 as BigInteger, BitIteratorBE, Fqk}, Packer, OperationType};
 use crate::error::MazeError;
 
-use self::state::{VerifyStage, PreparedVerifyingKey};
+use self::state::{VerifyStage, PublicInputBuffer, VerifyingBuffer, Proof};
+use params::{Fr, Bn254Parameters as BnParameters};
 
-use params::{Fr, Fq, FqParameters, BN254Parameters};
+// #[inline(never)]
+// fn process(
+//     verify_buffer: VerifyingBuffer,
+//     pubin_buffer: PublicInputBuffer,
+//     proof: Proof,
+// ) -> Option<VerifyStage> {
+//     let stage = verify_buffer.stage;
 
-pub fn process_test() {
-    let fq_x = Fq::new(BigInteger::new([1920615429724524877, 4486917021698251311, 15645255062489922141, 2227445642710651851]));
-    let fq_y = Fq::new(BigInteger::new([8407339625123927062, 8256482775165990740, 17200014529260685901, 3184573262101794352]));
+//     match stage {
+//         VerifyStage::CompressInputs {
+//             mut input_index,
+//             mut g_ic,
+//             mut bit_index,
+//             mut tmp,
+//         } => {
+//             let public_input = pubin_buffer.public_inputs[input_index as usize];
+//             let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
 
-    let gamma_abc_g1 = G1Affine::<BN254Parameters>::new(fq_x, fq_y, false);
-    let public_input = Fr::new(BigInteger::new([3928200423253467360, 4267233211940291711, 12969216809553785426, 1454720173490149085]));
-    let mut g_ic = G1Projective::<BN254Parameters>::new(
-        Fq::new(BigInteger::new([15377002934136960886, 5560867096201794898, 10007675410708381178, 3046086368553324590])),
-        Fq::new(BigInteger::new([11672019301395092212, 3808594006677137504, 9755693271842704518, 1421258029962603853])),
-        Fq::new(BigInteger::new([7188505923352453205, 119776587197042243, 8013636411937465998, 2654000331269309751])),
-    );
-
-    g_ic.add_assign(&gamma_abc_g1.mul(public_input));
-}
-
-// #[cfg(test)]
-// mod tests {
-//     use rand::prelude::ThreadRng;
-//     use solana_program::{log::sol_log_compute_units, program_stubs::set_syscall_stubs};
-//     use rand::{thread_rng, Rng};
-//     use rand::distributions::Standard;
-    
-//     use crate::bn::{G1Affine, BigInteger256 as BigInteger, FpParameters, G1Projective};
-//     use crate::verifier::params::{BN254Parameters, FrParameters};
-//     use super::params::{Fr, Fq, FqParameters};
-
-//     fn rand_integer(rng: &mut ThreadRng) -> [u64; 4] {
-//         let mut value = rng.sample::<[u64; 4], _>(Standard);
-
-//         loop {
-//             if value[3] >= <FrParameters as FpParameters>::MODULUS.0[3] {
-//                 value[3] >>= 1;
+//             const MAX_COMPRESS_CYCLE: usize = 4;
+//             let start = bit_index as usize;
+//             let end = start + MAX_COMPRESS_CYCLE;
+//             let (end, finished) = if end < bits.len() {
+//                 (end, false)
 //             } else {
-//                 break;
+//                 (bits.len(), true)
+//             };
+
+//             let pvk = pubin_buffer.proof_type.verifying_key();
+//             for bit in &bits[start..end] {
+//                 tmp.double_in_place();
+//                 if *bit {
+//                     tmp.add_assign_mixed(&pvk.gamma_abc_g1[input_index as usize]);
+//                 }
+//             }
+
+//             if finished {
+//                 g_ic.add_assign(&tmp);
+//                 input_index += 1;
+//                 if pubin_buffer.public_inputs.get(input_index as usize).is_some() {
+//                     bit_index = 0;
+//                     tmp = G1Projective::<BnParameters>::zero();
+//                     g_ic = pvk.g_ic_init;
+
+//                     Some(VerifyStage::CompressInputs {
+//                         input_index,
+//                         g_ic,
+//                         bit_index,
+//                         tmp,
+//                     })
+//                 } else {
+//                     Some(VerifyStage::TrimInputs {
+//                         prepared_input: g_ic,
+//                         proof_type: pubin_buffer.proof_type,
+//                     })
+//                 }
+//             } else {
+//                 Some(VerifyStage::CompressInputs {
+//                     input_index,
+//                     g_ic,
+//                     bit_index: end as u8,
+//                     tmp,
+//                 })
 //             }
 //         }
+//         VerifyStage::TrimInputs {
+//             prepared_input,
+//             proof_type,
+//         } => {
+//             let prepared_input: G1Prepared<BnParameters> = G1Affine::<BnParameters>::from(prepared_input).into();
+//             let pvk = proof_type.verifying_key();
+            
+//             let inputs = [
+//                 (proof.a.into(), proof.b.into()),
+//                 (
+//                     prepared_input,
+//                     pvk.gamma_g2_neg_pc.clone(),
+//                 ),
+//                 (proof.c.into(), pvk.delta_g2_neg_pc.clone()),
+//             ];
 
-//         println!("{:?}", &value);
+//             let mut pairs = vec![];
+//             for (p, q) in inputs {
+//                 if !p.is_zero() && !q.is_zero() {
+//                     pairs.push((p, q.ell_coeffs));
+//                 }
+//             }
 
-//         value
-//     }
-
-//     #[test]
-//     fn test_prepare_inputs() {
-//         let mut rng = thread_rng();
-
-//         let fq_x = Fq::new(BigInteger::new(rand_integer(&mut rng)));
-//         let fq_y = Fq::new(BigInteger::new(rand_integer(&mut rng)));
-
-//         let gamma_abc_g1 = G1Affine::<BN254Parameters>::new(fq_x, fq_y, false);
-//         let public_input = Fr::new(BigInteger::new([3928200423253467360, 4267233211940291711, 12969216809553785426, 1454720173490149085]));
-//         let mut g_ic = G1Projective::<BN254Parameters>::new(
-//             Fq::new(BigInteger::new(rand_integer(&mut rng))),
-//             Fq::new(BigInteger::new(rand_integer(&mut rng))),
-//             Fq::new(BigInteger::new(rand_integer(&mut rng))),
-//         );
+//             Some(VerifyStage::MillerLoop {
+//                 step: 0,
+//                 pairs,
+//                 f: Fqk::<BnParameters>::zero(),
+//             })
+//         }
+//         _ => None,
 //     }
 // }
+

@@ -6,8 +6,6 @@ pub use g1::*;
 pub use g2::*;
 pub use group::*;
 
-use num_traits::Zero;
-
 use super::{Fp2, Fp2Parameters, Fp6Parameters, Field, Fp12Parameters, Fp12};
 
 pub enum TwistType {
@@ -30,21 +28,10 @@ pub trait ModelParameters: 'static + Clone + Copy {
         copy *= &Self::COEFF_A;
         copy
     }
-
-    #[inline(always)]
-    fn add_b(elem: &Self::BaseField) -> Self::BaseField {
-        if !Self::COEFF_B.is_zero() {
-            let mut copy = *elem;
-            copy += &Self::COEFF_B;
-            return copy;
-        }
-        *elem
-    }
 }
 
 pub trait BnParameters: 'static {
-    // The absolute value of the BN curve parameter `X` (as in `q = 36 X^4 + 36 X^3 + 24 X^2 + 6 X + 1`).
-    const X: &'static [u64];
+    const NAF: &'static [i8];
     // Whether or not `X` is negative.
     const X_IS_NEGATIVE: bool;
 

@@ -1,6 +1,13 @@
 use crate::bn::{BigInteger256 as BigInteger, Fp256};
 use crate::bn::{Fp256Parameters, FpParameters};
 
+pub const FQ_TWO_INV: &'static Fq = &Fq::new(BigInteger([
+    0,
+    0,
+    0,
+    0,
+]));
+
 pub type Fq = Fp256<FqParameters>;
 
 pub struct FqParameters;

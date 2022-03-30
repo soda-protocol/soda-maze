@@ -10,7 +10,7 @@ impl Fq2 {
         c0: <Fp2ParamsWrapper<Fq2Parameters> as QuadExtParameters>::BaseField,
         c1: <Fp2ParamsWrapper<Fq2Parameters> as QuadExtParameters>::BaseField,
     ) -> Self {
-        Self { c0, c1, _parameters: PhantomData }
+        Self { c0, c1, _p: PhantomData }
     }
 }
 

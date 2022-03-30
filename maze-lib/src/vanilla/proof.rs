@@ -49,7 +49,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         let orig_in = DepositOriginInputs {
             mint: Default::default(),
-            amount: 0,
+            amount: 1,
             secret: F::zero(),
             leaf_index: 0,
             friend_nodes: vec![FH::empty_hash(); HEIGHT as usize],
@@ -157,7 +157,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         let preimage = vec![
             Pubkey::default().to_field_element(),
-            F::zero(),
+            F::one(),
             F::zero(),
         ];
         let leaf = FH::hash(&params.leaf_params, &preimage)
@@ -169,8 +169,8 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
 
         let origin_inputs = WithdrawOriginInputs {
             mint: Pubkey::default(),
-            deposit_amount: 0,
-            withdraw_amount: 0,
+            deposit_amount: 1,
+            withdraw_amount: 1,
             leaf_index_1: 0,
             leaf_index_2: 1,
             secret: F::zero(),

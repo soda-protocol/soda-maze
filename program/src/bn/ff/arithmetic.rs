@@ -4,31 +4,6 @@
 /// [here](https://hackmd.io/@zkteam/modular_multiplication) if
 /// `P::MODULUS` has (a) a non-zero MSB, and (b) at least one
 /// zero bit in the rest of the modulus.
-#[macro_export]
-macro_rules! impl_field_into_repr {
-    ($limbs:expr, $BigIntegerType:ty) => {
-        #[inline]
-        #[allow(clippy::modulo_one)]
-        fn into_repr(&self) -> $BigIntegerType {
-            let mut tmp = self.0;
-            let mut r = tmp.0;
-            // Montgomery Reduction
-            for i in 0..$limbs {
-                let k = r[i].wrapping_mul(P::INV);
-                let mut carry = 0;
-
-                mac_with_carry!(r[i], k, P::MODULUS.0[0], &mut carry);
-                for j in 1..$limbs {
-                    r[(j + i) % $limbs] =
-                        mac_with_carry!(r[(j + i) % $limbs], k, P::MODULUS.0[j], &mut carry);
-                }
-                r[i % $limbs] = carry;
-            }
-            tmp.0 = r;
-            tmp
-        }
-    };
-}
 
 #[macro_export]
 macro_rules! impl_field_square_in_place {
@@ -99,77 +74,6 @@ macro_rules! impl_field_square_in_place {
             (self.0).0.copy_from_slice(&r[$limbs..]);
             self.reduce();
             self
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_prime_field_from_int {
-    ($field: ident, 128, $params: ident, $limbs:expr) => {
-        impl<P: $params> From<u128> for $field<P> {
-            fn from(other: u128) -> Self {
-                let mut default_int = P::BigInt::default();
-                if $limbs == 1 {
-                    default_int.0[0] = (other % u128::from(P::MODULUS.0[0])) as u64;
-                } else {
-                    let upper = (other >> 64) as u64;
-                    let lower = ((other << 64) >> 64) as u64;
-                    // This is equivalent to the following, but satisfying the compiler:
-                    // default_int.0[0] = lower;
-                    // default_int.0[1] = upper;
-                    let limbs = [lower, upper];
-                    for (cur, other) in default_int.0.iter_mut().zip(&limbs) {
-                        *cur = *other;
-                    }
-                }
-                Self::from_repr(default_int).unwrap()
-            }
-        }
-
-        impl <P: $params> From<i128> for $field<P> {
-            fn from(other: i128) -> Self {
-                let abs = Self::from(other.unsigned_abs());
-                if other.is_positive() {
-                    abs
-                } else {
-                    -abs
-                }
-            }
-        }
-    };
-    ($field: ident, bool, $params: ident, $limbs:expr) => {
-        impl<P: $params> From<bool> for $field<P> {
-            fn from(other: bool) -> Self {
-                if $limbs == 1 {
-                    Self::from_repr(P::BigInt::from(u64::from(other) % P::MODULUS.0[0])).unwrap()
-                } else {
-                    Self::from_repr(P::BigInt::from(u64::from(other))).unwrap()
-                }
-            }
-        }
-    };
-    ($field: ident, $int: expr, $params: ident, $limbs:expr) => {
-        paste::paste!{
-            impl<P: $params> From<[<u $int>]> for $field<P> {
-                fn from(other: [<u $int>]) -> Self {
-                    if $limbs == 1 {
-                        Self::from_repr(P::BigInt::from(u64::from(other) % P::MODULUS.0[0])).unwrap()
-                    } else {
-                        Self::from_repr(P::BigInt::from(u64::from(other))).unwrap()
-                    }
-                }
-            }
-
-            impl<P: $params> From<[<i $int>]> for $field<P> {
-                fn from(other: [<i $int>]) -> Self {
-                    let abs = Self::from(other.unsigned_abs());
-                    if other.is_positive() {
-                        abs
-                    } else {
-                        -abs
-                    }
-                }
-            }
         }
     };
 }

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::{path::PathBuf, fs::OpenOptions};
+use ark_ec::AffineCurve;
 use ark_groth16::{ProvingKey, Proof, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use arkworks_utils::poseidon::PoseidonParameters;
@@ -14,6 +15,7 @@ use structopt::StructOpt;
 use rand_core::{CryptoRng, RngCore, OsRng};
 use rand_xorshift::XorShiftRng;
 use solana_program::pubkey::Pubkey;
+use ark_crypto_primitives::snark::*;
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
@@ -278,6 +280,100 @@ fn main() {
 
             write_to_file(&pk_path, &pk);
             println!("proving key write to {:?}", pk_path);
+
+            let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
+
+            println!("  Fq6::new_const(");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0);
+            println!("      ),");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0);
+            println!("      ),");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0);
+            println!("      ),");
+            println!("  ),");
+            println!("  Fq6::new_const(");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0);
+            println!("      ),");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0);
+            println!("      ),");
+            println!("      Fq2::new_const(");
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0);
+            println!("          Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0);
+            println!("      ),");
+            println!("  ),");
+
+            println!("**************************************************************");
+            println!("**************************************************************");
+            println!("**************************************************************");
+
+            let g_ic = pvk.vk.gamma_abc_g1[0].into_projective();
+            println!("Fq::new(BigInteger::new({:?})),", g_ic.x.0.0);
+            println!("Fq::new(BigInteger::new({:?})),", g_ic.y.0.0);
+            println!("Fq::new(BigInteger::new({:?})),", g_ic.z.0.0);
+
+            println!("**************************************************************");
+            println!("**************************************************************");
+            println!("**************************************************************");
+
+            for g_ic in pvk.vk.gamma_abc_g1[1..].iter() {
+                println!("G1Affine254::new_const(");
+                println!("  Fq::new(BigInteger::new({:?})),", g_ic.x.0.0);
+                println!("  Fq::new(BigInteger::new({:?})),", g_ic.y.0.0);
+                println!("  {}", g_ic.infinity);
+                println!("),");
+            }
+            
+            println!("**************************************************************");
+            println!("**************************************************************");
+            println!("**************************************************************");
+
+            for (a, b, c) in pvk.gamma_g2_neg_pc.ell_coeffs.iter() {
+                println!("(");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", a.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", a.c1.0.0);
+                println!("  ),");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", b.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", b.c1.0.0);
+                println!("  ),");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", c.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", c.c1.0.0);
+                println!("  ),");
+                println!("),");
+            }
+
+            println!("**************************************************************");
+            println!("**************************************************************");
+            println!("**************************************************************");
+
+            for (a, b, c) in pvk.delta_g2_neg_pc.ell_coeffs.iter() {
+                println!("(");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", a.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", a.c1.0.0);
+                println!("  ),");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", b.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", b.c1.0.0);
+                println!("  ),");
+                println!("  Fq2::new_const(");
+                println!("    Fq::new(BigInteger::new({:?})),", c.c0.0.0);
+                println!("    Fq::new(BigInteger::new({:?})),", c.c1.0.0);
+                println!("  ),");
+                println!("),");
+            }
 
             let vk_hex = write_to_hex(&vk);
             println!("verifying key: {:?}", vk_hex);

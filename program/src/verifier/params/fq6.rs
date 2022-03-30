@@ -12,7 +12,7 @@ impl Fq6 {
         c1: <Fp6ParamsWrapper<Fq6Parameters> as CubicExtParameters>::BaseField,
         c2: <Fp6ParamsWrapper<Fq6Parameters> as CubicExtParameters>::BaseField,
     ) -> Self {
-        Self { c0, c1, c2, _parameters: PhantomData }
+        Self { c0, c1, c2, _p: PhantomData }
     }
 }
 

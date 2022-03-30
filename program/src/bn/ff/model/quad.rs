@@ -5,7 +5,7 @@ use num_traits::{Zero, One};
 
 use crate::{impl_additive_ops_from_ref, impl_multiplicative_ops_from_ref};
 
-use crate::bn::ff::{Field, integer::find_wnaf};
+use crate::bn::ff::Field;
 
 pub trait QuadExtParameters: 'static + Sized {
     /// The base field that this field is a quadratic extension of.
@@ -17,14 +17,12 @@ pub trait QuadExtParameters: 'static + Sized {
     /// The degree of the extension over the base prime field.
     const DEGREE_OVER_BASE_PRIME_FIELD: usize;
 
-    ///////////////////////////////// keep ////////////////////////////
     /// The quadratic non-residue used to construct the extension.
     const NONRESIDUE: Self::BaseField;
 
     /// Coefficients for the Frobenius automorphism.
     const FROBENIUS_COEFF_C1: &'static [Self::FrobCoeff];
 
-    ///////////////////////////////// keep ////////////////////////////
     /// A specializable method for multiplying an element of the base field by
     /// the quadratic non-residue. This is used in Karatsuba multiplication
     /// and in complex squaring.
@@ -33,7 +31,6 @@ pub trait QuadExtParameters: 'static + Sized {
         Self::NONRESIDUE * fe
     }
 
-    ///////////////////////////////// keep ////////////////////////////
     /// A specializable method for computing x + mul_base_field_by_nonresidue(y)
     /// This allows for optimizations when the non-residue is
     /// canonically negative in the field.
@@ -45,7 +42,6 @@ pub trait QuadExtParameters: 'static + Sized {
         *x + Self::mul_base_field_by_nonresidue(y)
     }
 
-    ///////////////////////////////// keep ////////////////////////////
     /// A specializable method for computing x + mul_base_field_by_nonresidue(y) + y
     /// This allows for optimizations when the non-residue is not -1.
     #[inline(always)]
@@ -58,7 +54,6 @@ pub trait QuadExtParameters: 'static + Sized {
         Self::add_and_mul_base_field_by_nonresidue(&tmp, &y)
     }
 
-    ///////////////////////////////// keep ////////////////////////////
     /// A specializable method for computing x - mul_base_field_by_nonresidue(y)
     /// This allows for optimizations when the non-residue is
     /// canonically negative in the field.
@@ -70,22 +65,18 @@ pub trait QuadExtParameters: 'static + Sized {
         *x - Self::mul_base_field_by_nonresidue(y)
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     /// A specializable method for multiplying an element of the base field by
     /// the appropriate Frobenius coefficient.
     fn mul_base_field_by_frob_coeff(fe: &mut Self::BaseField, power: usize);
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     /// A specializable method for exponentiating that is to be used
     /// *only* when `fe` is known to be in the cyclotommic subgroup.
-    fn cyclotomic_exp(fe: &QuadExtField<Self>, exponent: impl AsRef<[u64]>) -> QuadExtField<Self> {
+    fn cyclotomic_exp(fe: &QuadExtField<Self>, naf: &'static [i8]) -> QuadExtField<Self> {
         let mut res = QuadExtField::one();
         let mut self_inverse = fe.clone();
         self_inverse.conjugate();
 
         let mut found_nonzero = false;
-        let naf = find_wnaf(exponent.as_ref());
-
         for &value in naf.iter().rev() {
             if found_nonzero {
                 res.square_in_place();
@@ -101,6 +92,7 @@ pub trait QuadExtParameters: 'static + Sized {
                 }
             }
         }
+
         res
     }
 }
@@ -109,7 +101,7 @@ pub trait QuadExtParameters: 'static + Sized {
 pub struct QuadExtField<P: QuadExtParameters> {
     pub c0: P::BaseField,
     pub c1: P::BaseField,
-    pub _parameters: PhantomData<P>,
+    pub(crate) _p: PhantomData<P>,
 }
 
 impl<P: QuadExtParameters> Clone for QuadExtField<P> {
@@ -118,7 +110,7 @@ impl<P: QuadExtParameters> Clone for QuadExtField<P> {
         QuadExtField {
             c0: self.c0.clone(),
             c1: self.c1.clone(),
-            _parameters: Default::default(),
+            _p: Default::default(),
         }
     }
 }
@@ -130,7 +122,7 @@ impl<P: QuadExtParameters> QuadExtField<P> {
         QuadExtField {
             c0,
             c1,
-            _parameters: PhantomData,
+            _p: PhantomData,
         }
     }
 
@@ -140,11 +132,11 @@ impl<P: QuadExtParameters> QuadExtField<P> {
         self.c1 = -self.c1;
     }
 
-    ///////////////////////////////// keep ////////////////////////////
-    pub fn mul_assign_by_basefield(&mut self, element: &P::BaseField) {
-        self.c0.mul_assign(element);
-        self.c1.mul_assign(element);
-    }
+    // ///////////////////////////////// keep ////////////////////////////
+    // pub fn mul_assign_by_basefield(&mut self, element: &P::BaseField) {
+    //     self.c0.mul_assign(element);
+    //     self.c1.mul_assign(element);
+    // }
 }
 
 impl<P: QuadExtParameters> Zero for QuadExtField<P> {

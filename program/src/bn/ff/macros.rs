@@ -247,13 +247,6 @@ macro_rules! impl_Fp {
         //     }
         // }
 
-        // impl_prime_field_from_int!($Fp, 128, $FpParameters, $limbs);
-        // impl_prime_field_from_int!($Fp, 64, $FpParameters, $limbs);
-        // impl_prime_field_from_int!($Fp, 32, $FpParameters, $limbs);
-        // impl_prime_field_from_int!($Fp, 16, $FpParameters, $limbs);
-        // impl_prime_field_from_int!($Fp, 8, $FpParameters, $limbs);
-        // impl_prime_field_from_int!($Fp, bool, $FpParameters, $limbs);
-
         impl<P: $FpParameters> Neg for $Fp<P> {
             type Output = Self;
             #[inline]
@@ -382,7 +375,7 @@ macro_rules! field_new {
         $name {
             c0: $c0,
             c1: $c1,
-            _parameters: core::marker::PhantomData,
+            _p: core::marker::PhantomData,
         }
     };
     ($name:ident, $c0:expr, $c1:expr, $c2:expr $(,)?) => {
@@ -390,7 +383,7 @@ macro_rules! field_new {
             c0: $c0,
             c1: $c1,
             c2: $c2,
-            _parameters: core::marker::PhantomData,
+            _p: core::marker::PhantomData,
         }
     };
 }

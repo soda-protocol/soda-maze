@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 
-use crate::bn::{Field, BitIteratorBE};
+use crate::bn::Field;
 use super::ModelParameters;
 
 #[must_use]
@@ -11,7 +11,7 @@ pub struct GroupAffine<P: ModelParameters> {
     pub x: P::BaseField,
     pub y: P::BaseField,
     pub infinity: bool,
-    _p: PhantomData<P>,
+    pub(crate) _p: PhantomData<P>,
 }
 
 impl<P: ModelParameters> GroupAffine<P> {
@@ -22,38 +22,6 @@ impl<P: ModelParameters> GroupAffine<P> {
             infinity,
             _p: PhantomData,
         }
-    }
-
-    /// Multiplies `self` by the scalar represented by `bits`. `bits` must be a big-endian
-    /// bit-wise decomposition of the scalar.
-    fn mul_bits(&self, bits: impl Iterator<Item = bool>) -> GroupProjective<P> {
-        let mut res = GroupProjective::zero();
-        // Skip leading zeros.
-        for i in bits.skip_while(|b| !b) {
-            res.double_in_place();
-            if i {
-                res.add_assign_mixed(&self)
-            }
-        }
-        res
-    }
-
-    fn mul_bits_by_range(&self, value: &mut GroupProjective<P>, bits: &[bool]) {
-        for i in bits {
-            value.double_in_place();
-            if *i {
-                value.add_assign_mixed(&self)
-            }
-        }
-    }
-
-    #[inline]
-    pub fn mul(&self, by: P::ScalarField) -> GroupProjective<P> {
-        let bits = BitIteratorBE::new(by).collect::<Vec<_>>();
-        let mut res = GroupProjective::zero();
-        self.mul_bits_by_range(&mut res, bits.get(0..4).unwrap());
-
-        res
     }
 }
 
@@ -101,7 +69,7 @@ pub struct GroupProjective<P: ModelParameters> {
     pub x: P::BaseField,
     pub y: P::BaseField,
     pub z: P::BaseField,
-    _p: PhantomData<P>,
+    pub(crate) _p: PhantomData<P>,
 }
 
 impl<P: ModelParameters> GroupProjective<P> {
@@ -119,7 +87,7 @@ impl<P: ModelParameters> GroupProjective<P> {
     /// uses the following specialized doubling formulae:
     /// * [`P::A` is zero](http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l)
     /// * [`P::A` is not zero](https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-2007-bl)
-    fn double_in_place(&mut self) -> &mut Self {
+    pub fn double_in_place(&mut self) -> &mut Self {
         if self.is_zero() {
             return self;
         }
@@ -190,7 +158,7 @@ impl<P: ModelParameters> GroupProjective<P> {
     /// When `other.is_normalized()` (i.e., `other.z == 1`), we can use a more efficient
     /// [formula](http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl)
     /// to compute `self + other`.
-    fn add_assign_mixed(&mut self, other: &GroupAffine<P>) {
+    pub fn add_assign_mixed(&mut self, other: &GroupAffine<P>) {
         if other.is_zero() {
             return;
         }

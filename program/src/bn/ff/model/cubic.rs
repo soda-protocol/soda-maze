@@ -44,7 +44,7 @@ pub struct CubicExtField<P: CubicExtParameters> {
     pub c0: P::BaseField,
     pub c1: P::BaseField,
     pub c2: P::BaseField,
-    pub _parameters: PhantomData<P>,
+    pub _p: PhantomData<P>,
 }
 
 impl<P: CubicExtParameters> Clone for CubicExtField<P> {
@@ -54,7 +54,7 @@ impl<P: CubicExtParameters> Clone for CubicExtField<P> {
             c0: self.c0.clone(),
             c1: self.c1.clone(),
             c2: self.c2.clone(),
-            _parameters: Default::default(),
+            _p: Default::default(),
         }
     }
 }
@@ -67,7 +67,7 @@ impl<P: CubicExtParameters> CubicExtField<P> {
             c0,
             c1,
             c2,
-            _parameters: PhantomData,
+            _p: PhantomData,
         }
     }
 }
@@ -78,7 +78,7 @@ impl<P: CubicExtParameters> Zero for CubicExtField<P> {
             c0: P::BaseField::zero(),
             c1: P::BaseField::zero(),
             c2: P::BaseField::zero(),
-            _parameters: PhantomData,
+            _p: PhantomData,
         }
     }
 
@@ -93,7 +93,7 @@ impl<P: CubicExtParameters> One for CubicExtField<P> {
             c0: P::BaseField::one(),
             c1: P::BaseField::zero(),
             c2: P::BaseField::zero(),
-            _parameters: PhantomData,
+            _p: PhantomData,
         }
     }
 
