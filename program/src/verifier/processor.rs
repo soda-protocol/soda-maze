@@ -320,26 +320,22 @@ impl FinalExponentCtx {
                     // v1 = c1.square()
                     let v1 = self.f.c1.square();
                     let v0 = self.f.c0.square();
-                }
-            }
-            1 => {
-                let v0 = self.v0.as_ref().unwrap();
-                let v1 = self.v1.as_ref().unwrap();
-                let v0 = Fp12ParamsWrapper::<<BnParameters as Bn>::Fp12Params>::sub_and_mul_base_field_by_nonresidue(v0, v1);
+                    let v0 = Fp12ParamsWrapper::<<BnParameters as Bn>::Fp12Params>::sub_and_mul_base_field_by_nonresidue(&v0, &v1);
 
-                if v0.is_zero() {
+                    if v0.is_zero() {
 
-                } else {
-                    // From "High-Speed Software Implementation of the Optimal Ate AbstractPairing
-                    // over
-                    // Barreto-Naehrig Curves"; Algorithm 17
-                    let t0 = v0.c0.square();
-                    let t1 = v0.c1.square();
-                    let t2 = v0.c2.square();
-                    let t3 = v0.c0 * &v0.c1;
-                    let t4 = v0.c0 * &v0.c2;
-                    let t5 = v0.c1 * &v0.c2;
-                    // let n5 = P::mul_base_field_by_nonresidue(&t5);
+                    } else {
+                        // From "High-Speed Software Implementation of the Optimal Ate AbstractPairing
+                        // over
+                        // Barreto-Naehrig Curves"; Algorithm 17
+                        let t0 = v0.c0.square();
+                        let t1 = v0.c1.square();
+                        let t2 = v0.c2.square();
+                        let t3 = v0.c0 * &v0.c1;
+                        let t4 = v0.c0 * &v0.c2;
+                        let t5 = v0.c1 * &v0.c2;
+                        // let n5 = P::mul_base_field_by_nonresidue(&t5);
+                    }
                 }
             }
             _ => {}
