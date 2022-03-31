@@ -3,7 +3,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::msg;
 
-use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters}, OperationType};
+use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters}, OperationType};
 
 use super::{state::{VerifyStage, Proof}, params::*};
 use super::params::{Fr, Bn254Parameters as BnParameters};
@@ -334,7 +334,16 @@ impl FinalExponentCtx {
                         let t3 = v0.c0 * &v0.c1;
                         let t4 = v0.c0 * &v0.c2;
                         let t5 = v0.c1 * &v0.c2;
-                        // let n5 = P::mul_base_field_by_nonresidue(&t5);
+                        let n5 = Fp6ParamsWrapper::<<BnParameters as Bn>::Fp6Params>::mul_base_field_by_nonresidue(&t5);
+
+                        let s0 = t0 - &n5;
+                        let s1 = Fp6ParamsWrapper::<<BnParameters as Bn>::Fp6Params>::mul_base_field_by_nonresidue(&t2) - &t3;
+                        let s2 = t1 - &t4; // typo in paper referenced above. should be "-" as per Scott, but is "*"
+
+                        let a1 = v0.c2 * &s1;
+                        let a2 = v0.c1 * &s2;
+                        let mut a3 = a1 + &a2;
+                        a3 = Fp6ParamsWrapper::<<BnParameters as Bn>::Fp6Params>::mul_base_field_by_nonresidue(&a3);
                     }
                 }
             }
