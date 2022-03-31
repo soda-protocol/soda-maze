@@ -355,7 +355,7 @@ impl FinalExponentCtx {
                 let v0 = t6.c0.square();
                 let v0 = Fp2ParamsWrapper::<<BnParameters as Bn>::Fp2Params>::sub_and_mul_base_field_by_nonresidue(&v0, &v1);
 
-                
+                v0.inverse().unwrap();                
             }
             _ => {}
         }
