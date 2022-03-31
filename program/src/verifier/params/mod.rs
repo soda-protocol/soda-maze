@@ -143,6 +143,12 @@ impl Fqk254 {
     ) -> Self {
         Self { c0, c1, _p: PhantomData }
     }
+
+    pub fn inverse(&self) -> Option<Self> {
+        
+
+        None
+    }
 }
 
 pub type G2HomProjective254 = G2HomProjective<Bn254Parameters>;

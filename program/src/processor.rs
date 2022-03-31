@@ -1,6 +1,7 @@
+use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::FinalExponentCtx}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{FinalExponentCtx, MillerLoopCtx}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 const PROOF: Proof = Proof {
@@ -27,12 +28,18 @@ const PROOF: Proof = Proof {
     ),
 };
 
+const PREPARED_INPUT: G1Affine254 = G1Affine254::new_const(
+    Fq::new(BigInteger::new([9497411607956386375, 268351533763702874, 18353951159736685747, 1825167008963268151])),
+    Fq::new(BigInteger::new([5487945063526916415, 2251437326952299004, 2432273193309581731, 2595211258581520627])),
+    false
+);
+
 pub fn process_instruction(
     _program_id: &Pubkey,
     _accounts: &[AccountInfo],
-    _input: &[u8],
+    input: &[u8],
 ) -> ProgramResult {
-    let v = Fqk254::new_const(
+    let f = Fqk254::new_const(
         Fq6::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
@@ -63,8 +70,21 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentCtx {
-        f: v,
+    let r = G2HomProjective254 {
+        x: PROOF.b.x,
+        y: PROOF.b.y,
+        z: Fq2::one(),
+    };
+
+    let ctx = MillerLoopCtx {
+        step: input[0],
+        index: input[1],
+        coeff_index: input[2],
+        proof_type: OperationType::Deposit,
+        prepared_input: PREPARED_INPUT,
+        proof: PROOF,
+        r,
+        f,
     };
     ctx.process();
         
@@ -95,7 +115,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![],
+                data: vec![0, 64, 0],
             }],
             Some(&user.pubkey()),
             &[&user],

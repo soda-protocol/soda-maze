@@ -249,14 +249,11 @@ impl<P: QuadExtParameters> Field for QuadExtField<P> {
             // v0 = c0.square() - beta * v1
             let v0 = P::sub_and_mul_base_field_by_nonresidue(&self.c0.square(), &v1);
 
-            // v0.inverse().map(|v1| {
-            //     let c0 = self.c0 * &v1;
-            //     let c1 = -(self.c1 * &v1);
-            //     Self::new(c0, c1)
-            // })
-            let c0 = self.c0 * &v1;
-            let c1 = -(self.c1 * &v1);
-            Some(Self::new(c0, c1))
+            v0.inverse().map(|v1| {
+                let c0 = self.c0 * &v1;
+                let c1 = -(self.c1 * &v1);
+                Self::new(c0, c1)
+            })
         }
     }
 

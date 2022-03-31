@@ -13,8 +13,6 @@ pub enum TwistType {
     D,
 }
 
-pub type Fqk<P> = Fp12<<P as BnParameters>::Fp12Params>;
-
 pub trait ModelParameters: 'static + Clone + Copy {
     type BaseField: Field;
     type ScalarField: Field + AsRef<[u64]>;
@@ -50,23 +48,4 @@ pub trait BnParameters: 'static {
     type G2Parameters: ModelParameters<BaseField = Fp2<Self::Fp2Params>>;
 }
 
-// pub trait PairingEngine {
-//     type Fr: Field;
-//     type G1Projective: Clone + BorshSerialize + BorshDeserialize;
-//     type G2Projective: BorshSerialize + BorshDeserialize;
-//     type G1Affine:  BorshSerialize + BorshDeserialize;
-//     type G2Affine:  BorshSerialize + BorshDeserialize;
-//     type G1Prepared: BorshSerialize + BorshDeserialize + 'static;
-//     type G2Prepared: BorshSerialize + BorshDeserialize + 'static;
-//     type Fqk: Field;
-
-//     /// Compute the product of miller loops for some number of (G1, G2) pairs.
-//     #[must_use]
-//     fn miller_loop<'a, I>(i: I) -> Self::Fqk
-//     where
-//         I: IntoIterator<Item = &'a (Self::G1Prepared, Self::G2Prepared)>;
-
-//     /// Perform final exponentiation of the result of a miller loop.
-//     #[must_use]
-//     fn final_exponentiation(_: &Self::Fqk) -> Option<Self::Fqk>;
-// }
+pub type Fqk<P> = Fp12<<P as BnParameters>::Fp12Params>;
