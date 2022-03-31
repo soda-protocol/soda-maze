@@ -4,35 +4,35 @@ use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::Prog
 use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{FinalExponentCtx, MillerLoopCtx}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
-const PROOF: Proof = Proof {
-    a: G1Affine254::new_const(
-        Fq::new(BigInteger::new([14715620368662735844, 9563436648438579353, 9817845158629706665, 2420889558595263392])),
-        Fq::new(BigInteger::new([8640892419674201321, 14834230856296141528, 4198848546444402927, 1517119377864516134])),
-        false,
-    ),
-    b: G2Affine254::new_const(
-        Fq2::new_const(
-            Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-            Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-        ),
-        Fq2::new_const(
-            Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-            Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-        ),
-        false,
-    ),
-    c: G1Affine254::new_const(
-        Fq::new(BigInteger::new([5823303549099682051, 11298647609364880259, 17539675314511186284, 556302735522023958])),
-        Fq::new(BigInteger::new([2083577888616351182, 10916945937534065039, 1520021691683278293, 2748969749429754277])),
-        false,
-    ),
-};
+// const PROOF: Proof = Proof {
+//     a: G1Affine254::new_const(
+//         Fq::new(BigInteger::new([14715620368662735844, 9563436648438579353, 9817845158629706665, 2420889558595263392])),
+//         Fq::new(BigInteger::new([8640892419674201321, 14834230856296141528, 4198848546444402927, 1517119377864516134])),
+//         false,
+//     ),
+//     b: G2Affine254::new_const(
+//         Fq2::new_const(
+//             Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+//             Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+//         ),
+//         Fq2::new_const(
+//             Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+//             Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+//         ),
+//         false,
+//     ),
+//     c: G1Affine254::new_const(
+//         Fq::new(BigInteger::new([5823303549099682051, 11298647609364880259, 17539675314511186284, 556302735522023958])),
+//         Fq::new(BigInteger::new([2083577888616351182, 10916945937534065039, 1520021691683278293, 2748969749429754277])),
+//         false,
+//     ),
+// };
 
-const PREPARED_INPUT: G1Affine254 = G1Affine254::new_const(
-    Fq::new(BigInteger::new([9497411607956386375, 268351533763702874, 18353951159736685747, 1825167008963268151])),
-    Fq::new(BigInteger::new([5487945063526916415, 2251437326952299004, 2432273193309581731, 2595211258581520627])),
-    false
-);
+// const PREPARED_INPUT: G1Affine254 = G1Affine254::new_const(
+//     Fq::new(BigInteger::new([9497411607956386375, 268351533763702874, 18353951159736685747, 1825167008963268151])),
+//     Fq::new(BigInteger::new([5487945063526916415, 2251437326952299004, 2432273193309581731, 2595211258581520627])),
+//     false
+// );
 
 pub fn process_instruction(
     _program_id: &Pubkey,
@@ -70,22 +70,53 @@ pub fn process_instruction(
         ),
     );
 
-    let r = G2HomProjective254 {
-        x: PROOF.b.x,
-        y: PROOF.b.y,
-        z: Fq2::one(),
-    };
+    let v0 = Fq6::new_const(
+        Fq2::new_const(
+            Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+            Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+        ),
+        Fq2::new_const(
+            Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+            Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+        ),
+        Fq2::new_const(
+            Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+            Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+        ),
+    );
 
-    let ctx = MillerLoopCtx {
+    let v1 = Fq6::new_const(
+        Fq2::new_const(
+            Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+            Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+        ),
+        Fq2::new_const(
+            Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+            Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+        ),
+        Fq2::new_const(
+            Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+            Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+        ),
+    );
+
+    let ctx = FinalExponentCtx {
         step: input[0],
-        index: input[1],
-        coeff_index: input[2],
-        proof_type: OperationType::Deposit,
-        prepared_input: PREPARED_INPUT,
-        proof: PROOF,
-        r,
+        v0: Some(v0),
+        v1: Some(v1),
         f,
     };
+
+    // let ctx = MillerLoopCtx {
+    //     step: input[0],
+    //     index: input[1],
+    //     coeff_index: input[2],
+    //     proof_type: OperationType::Deposit,
+    //     prepared_input: PREPARED_INPUT,
+    //     proof: PROOF,
+    //     r,
+    //     f,
+    // };
     ctx.process();
         
     Ok(())
@@ -115,7 +146,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![5, 0, 0],
+                data: vec![0],
             }],
             Some(&user.pubkey()),
             &[&user],

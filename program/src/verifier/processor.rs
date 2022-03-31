@@ -3,7 +3,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::msg;
 
-use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char}, OperationType};
+use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters}, OperationType};
 
 use super::{state::{VerifyStage, Proof}, params::*};
 use super::params::{Fr, Bn254Parameters as BnParameters};
@@ -303,14 +303,53 @@ impl MillerFinalizeCtx {
 }
 
 pub struct FinalExponentCtx {
+    pub step: u8,
+    pub v0: Option<Fq6>,
+    pub v1: Option<Fq6>,
     pub f: Fqk254,
 }
 
 impl FinalExponentCtx {
     pub fn process(mut self) -> VerifyStage {
-        self.f.inverse().map(|_| {
-            msg!("can inverse");
-        });
+        match self.step {
+            0 => {
+                if self.f.is_zero() {
+
+                } else {
+                    // Guide to Pairing-based Cryptography, Algorithm 5.19.
+                    // v1 = c1.square()
+                    let v1 = self.f.c1.square();
+                }
+            }
+            1 => {
+                // v0 = c0.square() - beta * v1
+                let v0 = self.f.c0.square();
+            }
+            2 => {
+                let v0 = self.v0.as_ref().unwrap();
+                let v1 = self.v1.as_ref().unwrap();
+                let v0 = Fp12ParamsWrapper::<<BnParameters as Bn>::Fp12Params>::sub_and_mul_base_field_by_nonresidue(v0, v1);
+                self.v0 = Some(v0);
+            }
+            3 => {
+                let v0 = self.v0.unwrap();
+                if v0.is_zero() {
+
+                } else {
+                    // From "High-Speed Software Implementation of the Optimal Ate AbstractPairing
+                    // over
+                    // Barreto-Naehrig Curves"; Algorithm 17
+                    let t0 = v0.c0.square();
+                    let t1 = v0.c1.square();
+                    let t2 = v0.c2.square();
+                    let t3 = v0.c0 * &v0.c1;
+                    let t4 = v0.c0 * &v0.c2;
+                    let t5 = v0.c1 * &v0.c2;
+                    // let n5 = P::mul_base_field_by_nonresidue(&t5);
+                }
+            }
+            _ => {}
+        }
 
         VerifyStage::Finished(true)
     }
