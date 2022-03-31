@@ -319,20 +319,14 @@ impl FinalExponentCtx {
                     // Guide to Pairing-based Cryptography, Algorithm 5.19.
                     // v1 = c1.square()
                     let v1 = self.f.c1.square();
+                    let v0 = self.f.c0.square();
                 }
             }
             1 => {
-                // v0 = c0.square() - beta * v1
-                let v0 = self.f.c0.square();
-            }
-            2 => {
                 let v0 = self.v0.as_ref().unwrap();
                 let v1 = self.v1.as_ref().unwrap();
                 let v0 = Fp12ParamsWrapper::<<BnParameters as Bn>::Fp12Params>::sub_and_mul_base_field_by_nonresidue(v0, v1);
-                self.v0 = Some(v0);
-            }
-            3 => {
-                let v0 = self.v0.unwrap();
+
                 if v0.is_zero() {
 
                 } else {
