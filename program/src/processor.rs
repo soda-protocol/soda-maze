@@ -63,14 +63,10 @@ pub fn process_instruction(
         ),
     );
 
-    // let ctx = FinalExponentCtx {
-    //     f: v,
-    // };
-    // ctx.process();
-
-    let v = Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540]));
-
-    v.inverse().unwrap();
+    let ctx = FinalExponentCtx {
+        f: v,
+    };
+    ctx.process();
         
     Ok(())
 }
