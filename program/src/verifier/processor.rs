@@ -313,7 +313,11 @@ impl FinalExponentCtx {
     pub fn process(mut self) -> VerifyStage {
         match self.step {
             0 => {
-                self.f.inverse();
+                if let Some(v) = self.f.inverse() {
+                    self.f = v;
+                } else {
+                    
+                }
 
                 // if self.f.is_zero() {
                 //     return VerifyStage::Finished(true);
