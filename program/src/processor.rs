@@ -115,7 +115,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![0, 64, 0],
+                data: vec![5, 0, 0],
             }],
             Some(&user.pubkey()),
             &[&user],
