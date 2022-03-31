@@ -304,8 +304,6 @@ impl MillerFinalizeCtx {
 
 pub struct FinalExponentCtx {
     pub step: u8,
-    pub v0: Option<Fq6>,
-    pub v1: Option<Fq6>,
     pub f: Fqk254,
 }
 
@@ -313,6 +311,9 @@ impl FinalExponentCtx {
     pub fn process(mut self) -> VerifyStage {
         match self.step {
             0 => {
+                let mut f1 = self.f;
+                f1.conjugate();
+
                 if self.f.is_zero() {
                     return VerifyStage::Finished(true);
                 }
@@ -355,7 +356,7 @@ impl FinalExponentCtx {
                 let v0 = t6.c0.square();
                 let v0 = Fp2ParamsWrapper::<<BnParameters as Bn>::Fp2Params>::sub_and_mul_base_field_by_nonresidue(&v0, &v1);
 
-                v0.inverse().unwrap();
+                // v0.inverse().unwrap();
             }
             _ => {}
         }
