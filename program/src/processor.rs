@@ -1,7 +1,6 @@
-use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::FinalExponentCtx}, OperationType};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::FinalExponentCtx}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 const PROOF: Proof = Proof {
@@ -33,53 +32,46 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     _input: &[u8],
 ) -> ProgramResult {
-    let v = Fqk254::new_const(
-        Fq6::new_const(
-            Fq2::new_const(
-                Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-                Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-            ),
-            Fq2::new_const(
-                Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-                Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-            ),
-            Fq2::new_const(
-                Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
-                Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
-            ),
-        ),
-        Fq6::new_const(
-            Fq2::new_const(
-                Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-                Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-            ),
-            Fq2::new_const(
-                Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-                Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-            ),
-            Fq2::new_const(
-                Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
-                Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
-            ),
-        ),
-    );
-
-    let ctx = FinalExponentCtx {
-        f: v,
-    };
-    ctx.process();
-
-    // process_miller_loop_step_1(
-    //     proof_type,
-    //     &PROOF,
-    //     PREPARED_INPUT,
-    //     neg_b,
-    //     64,
-    //     0,
-    //     rb,
-    //     Fqk254::one(),
+    // let v = Fqk254::new_const(
+    //     Fq6::new_const(
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+    //             Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+    //         ),
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+    //             Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+    //         ),
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+    //             Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+    //         ),
+    //     ),
+    //     Fq6::new_const(
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+    //             Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+    //         ),
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+    //             Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+    //         ),
+    //         Fq2::new_const(
+    //             Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+    //             Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+    //         ),
+    //     ),
     // );
 
+    // let ctx = FinalExponentCtx {
+    //     f: v,
+    // };
+    // ctx.process();
+
+    let v = Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540]));
+
+    _ = v.inverse();
+        
     Ok(())
 }
 
