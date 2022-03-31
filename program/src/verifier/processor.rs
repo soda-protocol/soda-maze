@@ -77,7 +77,7 @@ impl FinalizeInputsCtx {
 
         let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
         VerifyStage::MillerLoop(MillerLoopCtx {
-            step: 0,
+            step: 1,
             index,
             coeff_index: 0,
             proof_type: self.proof_type,
@@ -124,28 +124,30 @@ impl MillerLoopCtx {
     pub fn process(mut self) -> VerifyStage {
         match self.step {
             0 => {
-                if self.index as usize != <BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1 {
-                    self.f.square_in_place();
-                }
-                self.index -= 1;
-            
+                self.f.square_in_place();
+
+                self.step += 1;
+                VerifyStage::MillerLoop(self)
+            }
+            1 => {
                 let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
                 ell(&mut self.f, &coeff, &self.proof.a);
             
                 self.step += 1;
                 VerifyStage::MillerLoop(self)
             }
-            1 => {
+            2 => {
                 let pvk = self.proof_type.verifying_key();
                 ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
             
                 self.step += 1;
                 VerifyStage::MillerLoop(self)
             }
-            2 => {
+            3 => {
                 let pvk = self.proof_type.verifying_key();
                 ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
 
+                self.index -= 1;
                 let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
                 if bit == 0 {
                     if self.index == 0 {
@@ -176,7 +178,7 @@ impl MillerLoopCtx {
                 self.step += 1;
                 VerifyStage::MillerLoop(self)
             }
-            3 => {
+            4 => {
                 let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
                 let coeff = match bit {
                     1 => addition_step(&mut self.r, &self.proof.b),
@@ -191,14 +193,14 @@ impl MillerLoopCtx {
                 self.step += 1;
                 VerifyStage::MillerLoop(self)
             }
-            4 => {
+            5 => {
                 let pvk = self.proof_type.verifying_key();
                 ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
 
                 self.step += 1;
                 VerifyStage::MillerLoop(self)
             }
-            5 => {
+            6 => {
                 let pvk = self.proof_type.verifying_key();
                 ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
 
@@ -229,7 +231,7 @@ impl MillerLoopCtx {
                     VerifyStage::MillerLoop(self)
                 }
             }
-            _ => unreachable!("step is always in range [0, 5]"),
+            _ => unreachable!("step is always in range [0, 6]"),
         }
     }
 }
