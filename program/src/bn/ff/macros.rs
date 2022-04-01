@@ -125,14 +125,7 @@ macro_rules! impl_Fp {
         }
 
         impl<P: $FpParameters> Field for $Fp<P> {
-            #[inline]
-            fn characteristic() -> &'static [u64] {
-                P::MODULUS.as_ref()
-            }
-
-            fn extension_degree() -> u64 {
-                1
-            }
+            const CHARACTERISTIC: &'static [u64] = &P::MODULUS.0;
 
             #[inline]
             fn double(&self) -> Self {

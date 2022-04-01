@@ -103,13 +103,7 @@ impl<P: CubicExtParameters> One for CubicExtField<P> {
 }
 
 impl<P: CubicExtParameters> Field for CubicExtField<P> {
-    fn characteristic() -> &'static [u64] {
-        P::BaseField::characteristic()
-    }
-
-    fn extension_degree() -> u64 {
-        3 * P::BaseField::extension_degree()
-    }
+    const CHARACTERISTIC: &'static [u64] = P::BaseField::CHARACTERISTIC;
 
     fn double(&self) -> Self {
         let mut result = *self;

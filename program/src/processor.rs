@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{FinalExponentCtx, MillerLoopCtx}}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{MillerLoopCtx, FinalExponentCtxInverse1, FinalExponentFrobiniusCtx}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 // const PROOF: Proof = Proof {
@@ -70,21 +70,10 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentCtx {
-        step: input[0],
-        f,
+    let ctx = FinalExponentFrobiniusCtx {
+        f1: f.clone(),
+        f2: f,
     };
-
-    // let ctx = MillerLoopCtx {
-    //     step: input[0],
-    //     index: input[1],
-    //     coeff_index: input[2],
-    //     proof_type: OperationType::Deposit,
-    //     prepared_input: PREPARED_INPUT,
-    //     proof: PROOF,
-    //     r,
-    //     f,
-    // };
     ctx.process();
         
     Ok(())
@@ -96,7 +85,7 @@ mod tests {
     use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
     use solana_client::rpc_client::{RpcClient};
 
-    use crate::{id, processor::process_instruction};
+    use crate::id;
 
     const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
     const DEVNET: &str = "https://api.devnet.solana.com";

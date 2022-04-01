@@ -158,4 +158,3 @@ impl Fp12Parameters for Fq12Parameters {
         ),
     ];
 }
-

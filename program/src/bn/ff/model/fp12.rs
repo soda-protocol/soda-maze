@@ -105,7 +105,7 @@ impl<P: Fp12Parameters> Fp12<P> {
         // Faster Squaring in the Cyclotomic Subgroup of Sixth Degree Extensions
         // - Robert Granger and Michael Scott
         //
-        if characteristic_square_mod_6_is_one(Self::characteristic()) {
+        if characteristic_square_mod_6_is_one(Self::CHARACTERISTIC) {
             let fp2_nr = <P::Fp6Params as Fp6Parameters>::mul_fp2_by_nonresidue;
 
             let r0 = &self.c0.c0;
@@ -187,18 +187,14 @@ impl<P: Fp12Parameters> Fp12<P> {
 }
 
 ////////////////////////////////////// keep ////////////////////////////////////////
-// TODO: make `const fn` in 1.46.
-pub fn characteristic_square_mod_6_is_one(characteristic: &[u64]) -> bool {
+pub const fn characteristic_square_mod_6_is_one(characteristic: &'static [u64]) -> bool {
     // characteristic mod 6 = (a_0 + 2**64 * a_1 + ...) mod 6
     //                      = a_0 mod 6 + (2**64 * a_1 mod 6) + (...) mod 6
     //                      = a_0 mod 6 + (4 * a_1 mod 6) + (4 * ...) mod 6
     let mut char_mod_6 = 0u64;
-    for (i, limb) in characteristic.iter().enumerate() {
-        char_mod_6 += if i == 0 {
-            limb % 6
-        } else {
-            (4 * (limb % 6)) % 6
-        };
-    }
+    char_mod_6 += characteristic[0] % 6;
+    char_mod_6 += (4 * (characteristic[1] % 6)) % 6;
+    char_mod_6 += (4 * (characteristic[2] % 6)) % 6;
+    char_mod_6 += (4 * (characteristic[3] % 6)) % 6;
     (char_mod_6 * char_mod_6) % 6 == 1
 }
