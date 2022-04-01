@@ -548,7 +548,7 @@ impl FinalExponentStep4 {
             step: 1,
             index: 0,
             res: Fqk254::one(),
-            f: y5,
+            // f: y5,
             r: self.r,
             y1: self.y1,
             y3: self.f,
@@ -564,33 +564,33 @@ pub struct FinalExponentStep5 {
     pub step: u8,
     pub index: u8,
     pub res: Fqk254,
-    pub f: Fqk254,
+    // pub f: Fqk254,
     pub r: Fqk254,
     pub y1: Fqk254,
     pub y3: Fqk254,
     pub y4: Fqk254,
 }
 
-impl FinalExponentStep5 {
-    fn out(mut self) -> VerifyStage {
-        self.y3.conjugate();
-        self.res.conjugate();
+// impl FinalExponentStep5 {
+//     fn out(mut self) -> VerifyStage {
+//         self.y3.conjugate();
+//         self.res.conjugate();
 
-        VerifyStage::FinalExponentStep6(FinalExponentStep6 {
-            r: self.r,
-            y1: self.y1,
-            y3: self.y3,
-            y4: self.y4,
-            y6: self.res,
-        })
-    }
-}
+//         VerifyStage::FinalExponentStep6(FinalExponentStep6 {
+//             r: self.r,
+//             y1: self.y1,
+//             y3: self.y3,
+//             y4: self.y4,
+//             y6: self.res,
+//         })
+//     }
+// }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentStep6 {
-    pub r: Fqk254,
-    pub y1: Fqk254,
-    pub y3: Fqk254,
-    pub y4: Fqk254,
-    pub y6: Fqk254,
-}
+// #[derive(Clone, BorshSerialize, BorshDeserialize)]
+// pub struct FinalExponentStep6 {
+//     pub r: Fqk254,
+//     pub y1: Fqk254,
+//     pub y3: Fqk254,
+//     pub y4: Fqk254,
+//     pub y6: Fqk254,
+// }
