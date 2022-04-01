@@ -482,7 +482,10 @@ pub struct FinalExponentCyclotomicCtx(pub Fqk254);
 
 impl FinalExponentCyclotomicCtx {
     pub fn process(mut self) -> VerifyStage {
-        self.0.cyclotomic_square_in_place();
+        let y1 = self.0.cyclotomic_square();
+        let y2 = y1.cyclotomic_square();
+
+        // let mut y3 = y2 * &y1;
 
         VerifyStage::Finished(true)
     }
