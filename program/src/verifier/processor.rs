@@ -542,7 +542,7 @@ pub struct FinalExponentStep4 {
 
 impl FinalExponentStep4 {
     fn out(self) -> VerifyStage {
-        let y5 = self.res.cyclotomic_square();
+        // let y5 = self.res.cyclotomic_square();
 
         VerifyStage::FinalExponentStep5(FinalExponentStep5 {
             step: 1,
