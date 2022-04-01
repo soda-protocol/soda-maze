@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{MillerLoopCtx, FinalExponentCtxInverse1, FinalExponentInitCtx, FinalExponentExpByNegCtx, FinalExponentCyclotomicCtx}}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 // const PROOF: Proof = Proof {
@@ -70,7 +70,10 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentCyclotomicCtx(f);
+    let ctx = FinalExponentStep2 {
+        r: f.clone(),
+        y0: f.clone(),
+    };
     ctx.process();
         
     Ok(())

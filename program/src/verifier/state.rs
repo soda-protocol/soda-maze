@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
 
 use crate::{Packer, OperationType};
-use super::{params::{Fr, G1Affine254, G2Affine254}, processor::{MillerLoopCtx, PrepareInputsCtx, FinalizeInputsCtx, MillerFinalizeCtx, FinalExponentCtxInverse1, FinalExponentCtxInverse2, FinalExponentInitCtx, FinalExponentExpByNegCtx}};
+use super::{params::{Fr, G1Affine254, G2Affine254}, processor::*};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Proof {
@@ -16,14 +16,19 @@ pub struct Proof {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub enum VerifyStage {
-    PrepareInputs(PrepareInputsCtx),
-    FinalizeInputs(FinalizeInputsCtx),
-    MillerLoop(MillerLoopCtx),
-    MillerFinalize(MillerFinalizeCtx),
-    FinalExponentInverse1(FinalExponentCtxInverse1),
-    FinalExponentInverse2(FinalExponentCtxInverse2),
-    FinalExponentFrobinius(FinalExponentInitCtx),
-    FinalExponentExpByNeg(FinalExponentExpByNegCtx),
+    PrepareInputs(PrepareInputs),
+    FinalizeInputs(FinalizeInputs),
+    MillerLoop(MillerLoop),
+    MillerFinalize(MillerFinalize),
+    FinalExponentInverse0(FinalExponentInverse0),
+    FinalExponentInverse1(FinalExponentInverse1),
+    FinalExponentStep0(FinalExponentStep0),
+    FinalExponentStep1(FinalExponentStep1),
+    FinalExponentStep2(FinalExponentStep2),
+    FinalExponentStep3(FinalExponentStep3),
+    FinalExponentStep4(FinalExponentStep4),
+    FinalExponentStep5(FinalExponentStep5),
+    FinalExponentStep6(FinalExponentStep6),
     Finished(bool),
 }
 

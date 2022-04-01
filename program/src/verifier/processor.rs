@@ -2,7 +2,7 @@ use std::ops::AddAssign;
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 
-use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper, characteristic_square_mod_6_is_one, Fp6Parameters}, OperationType};
+use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper}, OperationType};
 
 use super::{state::{VerifyStage, Proof}, params::*};
 use super::params::{Fr, Bn254Parameters as BnParameters};
@@ -27,14 +27,14 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct PrepareInputsCtx {
+pub struct PrepareInputs {
     input_index: u8,
     bit_index: u8,
     g_ic: G1Projective254,
     tmp: G1Projective254,
 }
 
-impl PrepareInputsCtx {
+impl PrepareInputs {
     pub fn process(mut self, proof_type: OperationType, public_inputs: &[Fr]) -> VerifyStage {
         let public_input = public_inputs[self.input_index as usize];
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
@@ -64,7 +64,7 @@ impl PrepareInputsCtx {
     
                 VerifyStage::PrepareInputs(self)
             } else {
-                VerifyStage::FinalizeInputs(FinalizeInputsCtx(self.g_ic))
+                VerifyStage::FinalizeInputs(FinalizeInputs(self.g_ic))
             }
         } else {
             VerifyStage::PrepareInputs(self)
@@ -73,9 +73,9 @@ impl PrepareInputsCtx {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalizeInputsCtx(G1Projective254);
+pub struct FinalizeInputs(G1Projective254);
 
-impl FinalizeInputsCtx {
+impl FinalizeInputs {
     pub fn process(self, proof: Proof) -> VerifyStage {
         let prepared_input = G1Affine254::from(self.0);
         let r = G2HomProjective254 {
@@ -85,7 +85,7 @@ impl FinalizeInputsCtx {
         };
 
         let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
-        VerifyStage::MillerLoop(MillerLoopCtx {
+        VerifyStage::MillerLoop(MillerLoop {
             step: 1,
             index,
             coeff_index: 0,
@@ -98,7 +98,7 @@ impl FinalizeInputsCtx {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct MillerLoopCtx {
+pub struct MillerLoop {
     pub step: u8,
     pub index: u8,
     pub coeff_index: u8,
@@ -108,7 +108,7 @@ pub struct MillerLoopCtx {
     pub f: Fqk254,
 }
 
-impl MillerLoopCtx {
+impl MillerLoop {
     pub fn process(mut self, proof_type: OperationType) -> VerifyStage {
         match self.step {
             0 => {
@@ -148,7 +148,7 @@ impl MillerLoopCtx {
                         }
         
                         q2.y = -q2.y;
-                        return VerifyStage::MillerFinalize(MillerFinalizeCtx {
+                        return VerifyStage::MillerFinalize(MillerFinalize {
                             step: 0,
                             prepared_input: self.prepared_input,
                             proof_a: self.proof.a,
@@ -201,7 +201,7 @@ impl MillerLoopCtx {
                     }
     
                     q2.y = -q2.y;
-                    VerifyStage::MillerFinalize(MillerFinalizeCtx {
+                    VerifyStage::MillerFinalize(MillerFinalize {
                         step: 0,
                         prepared_input: self.prepared_input,
                         proof_a: self.proof.a,
@@ -223,7 +223,7 @@ impl MillerLoopCtx {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct MillerFinalizeCtx {
+pub struct MillerFinalize {
     pub step: u8,
     pub prepared_input: G1Affine254,
     pub proof_a: G1Affine254,
@@ -234,7 +234,7 @@ pub struct MillerFinalizeCtx {
     pub f: Fqk254,
 }
 
-impl MillerFinalizeCtx {
+impl MillerFinalize {
     pub fn process(mut self, proof_type: OperationType) -> VerifyStage {
         match self.step {
             0 => {
@@ -280,7 +280,7 @@ impl MillerFinalizeCtx {
                 let index = pvk.delta_g2_neg_pc.len() - 1;
                 ell(&mut self.f, &pvk.delta_g2_neg_pc[index], &self.proof_c);
 
-                VerifyStage::FinalExponentInverse1(FinalExponentCtxInverse1(self.f))
+                VerifyStage::FinalExponentInverse0(FinalExponentInverse0(self.f))
             }
             _ => unreachable!("step is always in range [0, 5]"),
         }
@@ -288,9 +288,9 @@ impl MillerFinalizeCtx {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentCtxInverse1(pub Fqk254);
+pub struct FinalExponentInverse0(pub Fqk254);
 
-impl FinalExponentCtxInverse1 {
+impl FinalExponentInverse0 {
     pub fn process(self) -> VerifyStage {
         if self.0.is_zero() {
             return VerifyStage::Finished(false);
@@ -334,7 +334,7 @@ impl FinalExponentCtxInverse1 {
             let v0 = t6.c0.square();
             let v0 = Fp2ParamsWrapper::<<BnParameters as Bn>::Fp2Params>::sub_and_mul_base_field_by_nonresidue(&v0, &v1);
 
-            VerifyStage::FinalExponentInverse2(FinalExponentCtxInverse2 {
+            VerifyStage::FinalExponentInverse1(FinalExponentInverse1 {
                 s0,
                 s1,
                 s2,
@@ -347,7 +347,7 @@ impl FinalExponentCtxInverse1 {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentCtxInverse2 {
+pub struct FinalExponentInverse1 {
     s0: Fq2,
     s1: Fq2,
     s2: Fq2,
@@ -356,7 +356,7 @@ pub struct FinalExponentCtxInverse2 {
     f: Fqk254,
 }
 
-impl FinalExponentCtxInverse2 {
+impl FinalExponentInverse1 {
     pub fn process(self) -> VerifyStage {
         let f2 = self.v0
             .inverse()
@@ -380,7 +380,7 @@ impl FinalExponentCtxInverse2 {
         let mut f1 = self.f;
         f1.conjugate();
 
-        VerifyStage::FinalExponentFrobinius(FinalExponentInitCtx {
+        VerifyStage::FinalExponentStep0(FinalExponentStep0 {
             step: 0,
             f1,
             f2,
@@ -389,13 +389,13 @@ impl FinalExponentCtxInverse2 {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentInitCtx {
+pub struct FinalExponentStep0 {
     pub step: u8,
     pub f1: Fqk254,
     pub f2: Fqk254,
 }
 
-impl FinalExponentInitCtx {
+impl FinalExponentStep0 {
     pub fn process(mut self) -> VerifyStage {
         match self.step {
             0 => {
@@ -409,20 +409,15 @@ impl FinalExponentInitCtx {
                 self.f1.frobenius_map(2);
 
                 self.step += 1;
-                VerifyStage::FinalExponentFrobinius(self)
+                VerifyStage::FinalExponentStep0(self)
             }
             1 => {
                 self.f1 *= self.f2;
-
-                let mut f_inv = self.f1.clone();
-                f_inv.conjugate();
-
-                VerifyStage::FinalExponentExpByNeg(FinalExponentExpByNegCtx {
+                VerifyStage::FinalExponentStep1(FinalExponentStep1 {
                     step: 1,
                     index: 0,
-                    f: self.f1,
-                    f_inv,
                     res: Fqk254::one(),
+                    f: self.f1,
                 })
             }
             _ => unreachable!("step is always in range [0, 1]"),
@@ -430,63 +425,172 @@ impl FinalExponentInitCtx {
     }
 }
 
+macro_rules! exp_by_neg_x {
+    ($name:ident, $stage:ident) => {
+        impl $name {
+            pub fn process(mut self) -> VerifyStage {
+                match self.step {
+                    0 => {
+                        self.res.square_in_place();
+        
+                        self.step += 1;
+                        VerifyStage::$stage(self)
+                    }
+                    1 => {
+                        let naf = <BnParameters as Bn>::NAF;
+                        let value = naf[self.index as usize];
+                        self.index += 1;
+        
+                        if value != 0 {
+                            self.step = 0;
+                
+                            if value > 0 {
+                                self.res *= self.f;
+                            } else {
+                                let mut f_inv = self.f.clone();
+                                f_inv.conjugate();
+                                self.res *= f_inv;
+                            }
+                        }
+        
+                        if (self.index as usize) < naf.len() {
+                            VerifyStage::$stage(self)
+                        } else {
+                            if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                                self.res.conjugate();
+                            }
+                
+                            self.out()
+                        }
+                    }
+                    _ => unreachable!("step is always in range [0, 1]"),
+                }
+            }
+        }
+    };
+}
+
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentExpByNegCtx {
+pub struct FinalExponentStep1 {
     pub step: u8,
     pub index: u8,
-    pub f: Fqk254,
-    pub f_inv: Fqk254,
     pub res: Fqk254,
+    pub f: Fqk254,
 }
 
-impl FinalExponentExpByNegCtx {
-    pub fn process(mut self) -> VerifyStage {
-        match self.step {
-            0 => {
-                self.res.square_in_place();
-
-                self.step += 1;
-                VerifyStage::FinalExponentExpByNeg(self)
-            }
-            1 => {
-                let naf = <BnParameters as Bn>::NAF;
-                let value = naf[self.index as usize];
-                self.index += 1;
-
-                if value != 0 {
-                    self.step = 0;
-        
-                    if value > 0 {
-                        self.res *= self.f;
-                    } else {
-                        self.res *= self.f_inv;
-                    }
-                }
-
-                if (self.index as usize) < naf.len() {
-                    VerifyStage::FinalExponentExpByNeg(self)
-                } else {
-                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                        self.res.conjugate();
-                    }
-        
-                    VerifyStage::Finished(true)
-                }
-            }
-            _ => unreachable!("step is always in range [0, 1]"),
-        }
+impl FinalExponentStep1 {
+    fn out(self) -> VerifyStage {
+        VerifyStage::FinalExponentStep2(FinalExponentStep2 {
+            r: self.f,
+            y0: self.res,
+        })
     }
 }
 
-pub struct FinalExponentCyclotomicCtx(pub Fqk254);
+exp_by_neg_x!(FinalExponentStep1, FinalExponentStep1);
 
-impl FinalExponentCyclotomicCtx {
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentStep2 {
+    pub r: Fqk254,
+    pub y0: Fqk254,
+}
+
+impl FinalExponentStep2 {
     pub fn process(mut self) -> VerifyStage {
-        let y1 = self.0.cyclotomic_square();
+        let y1 = self.y0.cyclotomic_square();
         let y2 = y1.cyclotomic_square();
 
-        // let mut y3 = y2 * &y1;
-
-        VerifyStage::Finished(true)
+        VerifyStage::FinalExponentStep3(FinalExponentStep3 {
+            r: self.r,
+            y1,
+            y2,
+        })
     }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentStep3 {
+    r: Fqk254,
+    y1: Fqk254,
+    y2: Fqk254,
+}
+
+impl FinalExponentStep3 {
+    pub fn process(self) -> VerifyStage {
+        let y3 = self.y2 * self.y1;
+
+        VerifyStage::FinalExponentStep4(FinalExponentStep4 {
+            step: 1,
+            index: 0,
+            res: Fqk254::one(),
+            f: y3,
+            r: self.r,
+            y1: self.y1,
+        })
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentStep4 {
+    pub step: u8,
+    pub index: u8,
+    pub res: Fqk254,
+    pub f: Fqk254,
+    pub r: Fqk254,
+    pub y1: Fqk254,
+}
+
+impl FinalExponentStep4 {
+    fn out(self) -> VerifyStage {
+        let y5 = self.res.cyclotomic_square();
+
+        VerifyStage::FinalExponentStep5(FinalExponentStep5 {
+            step: 1,
+            index: 0,
+            res: Fqk254::one(),
+            f: y5,
+            r: self.r,
+            y1: self.y1,
+            y3: self.f,
+            y4: self.res,
+        })
+    }
+}
+
+exp_by_neg_x!(FinalExponentStep4, FinalExponentStep4);
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentStep5 {
+    pub step: u8,
+    pub index: u8,
+    pub res: Fqk254,
+    pub f: Fqk254,
+    pub r: Fqk254,
+    pub y1: Fqk254,
+    pub y3: Fqk254,
+    pub y4: Fqk254,
+}
+
+impl FinalExponentStep5 {
+    fn out(mut self) -> VerifyStage {
+        self.y3.conjugate();
+        self.res.conjugate();
+
+        VerifyStage::FinalExponentStep6(FinalExponentStep6 {
+            r: self.r,
+            y1: self.y1,
+            y3: self.y3,
+            y4: self.y4,
+            y6: self.res,
+        })
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentStep6 {
+    pub r: Fqk254,
+    pub y1: Fqk254,
+    pub y3: Fqk254,
+    pub y4: Fqk254,
+    pub y6: Fqk254,
 }
