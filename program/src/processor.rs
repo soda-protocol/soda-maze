@@ -73,8 +73,8 @@ pub fn process_instruction(
     let mut f_inv = f.clone();
     f_inv.conjugate();
     let ctx = FinalExponentExpByNegCtx {
-        index: input[0],
-        found_nonzero: input[0] != 0,
+        step: input[0],
+        index: input[1],
         f,
         f_inv,
         res: Fqk254::one(),
@@ -108,7 +108,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![0],
+                data: vec![0, 1],
             }],
             Some(&user.pubkey()),
             &[&user],

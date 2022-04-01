@@ -418,8 +418,8 @@ impl FinalExponentFrobiniusCtx {
                 f_inv.conjugate();
 
                 VerifyStage::FinalExponentExpByNeg(FinalExponentExpByNegCtx {
+                    step: 1,
                     index: 0,
-                    found_nonzero: false,
                     f: self.f1,
                     f_inv,
                     res: Fqk254::one(),
@@ -432,8 +432,8 @@ impl FinalExponentFrobiniusCtx {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentExpByNegCtx {
+    pub step: u8,
     pub index: u8,
-    pub found_nonzero: bool,
     pub f: Fqk254,
     pub f_inv: Fqk254,
     pub res: Fqk254,
@@ -441,32 +441,39 @@ pub struct FinalExponentExpByNegCtx {
 
 impl FinalExponentExpByNegCtx {
     pub fn process(mut self) -> VerifyStage {
-        let naf = <BnParameters as Bn>::NAF;
-        let value = naf[self.index as usize];
-        self.index += 1;
+        match self.step {
+            0 => {
+                self.res.square_in_place();
 
-        if self.found_nonzero {
-            self.res.square_in_place();
-        }
-
-        if value != 0 {
-            self.found_nonzero = true;
-
-            if value > 0 {
-                self.res *= self.f;
-            } else {
-                self.res *= self.f_inv;
+                self.step += 1;
+                VerifyStage::FinalExponentExpByNeg(self)
             }
-        }
-    
-        if (self.index as usize) < naf.len() {
-            VerifyStage::FinalExponentExpByNeg(self)
-        } else {
-            if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                self.res.conjugate();
-            }
+            1 => {
+                let naf = <BnParameters as Bn>::NAF;
+                let value = naf[self.index as usize];
+                self.index += 1;
 
-            VerifyStage::Finished(true)
+                if value != 0 {
+                    self.step = 0;
+        
+                    if value > 0 {
+                        self.res *= self.f;
+                    } else {
+                        self.res *= self.f_inv;
+                    }
+                }
+
+                if (self.index as usize) < naf.len() {
+                    VerifyStage::FinalExponentExpByNeg(self)
+                } else {
+                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                        self.res.conjugate();
+                    }
+        
+                    VerifyStage::Finished(true)
+                }
+            }
+            _ => unreachable!("step is always in range [0, 1]"),
         }
     }
 }
