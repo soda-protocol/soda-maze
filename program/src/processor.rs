@@ -74,7 +74,7 @@ pub fn process_instruction(
     f_inv.conjugate();
     let ctx = FinalExponentExpByNegCtx {
         index: input[0],
-        found_nonzero: false,
+        found_nonzero: input[0] != 0,
         f,
         f_inv,
         res: Fqk254::one(),
