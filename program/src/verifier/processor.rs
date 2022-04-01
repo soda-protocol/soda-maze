@@ -2,7 +2,7 @@ use std::ops::AddAssign;
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 
-use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper}, OperationType};
+use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper, characteristic_square_mod_6_is_one, Fp6Parameters}, OperationType};
 
 use super::{state::{VerifyStage, Proof}, params::*};
 use super::params::{Fr, Bn254Parameters as BnParameters};
@@ -380,7 +380,7 @@ impl FinalExponentCtxInverse2 {
         let mut f1 = self.f;
         f1.conjugate();
 
-        VerifyStage::FinalExponentFrobinius(FinalExponentFrobiniusCtx {
+        VerifyStage::FinalExponentFrobinius(FinalExponentInitCtx {
             step: 0,
             f1,
             f2,
@@ -389,13 +389,13 @@ impl FinalExponentCtxInverse2 {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentFrobiniusCtx {
+pub struct FinalExponentInitCtx {
     pub step: u8,
     pub f1: Fqk254,
     pub f2: Fqk254,
 }
 
-impl FinalExponentFrobiniusCtx {
+impl FinalExponentInitCtx {
     pub fn process(mut self) -> VerifyStage {
         match self.step {
             0 => {
@@ -475,5 +475,49 @@ impl FinalExponentExpByNegCtx {
             }
             _ => unreachable!("step is always in range [0, 1]"),
         }
+    }
+}
+
+pub struct FinalExponentCyclotomicCtx(pub Fqk254);
+
+impl FinalExponentCyclotomicCtx {
+    pub fn process(mut self) -> VerifyStage {
+        if characteristic_square_mod_6_is_one(Fqk254::CHARACTERISTIC) {
+            let fp2_nr = <<BnParameters as Bn>::Fp6Params>::mul_fp2_by_nonresidue;
+
+            let r0 = &self.0.c0.c0;
+            let r4 = &self.0.c0.c1;
+            let r3 = &self.0.c0.c2;
+            let r2 = &self.0.c1.c0;
+            let r1 = &self.0.c1.c1;
+            let r5 = &self.0.c1.c2;
+
+            // t0 + t1*y = (z0 + z1*y)^2 = a^2
+            let mut tmp = *r0 * r1;
+            let t0 = (*r0 + r1) * &(fp2_nr(&r1) + r0) - &tmp - &fp2_nr(&tmp);
+            let t1 = tmp.double();
+
+            // t2 + t3*y = (z2 + z3*y)^2 = b^2
+            tmp = *r2 * r3;
+            let t2 = (*r2 + r3) * &(fp2_nr(&r3) + r2) - &tmp - &fp2_nr(&tmp);
+            let t3 = tmp.double();
+
+            // t4 + t5*y = (z4 + z5*y)^2 = c^2
+            tmp = *r4 * r5;
+            let t4 = (*r4 + r5) * &(fp2_nr(&r5) + r4) - &tmp - &fp2_nr(&tmp);
+            let t5 = tmp.double();
+
+            let z0 = &mut self.0.c0.c0;
+            let z4 = &mut self.0.c0.c1;
+            let z3 = &mut self.0.c0.c2;
+            let z2 = &mut self.0.c1.c0;
+            let z1 = &mut self.0.c1.c1;
+            let z5 = &mut self.0.c1.c2;
+
+        } else {
+            self.0.square_in_place();
+        }
+
+        VerifyStage::Finished(true)
     }
 }

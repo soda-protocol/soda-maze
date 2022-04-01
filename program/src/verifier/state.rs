@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
 
 use crate::{Packer, OperationType};
-use super::{params::{Fr, G1Affine254, G2Affine254}, processor::{MillerLoopCtx, PrepareInputsCtx, FinalizeInputsCtx, MillerFinalizeCtx, FinalExponentCtxInverse1, FinalExponentCtxInverse2, FinalExponentFrobiniusCtx, FinalExponentExpByNegCtx}};
+use super::{params::{Fr, G1Affine254, G2Affine254}, processor::{MillerLoopCtx, PrepareInputsCtx, FinalizeInputsCtx, MillerFinalizeCtx, FinalExponentCtxInverse1, FinalExponentCtxInverse2, FinalExponentInitCtx, FinalExponentExpByNegCtx}};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Proof {
@@ -22,7 +22,7 @@ pub enum VerifyStage {
     MillerFinalize(MillerFinalizeCtx),
     FinalExponentInverse1(FinalExponentCtxInverse1),
     FinalExponentInverse2(FinalExponentCtxInverse2),
-    FinalExponentFrobinius(FinalExponentFrobiniusCtx),
+    FinalExponentFrobinius(FinalExponentInitCtx),
     FinalExponentExpByNeg(FinalExponentExpByNegCtx),
     Finished(bool),
 }
