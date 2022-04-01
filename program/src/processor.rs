@@ -70,9 +70,13 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentStep2 {
+    let ctx = FinalExponentStep4 {
+        step: 1,
+        index: 0,
+        res: Fqk254::one(),
+        f: f.clone(),
         r: f.clone(),
-        y0: f.clone(),
+        y1: f.clone(),
     };
     ctx.process();
         
