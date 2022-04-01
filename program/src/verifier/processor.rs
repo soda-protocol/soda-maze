@@ -450,7 +450,7 @@ impl FinalExponentFrobiniusCtx {
         // which equals
         //
         // result = elt^( 2z * ( 6z^2 + 3z + 1 ) * (q^4 - q^2 + 1)/r ).
-        let y0 = exp_by_neg_x(&r, <BnParameters as Bn>::NAF);
+        // let y0 = exp_by_neg_x(&r, <BnParameters as Bn>::NAF);
 
         VerifyStage::Finished(true)
     }
