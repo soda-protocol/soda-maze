@@ -514,6 +514,42 @@ impl FinalExponentCyclotomicCtx {
             let z1 = &mut self.0.c1.c1;
             let z5 = &mut self.0.c1.c2;
 
+            // for A
+
+            // z0 = 3 * t0 - 2 * z0
+            *z0 = t0 - &*z0;
+            z0.double_in_place();
+            *z0 += &t0;
+
+            // z1 = 3 * t1 + 2 * z1
+            *z1 = t1 + &*z1;
+            z1.double_in_place();
+            *z1 += &t1;
+
+            // for B
+
+            // z2 = 3 * (xi * t5) + 2 * z2
+            tmp = fp2_nr(&t5);
+            *z2 += tmp;
+            z2.double_in_place();
+            *z2 += &tmp;
+
+            // z3 = 3 * t4 - 2 * z3
+            *z3 = t4 - &*z3;
+            z3.double_in_place();
+            *z3 += &t4;
+
+            // for C
+
+            // z4 = 3 * t2 - 2 * z4
+            *z4 = t2 - &*z4;
+            z4.double_in_place();
+            *z4 += &t2;
+
+            // z5 = 3 * t3 + 2 * z5
+            *z5 += t3;
+            z5.double_in_place();
+            *z5 += &t3;
         } else {
             self.0.square_in_place();
         }
