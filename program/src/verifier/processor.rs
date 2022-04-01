@@ -26,35 +26,6 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     }
 }
 
-fn exp_by_neg_x(f: &Fqk254, naf: &'static [i8]) -> Fqk254 {
-    let mut res = Fqk254::one();
-    let mut self_inverse = f.clone();
-    self_inverse.conjugate();
-
-    let mut found_nonzero = false;
-    for &value in naf.iter().rev() {
-        if found_nonzero {
-            res.square_in_place();
-        }
-
-        if value != 0 {
-            found_nonzero = true;
-
-            if value > 0 {
-                res *= f;
-            } else {
-                res *= &self_inverse;
-            }
-        }
-    }
-
-    if !<BnParameters as Bn>::X_IS_NEGATIVE {
-        res.conjugate();
-    }
-
-    res
-}
-
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputsCtx {
     input_index: u8,
@@ -69,23 +40,21 @@ impl PrepareInputsCtx {
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
     
         const MAX_COMPRESS_CYCLE: usize = 4;
-        let start = self.bit_index as usize;
-        let end = start + MAX_COMPRESS_CYCLE;
-        let (end, finished) = if end < bits.len() {
-            (end, false)
-        } else {
-            (bits.len(), true)
-        };
-    
+
         let pvk = proof_type.verifying_key();
-        for bit in &bits[start..end] {
-            self.tmp.double_in_place();
-            if *bit {
-                self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
-            }
-        }
-    
-        if finished {
+        BitIteratorBE::new(public_input)
+            .skip_while(|b| !b)
+            .skip(self.bit_index as usize)
+            .take(MAX_COMPRESS_CYCLE)
+            .for_each(|bit| {
+                self.tmp.double_in_place();
+                if bit {
+                    self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
+                }
+            });
+        
+        self.bit_index += MAX_COMPRESS_CYCLE as u8;
+        if self.bit_index as usize >= bits.len() {
             self.g_ic.add_assign(&self.tmp);
             self.input_index += 1;
             if public_inputs.get(self.input_index as usize).is_some() {
@@ -98,7 +67,6 @@ impl PrepareInputsCtx {
                 VerifyStage::FinalizeInputs(FinalizeInputsCtx(self.g_ic))
             }
         } else {
-            self.bit_index = end as u8;
             VerifyStage::PrepareInputs(self)
         }
     }
@@ -413,6 +381,7 @@ impl FinalExponentCtxInverse2 {
         f1.conjugate();
 
         VerifyStage::FinalExponentFrobinius(FinalExponentFrobiniusCtx {
+            step: 0,
             f1,
             f2,
         })
@@ -421,38 +390,83 @@ impl FinalExponentCtxInverse2 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentFrobiniusCtx {
+    pub step: u8,
     pub f1: Fqk254,
     pub f2: Fqk254,
 }
 
 impl FinalExponentFrobiniusCtx {
     pub fn process(mut self) -> VerifyStage {
-        // f2 = f^(-1);
-        // r = f^(p^6 - 1)
-        let mut r = self.f1 * &self.f2;
+        match self.step {
+            0 => {
+                // f2 = f^(-1);
+                // r = f^(p^6 - 1)
+                self.f1 *= self.f2;
 
-        // f2 = f^(p^6 - 1)
-        self.f2 = r;
-        // r = f^((p^6 - 1)(p^2))
-        r.frobenius_map(2);
+                // f2 = f^(p^6 - 1)
+                self.f2 = self.f1;
+                // r = f^((p^6 - 1)(p^2))
+                self.f1.frobenius_map(2);
 
-        // r = f^((p^6 - 1)(p^2) + (p^6 - 1))
-        // r = f^((p^6 - 1)(p^2 + 1))
-        r *= &self.f2;
+                self.step += 1;
+                VerifyStage::FinalExponentFrobinius(self)
+            }
+            1 => {
+                self.f1 *= self.f2;
 
-        // Hard part follows Laura Fuentes-Castaneda et al. "Faster hashing to G2"
-        // by computing:
-        //
-        // result = elt^(q^3 * (12*z^3 + 6z^2 + 4z - 1) +
-        //               q^2 * (12*z^3 + 6z^2 + 6z) +
-        //               q   * (12*z^3 + 6z^2 + 4z) +
-        //               1   * (12*z^3 + 12z^2 + 6z + 1))
-        // which equals
-        //
-        // result = elt^( 2z * ( 6z^2 + 3z + 1 ) * (q^4 - q^2 + 1)/r ).
-        // let y0 = exp_by_neg_x(&r, <BnParameters as Bn>::NAF);
+                let mut f_inv = self.f1.clone();
+                f_inv.conjugate();
 
-        VerifyStage::Finished(true)
+                VerifyStage::FinalExponentExpByNeg(FinalExponentExpByNegCtx {
+                    index: 0,
+                    found_nonzero: false,
+                    f: self.f1,
+                    f_inv,
+                    res: Fqk254::one(),
+                })
+            }
+            _ => unreachable!("step is always in range [0, 1]"),
+        }
     }
 }
 
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentExpByNegCtx {
+    pub index: u8,
+    pub found_nonzero: bool,
+    pub f: Fqk254,
+    pub f_inv: Fqk254,
+    pub res: Fqk254,
+}
+
+impl FinalExponentExpByNegCtx {
+    pub fn process(mut self) -> VerifyStage {
+        let naf = <BnParameters as Bn>::NAF;
+        let value = naf[self.index as usize];
+        self.index += 1;
+
+        if self.found_nonzero {
+            self.res.square_in_place();
+        }
+
+        if value != 0 {
+            self.found_nonzero = true;
+
+            if value > 0 {
+                self.res *= self.f;
+            } else {
+                self.res *= self.f_inv;
+            }
+        }
+    
+        if (self.index as usize) < naf.len() {
+            VerifyStage::FinalExponentExpByNeg(self)
+        } else {
+            if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                self.res.conjugate();
+            }
+
+            VerifyStage::Finished(true)
+        }
+    }
+}

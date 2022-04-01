@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{MillerLoopCtx, FinalExponentCtxInverse1, FinalExponentFrobiniusCtx}}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::{MillerLoopCtx, FinalExponentCtxInverse1, FinalExponentFrobiniusCtx, FinalExponentExpByNegCtx}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 // const PROOF: Proof = Proof {
@@ -70,9 +70,14 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentFrobiniusCtx {
-        f1: f.clone(),
-        f2: f,
+    let mut f_inv = f.clone();
+    f_inv.conjugate();
+    let ctx = FinalExponentExpByNegCtx {
+        index: input[0],
+        found_nonzero: false,
+        f,
+        f_inv,
+        res: Fqk254::one(),
     };
     ctx.process();
         
