@@ -73,29 +73,33 @@ pub fn process_instruction(
     let mut f2 = f.clone();
     let f3 = f.clone();
 
-    let ctx = FinalExponentStep4 {
-        step: input[0],
-        index: input[1],
+    let ctx = FinalExponentStep3 {
         r: Pubkey::default(),
         y1: Pubkey::default(),
-        y3: Pubkey::default(),
-        y4: Pubkey::default(),
+        y2: Pubkey::default(),
     };
-    match ctx.step {
-        0 => {
-            let y4_ctx = UpdateContext::new(ctx.y4, &mut f);
-            ctx.process_0(&y4_ctx);
-        }
-        1 => {
-            let y3_ctx = ReadOnlyContext::new(ctx.y3, &f3);
-            let y4_ctx = UpdateContext::new(ctx.y4, &mut f2);
-            let y5_ctx = InitializeContext::new(Pubkey::default());
-            let y6_ctx = InitializeContext::new(Pubkey::default());
+    
+    let y1_ctx = ReadOnlyContext::new(ctx.y1, &f3);
+    let y2_ctx = ReadOnlyContext::new(ctx.y2, &f2);
+    let y3_ctx = InitializeContext::new(Pubkey::default());
+    let y4_ctx = InitializeContext::new(Pubkey::default());
+    ctx.process(&y1_ctx, &y2_ctx, &y3_ctx, &y4_ctx);
 
-            ctx.process_1(&y3_ctx, &y4_ctx, &y5_ctx, &y6_ctx);
-        }
-        _ => {}
-    }
+    // match ctx.step {
+    //     0 => {
+    //         let y4_ctx = UpdateContext::new(ctx.y4, &mut f);
+    //         ctx.process_0(&y4_ctx);
+    //     }
+    //     1 => {
+    //         let y3_ctx = ReadOnlyContext::new(ctx.y3, &f3);
+    //         let y4_ctx = UpdateContext::new(ctx.y4, &mut f2);
+    //         let y5_ctx = InitializeContext::new(Pubkey::default());
+    //         let y6_ctx = InitializeContext::new(Pubkey::default());
+
+    //         ctx.process_1(&y3_ctx, &y4_ctx, &y5_ctx, &y6_ctx);
+    //     }
+    //     _ => {}
+    // }
         
     Ok(())
 }

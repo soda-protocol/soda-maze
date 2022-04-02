@@ -773,9 +773,9 @@ impl FinalExponentStep2 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentStep3 {
-    r: Pubkey, // Fqk254
-    y1: Pubkey, // Fqk254
-    y2: Pubkey, // Fqk254
+    pub r: Pubkey, // Fqk254
+    pub y1: Pubkey, // Fqk254
+    pub y2: Pubkey, // Fqk254
 }
 
 impl FinalExponentStep3 {
