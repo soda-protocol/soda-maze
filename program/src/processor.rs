@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*, context::{UpdateContext, ReadOnlyContext}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 // const PROOF: Proof = Proof {
@@ -39,7 +39,7 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     input: &[u8],
 ) -> ProgramResult {
-    let f = Fqk254::new_const(
+    let mut f = Fqk254::new_const(
         Fq6::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
@@ -70,15 +70,33 @@ pub fn process_instruction(
         ),
     );
 
-    let ctx = FinalExponentStep4 {
-        step: 1,
-        index: 0,
-        res: Fqk254::one(),
-        f: f.clone(),
-        r: f.clone(),
-        y1: f,
+    let mut f2 = f.clone();
+    let f3 = f.clone();
+
+    let ctx = FinalExponentStep5 {
+        step: input[0],
+        index: input[1],
+        r: Pubkey::default(),
+        y1: Pubkey::default(),
+        y3: Pubkey::default(),
+        y4: Pubkey::default(),
+        y5: Pubkey::default(),
+        y6: Pubkey::default(),
     };
-    ctx.process();
+    match ctx.step {
+        0 => {
+            let y6_ctx = UpdateContext::new(ctx.y6, &mut f);
+            ctx.process_0(&y6_ctx);
+        }
+        1 => {
+            let y3_ctx = UpdateContext::new(ctx.y3, &mut f2);
+            let y5_ctx = ReadOnlyContext::new(ctx.y5, &f3);
+            let y6_ctx = UpdateContext::new(ctx.y6, &mut f);
+
+            ctx.process_1(&y3_ctx, &y5_ctx, &y6_ctx);
+        }
+        _ => {}
+    }
         
     Ok(())
 }
