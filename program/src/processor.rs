@@ -73,11 +73,10 @@ pub fn process_instruction(
     let mut f2 = f.clone();
     let f3 = f.clone();
 
-    let ctx = FinalExponentStep1 {
+    let ctx = FinalExponentStep0 {
         step: input[0],
-        index: input[1],
-        y0: Pubkey::default(),
-        r: Pubkey::default(),
+        f1: Pubkey::default(),
+        f2: Pubkey::default(),
     };
     
     // let y0_ctx = ReadOnlyContext::new(ctx.y0, &f3);
@@ -87,16 +86,18 @@ pub fn process_instruction(
 
     match ctx.step {
         0 => {
-            let y0_ctx = UpdateContext::new(ctx.y0, &mut f);
-            ctx.process_0(&y0_ctx);
+            let f1_ctx = UpdateContext::new(ctx.f1, &mut f);
+            let f2_ctx = UpdateContext::new(ctx.f2, &mut f2);
+            ctx.process_0(&f1_ctx, &f2_ctx);
         }
         1 => {
-            let r_ctx = ReadOnlyContext::new(ctx.r, &f3);
-            let y0_ctx = UpdateContext::new(ctx.y0, &mut f2);
+            let f1_ctx = UpdateContext::new(ctx.f1, &mut f);
+            let f2_ctx = ReadOnlyContext::new(ctx.f2, &f2);
+            let y0_ctx = InitializeContext::new(Pubkey::default());
             // let y5_ctx = InitializeContext::new(Pubkey::default());
             // let y6_ctx = InitializeContext::new(Pubkey::default());
 
-            ctx.process_1(&r_ctx, &y0_ctx);
+            ctx.process_1(&f1_ctx, &f2_ctx, &y0_ctx);
         }
         _ => {}
     }
