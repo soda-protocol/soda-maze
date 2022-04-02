@@ -1,7 +1,7 @@
 use num_traits::One;
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*, context::{UpdateContext, ReadOnlyContext}}, OperationType, bn::Field};
+use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*, context::{UpdateContext, ReadOnlyContext, InitializeContext}}, OperationType, bn::Field};
 use crate::bn::BigInteger256 as BigInteger;
 
 // const PROOF: Proof = Proof {
@@ -73,27 +73,26 @@ pub fn process_instruction(
     let mut f2 = f.clone();
     let f3 = f.clone();
 
-    let ctx = FinalExponentStep5 {
+    let ctx = FinalExponentStep4 {
         step: input[0],
         index: input[1],
         r: Pubkey::default(),
         y1: Pubkey::default(),
         y3: Pubkey::default(),
         y4: Pubkey::default(),
-        y5: Pubkey::default(),
-        y6: Pubkey::default(),
     };
     match ctx.step {
         0 => {
-            let y6_ctx = UpdateContext::new(ctx.y6, &mut f);
-            ctx.process_0(&y6_ctx);
+            let y4_ctx = UpdateContext::new(ctx.y4, &mut f);
+            ctx.process_0(&y4_ctx);
         }
         1 => {
-            let y3_ctx = UpdateContext::new(ctx.y3, &mut f2);
-            let y5_ctx = ReadOnlyContext::new(ctx.y5, &f3);
-            let y6_ctx = UpdateContext::new(ctx.y6, &mut f);
+            let y3_ctx = ReadOnlyContext::new(ctx.y3, &f3);
+            let y4_ctx = UpdateContext::new(ctx.y4, &mut f2);
+            let y5_ctx = InitializeContext::new(Pubkey::default());
+            let y6_ctx = InitializeContext::new(Pubkey::default());
 
-            ctx.process_1(&y3_ctx, &y5_ctx, &y6_ctx);
+            ctx.process_1(&y3_ctx, &y4_ctx, &y5_ctx, &y6_ctx);
         }
         _ => {}
     }
@@ -125,7 +124,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![1, 62],
+                data: vec![0, 0],
             }],
             Some(&user.pubkey()),
             &[&user],
