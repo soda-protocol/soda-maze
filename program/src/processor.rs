@@ -73,17 +73,15 @@ pub fn process_instruction(
     let mut f2 = f.clone();
     let f3 = f.clone();
 
-    let ctx = FinalExponentStep3 {
+    let ctx = FinalExponentStep2 {
         r: Pubkey::default(),
-        y1: Pubkey::default(),
-        y2: Pubkey::default(),
+        y0: Pubkey::default(),
     };
     
-    let y1_ctx = ReadOnlyContext::new(ctx.y1, &f3);
-    let y2_ctx = ReadOnlyContext::new(ctx.y2, &f2);
-    let y3_ctx = InitializeContext::new(Pubkey::default());
-    let y4_ctx = InitializeContext::new(Pubkey::default());
-    ctx.process(&y1_ctx, &y2_ctx, &y3_ctx, &y4_ctx);
+    let y0_ctx = ReadOnlyContext::new(ctx.y0, &f3);
+    let y1_ctx = InitializeContext::new(Pubkey::default());
+    let y2_ctx = InitializeContext::new(Pubkey::default());
+    ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
 
     // match ctx.step {
     //     0 => {
