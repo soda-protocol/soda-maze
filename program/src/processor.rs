@@ -73,31 +73,33 @@ pub fn process_instruction(
     let mut f2 = f.clone();
     let f3 = f.clone();
 
-    let ctx = FinalExponentStep2 {
-        r: Pubkey::default(),
+    let ctx = FinalExponentStep1 {
+        step: input[0],
+        index: input[1],
         y0: Pubkey::default(),
+        r: Pubkey::default(),
     };
     
-    let y0_ctx = ReadOnlyContext::new(ctx.y0, &f3);
-    let y1_ctx = InitializeContext::new(Pubkey::default());
-    let y2_ctx = InitializeContext::new(Pubkey::default());
-    ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
+    // let y0_ctx = ReadOnlyContext::new(ctx.y0, &f3);
+    // let y1_ctx = InitializeContext::new(Pubkey::default());
+    // let y2_ctx = InitializeContext::new(Pubkey::default());
+    // ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
 
-    // match ctx.step {
-    //     0 => {
-    //         let y4_ctx = UpdateContext::new(ctx.y4, &mut f);
-    //         ctx.process_0(&y4_ctx);
-    //     }
-    //     1 => {
-    //         let y3_ctx = ReadOnlyContext::new(ctx.y3, &f3);
-    //         let y4_ctx = UpdateContext::new(ctx.y4, &mut f2);
-    //         let y5_ctx = InitializeContext::new(Pubkey::default());
-    //         let y6_ctx = InitializeContext::new(Pubkey::default());
+    match ctx.step {
+        0 => {
+            let y0_ctx = UpdateContext::new(ctx.y0, &mut f);
+            ctx.process_0(&y0_ctx);
+        }
+        1 => {
+            let r_ctx = ReadOnlyContext::new(ctx.r, &f3);
+            let y0_ctx = UpdateContext::new(ctx.y0, &mut f2);
+            // let y5_ctx = InitializeContext::new(Pubkey::default());
+            // let y6_ctx = InitializeContext::new(Pubkey::default());
 
-    //         ctx.process_1(&y3_ctx, &y4_ctx, &y5_ctx, &y6_ctx);
-    //     }
-    //     _ => {}
-    // }
+            ctx.process_1(&r_ctx, &y0_ctx);
+        }
+        _ => {}
+    }
         
     Ok(())
 }
