@@ -85,15 +85,27 @@ pub fn process_instruction(
         ),
     };
 
-    let mut stage = MillerLoopFinalize::default();
+    let mut stage = MillerLoop::default();
     stage.step = input[0];
+    stage.index = input[1];
+    stage.coeff_index = input[2];
 
     let f_ctx = UpdateContext::new(stage.f, f);
     let r_ctx = UpdateContext::new(stage.r, r);
-    let q1_ctx = ReadOnlyContext::new(stage.q1, PROOF.b);
-    let proof_a_ctx = ReadOnlyContext::new(stage.proof_a, PROOF.a);
+    let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
+    let proof_c_ctx = ReadOnlyContext::new(stage.proof_c, PROOF.c);
+    let q1_ctx = InitializeContext::new(Pubkey::default());
+    let q2_ctx = InitializeContext::new(Pubkey::default());
     
-    stage.process_0(&f_ctx, &r_ctx, &q1_ctx, &proof_a_ctx);
+    stage.process_3(
+        OperationType::Deposit,
+        &f_ctx,
+        &r_ctx,
+        &proof_b_ctx,
+        &proof_c_ctx,
+        &q1_ctx,
+        &q2_ctx,
+    );
     
     // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
     // let y15_ctx = ReadOnlyContext::new(ctx.y15, f2);

@@ -133,7 +133,7 @@ impl PrepareInputsFinalize {
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoop {
     pub step: u8,
     pub index: u8,
