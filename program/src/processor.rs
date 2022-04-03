@@ -72,16 +72,12 @@ pub fn process_instruction(
 
     let f2 = f.clone();
 
-    let ctx = FinalExponentMul13 {
-        r: Pubkey::default(),
-        y9: Pubkey::default(),
-        y14: Pubkey::default(),
-    };
+    let ctx = FinalExponentFinalize::default();
     
-    let y0_ctx = ReadOnlyContext::new(ctx.r, f);
-    let y1_ctx = ReadOnlyContext::new(ctx.y9, f2);
-    let y2_ctx = InitializeContext::new(Pubkey::default());
-    ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
+    let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
+    let y15_ctx = ReadOnlyContext::new(ctx.y15, f2);
+    // let y15_ctx = InitializeContext::new(Pubkey::default());
+    ctx.process(OperationType::Deposit, &y14_ctx, &y15_ctx);
 
     // match ctx.step {
     //     0 => {

@@ -659,7 +659,7 @@ impl FinalExponentMul0 {
 
 macro_rules! impl_exp_by_negx_struct {
     ($name:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -667,7 +667,7 @@ macro_rules! impl_exp_by_negx_struct {
         }
     };
     ($name:ident, $field0:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -676,7 +676,7 @@ macro_rules! impl_exp_by_negx_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -686,7 +686,7 @@ macro_rules! impl_exp_by_negx_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident, $field2:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -697,7 +697,7 @@ macro_rules! impl_exp_by_negx_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -709,7 +709,7 @@ macro_rules! impl_exp_by_negx_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident, $field4:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub step: u8,
             pub index: u8,
@@ -779,7 +779,7 @@ macro_rules! impl_exp_by_neg_x {
 
 macro_rules! impl_fqk_mul_struct {
     ($name:ident, $field0:ident, $field1:ident, $field2:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub $field0: Pubkey,
             pub $field1: Pubkey,
@@ -787,7 +787,7 @@ macro_rules! impl_fqk_mul_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub $field0: Pubkey,
             pub $field1: Pubkey,
@@ -796,7 +796,7 @@ macro_rules! impl_fqk_mul_struct {
         }
     };
     ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident, $field4: ident) => {
-        #[derive(Clone, BorshSerialize, BorshDeserialize)]
+        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
         pub struct $name {
             pub $field0: Pubkey,
             pub $field1: Pubkey,
