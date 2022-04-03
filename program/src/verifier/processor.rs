@@ -31,6 +31,7 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 pub struct PrepareInputs {
     pub input_index: u8,
     pub bit_index: u8,
+    pub public_inputs: Pubkey, // Vec<Fr>
     pub g_ic: Pubkey, // G1Projective254
     pub tmp: Pubkey, // G1Projective254
 }
@@ -39,10 +40,11 @@ impl PrepareInputs {
     pub fn process(
         mut self,
         proof_type: OperationType,
-        public_inputs: &[Fr],
+        public_inputs: &ReadOnlyContext<Vec<Fr>>,
         g_ic_ctx: &UpdateContext<G1Projective254>,
         tmp_ctx: &UpdateContext<G1Projective254>,
     ) -> VerifyStage {
+        let public_inputs = public_inputs.take();
         let mut g_ic = g_ic_ctx.borrow_mut();
         let mut tmp = tmp_ctx.borrow_mut();
 
@@ -337,7 +339,7 @@ impl MillerLoop {
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoopFinalize {
     pub step: u8,
     pub prepared_input: Pubkey, // G1Affine254
@@ -1171,7 +1173,6 @@ impl FinalExponentFinalize {
 
         y14_ctx.close();
         y15_ctx.close();
-
         let pvk = proof_type.verifying_key();
         VerifyStage::Finished(&y16 == pvk.alpha_g1_beta_g2)
     }
