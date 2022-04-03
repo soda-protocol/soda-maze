@@ -633,6 +633,9 @@ impl FinalExponentStep0 {
         // f2 = f^(p^6 - 1)
         **f2 = **f1;
 
+        // r = f^((p^6 - 1)(p^2))
+        f1.frobenius_map(2);
+
         self.step += 1;
         VerifyStage::FinalExponentStep0(self)
     }
@@ -645,9 +648,6 @@ impl FinalExponentStep0 {
     ) -> VerifyStage {
         let mut f1 = f1_ctx.borrow_mut();
         let f2 = f2_ctx.as_ref();
-
-        // r = f^((p^6 - 1)(p^2))
-        f1.frobenius_map(2);
 
         f1.mul_assign(f2);
 
