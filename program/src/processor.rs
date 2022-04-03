@@ -39,7 +39,7 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     input: &[u8],
 ) -> ProgramResult {
-    let mut f = Fqk254::new_const(
+    let f = Fqk254::new_const(
         Fq6::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
@@ -70,37 +70,36 @@ pub fn process_instruction(
         ),
     );
 
-    let mut f2 = f.clone();
-    let f3 = f.clone();
+    let f2 = f.clone();
 
-    let ctx = FinalExponentStep0 {
-        step: input[0],
-        f1: Pubkey::default(),
-        f2: Pubkey::default(),
+    let ctx = FinalExponentMul13 {
+        r: Pubkey::default(),
+        y9: Pubkey::default(),
+        y14: Pubkey::default(),
     };
     
-    // let y0_ctx = ReadOnlyContext::new(ctx.y0, &f3);
-    // let y1_ctx = InitializeContext::new(Pubkey::default());
-    // let y2_ctx = InitializeContext::new(Pubkey::default());
-    // ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
+    let y0_ctx = ReadOnlyContext::new(ctx.r, f);
+    let y1_ctx = ReadOnlyContext::new(ctx.y9, f2);
+    let y2_ctx = InitializeContext::new(Pubkey::default());
+    ctx.process(&y0_ctx, &y1_ctx, &y2_ctx);
 
-    match ctx.step {
-        0 => {
-            let f1_ctx = UpdateContext::new(ctx.f1, f);
-            let f2_ctx = UpdateContext::new(ctx.f2, f2);
-            ctx.process_0(&f1_ctx, &f2_ctx);
-        }
-        1 => {
-            let f1_ctx = UpdateContext::new(ctx.f1, f);
-            let f2_ctx = ReadOnlyContext::new(ctx.f2, &f2);
-            let y0_ctx = InitializeContext::new(Pubkey::default());
-            // let y5_ctx = InitializeContext::new(Pubkey::default());
-            // let y6_ctx = InitializeContext::new(Pubkey::default());
+    // match ctx.step {
+    //     0 => {
+    //         let f1_ctx = UpdateContext::new(ctx.f1, f);
+    //         let f2_ctx = UpdateContext::new(ctx.f2, f2);
+    //         ctx.process_0(&f1_ctx, &f2_ctx);
+    //     }
+    //     1 => {
+    //         let f1_ctx = UpdateContext::new(ctx.f1, f);
+    //         let f2_ctx = ReadOnlyContext::new(ctx.f2, f2);
+    //         let y0_ctx = InitializeContext::new(Pubkey::default());
+    //         // let y5_ctx = InitializeContext::new(Pubkey::default());
+    //         // let y6_ctx = InitializeContext::new(Pubkey::default());
 
-            ctx.process_1(&f1_ctx, &f2_ctx, &y0_ctx);
-        }
-        _ => {}
-    }
+    //         ctx.process_1(&f1_ctx, &f2_ctx, &y0_ctx);
+    //     }
+    //     _ => {}
+    // }
         
     Ok(())
 }

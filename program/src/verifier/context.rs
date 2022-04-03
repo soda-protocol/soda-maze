@@ -42,24 +42,18 @@ impl<S: Clone + BorshSerialize + BorshDeserialize> UpdateContext<S> {
     }
 }
 
-pub struct ReadOnlyContext<'a, S: Clone + BorshSerialize + BorshDeserialize> {
+pub struct ReadOnlyContext<S: Clone + BorshSerialize + BorshDeserialize> {
     pubkey: Pubkey,
     is_closed: RefCell<bool>,
-    state: &'a S,
+    state: RefCell<Option<S>>,
 }
 
-impl<'a, S: Clone + BorshSerialize + BorshDeserialize> AsRef<S> for ReadOnlyContext<'a, S> {
-    fn as_ref(&self) -> &S {
-        self.state
-    }
-}
-
-impl<'a, S: Clone + BorshSerialize + BorshDeserialize> ReadOnlyContext<'a, S> {
-    pub fn new(pubkey: Pubkey, state: &'a S) -> Self {
+impl<S: Clone + BorshSerialize + BorshDeserialize> ReadOnlyContext<S> {
+    pub fn new(pubkey: Pubkey, state: S) -> Self {
         Self {
             pubkey,
             is_closed: RefCell::new(false),
-            state,
+            state: RefCell::new(Some(state)),
         }
     }
     
@@ -73,6 +67,10 @@ impl<'a, S: Clone + BorshSerialize + BorshDeserialize> ReadOnlyContext<'a, S> {
 
     pub fn is_closed(&self) -> bool {
         *self.is_closed.borrow()
+    }
+
+    pub fn take(&self) -> S {
+        self.state.take().unwrap()
     }
 }
 
