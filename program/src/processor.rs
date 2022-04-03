@@ -86,12 +86,12 @@ pub fn process_instruction(
 
     match ctx.step {
         0 => {
-            let f1_ctx = UpdateContext::new(ctx.f1, &mut f);
-            let f2_ctx = UpdateContext::new(ctx.f2, &mut f2);
+            let f1_ctx = UpdateContext::new(ctx.f1, f);
+            let f2_ctx = UpdateContext::new(ctx.f2, f2);
             ctx.process_0(&f1_ctx, &f2_ctx);
         }
         1 => {
-            let f1_ctx = UpdateContext::new(ctx.f1, &mut f);
+            let f1_ctx = UpdateContext::new(ctx.f1, f);
             let f2_ctx = ReadOnlyContext::new(ctx.f2, &f2);
             let y0_ctx = InitializeContext::new(Pubkey::default());
             // let y5_ctx = InitializeContext::new(Pubkey::default());
@@ -129,7 +129,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![1, 0],
+                data: vec![0, 0],
             }],
             Some(&user.pubkey()),
             &[&user],

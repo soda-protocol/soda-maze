@@ -69,12 +69,12 @@ impl PrepareInputs {
         
         self.bit_index += MAX_COMPRESS_CYCLE as u8;
         if self.bit_index as usize >= bits.len() {
-            g_ic.add_assign(*tmp);
+            g_ic.add_assign(&tmp_ctx.borrow());
             self.input_index += 1;
             if public_inputs.get(self.input_index as usize).is_some() {
                 self.bit_index = 0;
-                **tmp = G1Projective254::zero();
-                **g_ic = *pvk.g_ic_init;
+                *tmp = G1Projective254::zero();
+                *g_ic = *pvk.g_ic_init;
     
                 VerifyStage::PrepareInputs(self)
             } else {
@@ -170,8 +170,8 @@ impl MillerLoop {
         let mut r = r_ctx.borrow_mut();
         let proof_a = proof_a_ctx.as_ref();
 
-        let coeff = doubling_step(*r, FQ_TWO_INV);
-        ell(*f, &coeff, proof_a);
+        let coeff = doubling_step(&mut r, FQ_TWO_INV);
+        ell(&mut f, &coeff, proof_a);
     
         self.step += 1;
         VerifyStage::MillerLoop(self)
@@ -187,7 +187,7 @@ impl MillerLoop {
         let prepared_input = prepared_input_ctx.as_ref();
 
         let pvk = proof_type.verifying_key();
-        ell(*f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], prepared_input);
+        ell(&mut f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], prepared_input);
     
         self.step += 1;
         VerifyStage::MillerLoop(self)
@@ -210,7 +210,7 @@ impl MillerLoop {
         let mut r = r_ctx.borrow_mut();
 
         let pvk = proof_type.verifying_key();
-        ell(*f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], proof_c);
+        ell(&mut f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], proof_c);
 
         self.index -= 1;
         let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
@@ -261,14 +261,14 @@ impl MillerLoop {
 
         let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
         let coeff = match bit {
-            1 => addition_step(*r, proof_b),
+            1 => addition_step(&mut r, proof_b),
             -1 => {
                 let neg_b = -(*proof_b);
-                addition_step(*r, &neg_b)
+                addition_step(&mut r, &neg_b)
             }
             _ => unreachable!("bit is always be 1 or -1 at hear"),
         };
-        ell(*f, &coeff, proof_a);
+        ell(&mut f, &coeff, proof_a);
 
         self.step += 1;
         VerifyStage::MillerLoop(self)
@@ -284,7 +284,7 @@ impl MillerLoop {
         let prepared_input = prepared_input_ctx.as_ref();
 
         let pvk = proof_type.verifying_key();
-        ell(*f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], prepared_input);
+        ell(&mut f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], prepared_input);
 
         self.step += 1;
         VerifyStage::MillerLoop(self)
@@ -307,7 +307,7 @@ impl MillerLoop {
         let prepared_input = prepared_input_ctx.as_ref();
 
         let pvk = proof_type.verifying_key();
-        ell(*f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], prepared_input);
+        ell(&mut f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], prepared_input);
 
         if self.index == 0 {
             let q1 = mul_by_char::<BnParameters>(*proof_b);
@@ -367,8 +367,8 @@ impl MillerFinalize {
         let q1 = q1_ctx.as_ref();
         let proof_a = proof_a_ctx.as_ref();
 
-        let coeff = addition_step(*r, q1);
-        ell(*f, &coeff, proof_a);
+        let coeff = addition_step(&mut r, q1);
+        ell(&mut f, &coeff, proof_a);
 
         self.step += 1;
         q1_ctx.close();
@@ -386,7 +386,7 @@ impl MillerFinalize {
 
         let pvk = proof_type.verifying_key();
         let index = pvk.gamma_g2_neg_pc.len() - 2;
-        ell(*f, &pvk.gamma_g2_neg_pc[index], prepared_input);
+        ell(&mut f, &pvk.gamma_g2_neg_pc[index], prepared_input);
 
         self.step += 1;
         VerifyStage::MillerFinalize(self)
@@ -403,8 +403,7 @@ impl MillerFinalize {
 
         let pvk = proof_type.verifying_key();
         let index = pvk.delta_g2_neg_pc.len() - 2;
-        ell(*f, &pvk.delta_g2_neg_pc[index], proof_c);
-
+        ell(&mut f, &pvk.delta_g2_neg_pc[index], proof_c);
 
         self.step += 1;
         VerifyStage::MillerFinalize(self) 
@@ -422,8 +421,8 @@ impl MillerFinalize {
         let q2 = q2_ctx.as_ref();
         let proof_a = proof_a_ctx.as_ref();
 
-        let coeff = addition_step(*r, q2);
-        ell(*f, &coeff, proof_a);
+        let coeff = addition_step(&mut r, q2);
+        ell(&mut f, &coeff, proof_a);
 
         self.step += 1;
         r_ctx.close();
@@ -443,7 +442,7 @@ impl MillerFinalize {
 
         let pvk = proof_type.verifying_key();
         let index = pvk.gamma_g2_neg_pc.len() - 1;
-        ell(*f, &pvk.gamma_g2_neg_pc[index], prepared_input);
+        ell(&mut f, &pvk.gamma_g2_neg_pc[index], prepared_input);
 
         self.step += 1;
         prepared_input_ctx.close();
@@ -461,7 +460,7 @@ impl MillerFinalize {
 
         let pvk = proof_type.verifying_key();
         let index = pvk.delta_g2_neg_pc.len() - 1;
-        ell(*f, &pvk.delta_g2_neg_pc[index], proof_c);
+        ell(&mut f, &pvk.delta_g2_neg_pc[index], proof_c);
         
         proof_c_ctx.close();
         VerifyStage::FinalExponentInverse0(FinalExponentInverse0 {
@@ -628,10 +627,10 @@ impl FinalExponentStep0 {
 
         // f2 = f^(-1);
         // r = f^(p^6 - 1)
-        f1.mul_assign(**f2);
+        f1.mul_assign(*f2_ctx.borrow());
 
         // f2 = f^(p^6 - 1)
-        **f2 = **f1;
+        *f2 = *f1_ctx.borrow();
 
         // r = f^((p^6 - 1)(p^2))
         f1.frobenius_map(2);

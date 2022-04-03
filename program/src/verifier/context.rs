@@ -1,15 +1,15 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell, RefMut, Ref};
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::pubkey::Pubkey;
 
-pub struct UpdateContext<'a, S: Clone + BorshSerialize + BorshDeserialize> {
+pub struct UpdateContext<S: Clone + BorshSerialize + BorshDeserialize> {
     pubkey: Pubkey,
     is_closed: RefCell<bool>,
-    state: RefCell<&'a mut S>,
+    state: RefCell<S>,
 }
 
-impl<'a, S: Clone + BorshSerialize + BorshDeserialize> UpdateContext<'a, S> {
-    pub fn new(pubkey: Pubkey, state: &'a mut S) -> Self {
+impl<S: Clone + BorshSerialize + BorshDeserialize> UpdateContext<S> {
+    pub fn new(pubkey: Pubkey, state: S) -> Self {
         Self {
             pubkey,
             is_closed: RefCell::new(false),
@@ -29,8 +29,16 @@ impl<'a, S: Clone + BorshSerialize + BorshDeserialize> UpdateContext<'a, S> {
         *self.is_closed.borrow()
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, &'a mut S> {
+    pub fn borrow_mut(&self) -> RefMut<'_, S> {
         self.state.borrow_mut()
+    }
+
+    pub fn borrow(&self) -> Ref<'_, S> {
+        self.state.borrow()
+    }
+
+    pub fn take(self) -> S {
+        self.state.into_inner()
     }
 }
 
@@ -89,7 +97,7 @@ impl<S: Clone + BorshSerialize + BorshDeserialize> InitializeContext<S> {
         *self.state.borrow_mut() = Some(state)
     }
 
-    pub fn unwrap_state(self) -> S {
-        self.state.take().unwrap()
+    pub fn take(self) -> S {
+        self.state.into_inner().unwrap()
     }
 }

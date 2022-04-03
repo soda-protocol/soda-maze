@@ -341,7 +341,7 @@ impl_multiplicative_ops_from_ref!(QuadExtField, QuadExtParameters);
 
 impl<'a, P: QuadExtParameters> MulAssign<&'a Self> for QuadExtField<P> {
     #[inline]
-    fn mul_assign(&mut self, other: &Self) {
+    fn mul_assign(&mut self, other: &'a Self) {
         // Karatsuba multiplication;
         // Guide to Pairing-based cryprography, Algorithm 5.16.
         let v0 = self.c0 * &other.c0;
