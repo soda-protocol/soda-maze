@@ -97,7 +97,7 @@ pub fn process_instruction(
     let q1_ctx = InitializeContext::new(Pubkey::default());
     let q2_ctx = InitializeContext::new(Pubkey::default());
     
-    stage.process_3(
+    stage.process_6(
         OperationType::Deposit,
         &f_ctx,
         &r_ctx,
@@ -157,7 +157,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![0, 1, 0],
+                data: vec![0, 0, 0],
             }],
             Some(&user.pubkey()),
             &[&user],
