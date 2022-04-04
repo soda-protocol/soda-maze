@@ -467,9 +467,9 @@ impl MillerLoopFinalize {
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentInverse0 {
-    f: Pubkey, // Fqk254
+    pub f: Pubkey, // Fqk254
 }
 
 impl FinalExponentInverse0 {

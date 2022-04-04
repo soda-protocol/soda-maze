@@ -85,25 +85,28 @@ pub fn process_instruction(
     //     ),
     // };
 
-    let mut stage = MillerLoop::default();
-    stage.step = input[0];
-    stage.index = input[1];
-    stage.coeff_index = input[2];
+    let mut stage = FinalExponentInverse0::default();
 
-    let f_ctx = UpdateContext::new(stage.f, f);
+    let f_ctx = ReadOnlyContext::new(stage.f, f);
+    let s0_ctx = InitializeContext::new(Pubkey::default());
+    let s1_ctx = InitializeContext::new(Pubkey::default());
+    let s2_ctx = InitializeContext::new(Pubkey::default());
+    let t6_ctx = InitializeContext::new(Pubkey::default());
+    let v0_ctx = InitializeContext::new(Pubkey::default());
+
     // let r_ctx = UpdateContext::new(stage.r, r);
     // let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
     // let proof_c_ctx = ReadOnlyContext::new(stage.proof_c, PROOF.c);
     // let q1_ctx = InitializeContext::new(Pubkey::default());
     // let q2_ctx = InitializeContext::new(Pubkey::default());
     
-    stage.process_0(
+    stage.process(
         &f_ctx,
-        // &r_ctx,
-        // &proof_b_ctx,
-        // &proof_c_ctx,
-        // &q1_ctx,
-        // &q2_ctx,
+        &s0_ctx,
+        &s1_ctx,
+        &s2_ctx,
+        &t6_ctx,
+        &v0_ctx,
     );
     
     // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
