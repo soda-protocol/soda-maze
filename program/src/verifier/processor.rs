@@ -321,7 +321,7 @@ impl MillerLoop {
             q1_ctx.fill_with(q1);
             q2_ctx.fill_with(q2);
             proof_b_ctx.close();
-            return VerifyStage::MillerLoopFinalize(MillerLoopFinalize {
+            VerifyStage::MillerLoopFinalize(MillerLoopFinalize {
                 step: 0,
                 prepared_input: self.prepared_input,
                 proof_a: self.proof_a,
@@ -330,7 +330,7 @@ impl MillerLoop {
                 q2: q2_ctx.pubkey(),
                 r: self.r,
                 f: self.f,
-            });
+            })
         } else {
             self.coeff_index += 1;
             self.step = 0;
