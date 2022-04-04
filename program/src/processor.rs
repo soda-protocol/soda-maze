@@ -85,14 +85,15 @@ pub fn process_instruction(
     //     ),
     // };
 
-    let mut stage = FinalExponentInverse0::default();
+    let mut stage = FinalExponentInverse1::default();
 
-    let f_ctx = ReadOnlyContext::new(stage.f, f);
-    let s0_ctx = InitializeContext::new(Pubkey::default());
-    let s1_ctx = InitializeContext::new(Pubkey::default());
-    let s2_ctx = InitializeContext::new(Pubkey::default());
-    let t6_ctx = InitializeContext::new(Pubkey::default());
-    let v0_ctx = InitializeContext::new(Pubkey::default());
+    let f_ctx = UpdateContext::new(stage.f, f);
+    let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
+    let s1_ctx = ReadOnlyContext::new(stage.s1, f.c0.c1);
+    let s2_ctx = ReadOnlyContext::new(stage.s2, f.c1.c0);
+    let t6_ctx = ReadOnlyContext::new(stage.t6, f.c1.c1);
+    let v0_ctx = ReadOnlyContext::new(stage.v0, PROOF.a.x);
+    let f2_ctx = InitializeContext::new(Pubkey::default());
 
     // let r_ctx = UpdateContext::new(stage.r, r);
     // let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
@@ -107,6 +108,7 @@ pub fn process_instruction(
         &s2_ctx,
         &t6_ctx,
         &v0_ctx,
+        &f2_ctx,
     );
     
     // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);

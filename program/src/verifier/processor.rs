@@ -543,14 +543,14 @@ impl FinalExponentInverse0 {
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentInverse1 {
-    f: Pubkey, // Fqk254
-    s0: Pubkey, // Fp2
-    s1: Pubkey, // Fp2
-    s2: Pubkey, // Fp2
-    t6: Pubkey, // Fp2
-    v0: Pubkey, // Fp
+    pub f: Pubkey, // Fqk254
+    pub s0: Pubkey, // Fp2
+    pub s1: Pubkey, // Fp2
+    pub s2: Pubkey, // Fp2
+    pub t6: Pubkey, // Fp2
+    pub v0: Pubkey, // Fp
 }
 
 impl FinalExponentInverse1 {
