@@ -70,20 +70,20 @@ pub fn process_instruction(
         ),
     );
 
-    let r = G2HomProjective254 {
-        x: Fq2::new_const(
-            Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-            Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-        ),
-        y: Fq2::new_const(
-            Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-            Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-        ),
-        z: Fq2::new_const(
-            Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
-            Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
-        ),
-    };
+    // let r = G2HomProjective254 {
+    //     x: Fq2::new_const(
+    //         Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+    //         Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+    //     ),
+    //     y: Fq2::new_const(
+    //         Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+    //         Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+    //     ),
+    //     z: Fq2::new_const(
+    //         Fq::new(BigInteger::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
+    //         Fq::new(BigInteger::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
+    //     ),
+    // };
 
     let mut stage = MillerLoop::default();
     stage.step = input[0];
@@ -91,20 +91,19 @@ pub fn process_instruction(
     stage.coeff_index = input[2];
 
     let f_ctx = UpdateContext::new(stage.f, f);
-    let r_ctx = UpdateContext::new(stage.r, r);
-    let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
-    let proof_c_ctx = ReadOnlyContext::new(stage.proof_c, PROOF.c);
-    let q1_ctx = InitializeContext::new(Pubkey::default());
-    let q2_ctx = InitializeContext::new(Pubkey::default());
+    // let r_ctx = UpdateContext::new(stage.r, r);
+    // let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
+    // let proof_c_ctx = ReadOnlyContext::new(stage.proof_c, PROOF.c);
+    // let q1_ctx = InitializeContext::new(Pubkey::default());
+    // let q2_ctx = InitializeContext::new(Pubkey::default());
     
-    stage.process_6(
-        OperationType::Deposit,
+    stage.process_0(
         &f_ctx,
-        &r_ctx,
-        &proof_b_ctx,
-        &proof_c_ctx,
-        &q1_ctx,
-        &q2_ctx,
+        // &r_ctx,
+        // &proof_b_ctx,
+        // &proof_c_ctx,
+        // &q1_ctx,
+        // &q2_ctx,
     );
     
     // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
@@ -157,7 +156,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![0, 0, 0],
+                data: vec![0, 1, 0],
             }],
             Some(&user.pubkey()),
             &[&user],
