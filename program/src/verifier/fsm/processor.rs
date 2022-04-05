@@ -5,8 +5,10 @@ use solana_program::pubkey::Pubkey;
 
 use crate::{bn::{BnParameters as Bn, BitIteratorBE, TwistType, Field, doubling_step, addition_step, mul_by_char, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper}, OperationType};
 
-use super::{state::VerifyStage, params::*, context::{UpdateContext, ReadOnlyContext, InitializeContext}};
-use super::params::{Fr, Bn254Parameters as BnParameters};
+use super::{state::VerifyStage};
+use crate::params::{Fr, Bn254Parameters as BnParameters};
+use crate::params::*;
+use crate::verifier::context::{UpdateContext, ReadOnlyContext, InitializeContext};
 
 fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     let mut c0 = coeffs.0;
@@ -27,7 +29,7 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
     pub input_index: u8,
     pub bit_index: u8,
@@ -72,7 +74,6 @@ impl PrepareInputs {
             if public_inputs.get(self.input_index as usize).is_some() {
                 self.bit_index = 0;
                 *tmp = G1Projective254::zero();
-                *g_ic = *pvk.g_ic_init;
     
                 VerifyStage::PrepareInputs(self)
             } else {

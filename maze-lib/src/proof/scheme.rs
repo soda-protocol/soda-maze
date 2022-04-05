@@ -93,6 +93,7 @@ where
         let mut inputs = Vec::new();
         inputs.push(pub_in.mint.to_field_element());
         inputs.push(F::from(pub_in.withdraw_amount));
+        inputs.push(pub_in.nullifier);
         inputs.push(pub_in.old_root);
         inputs.push(F::from(pub_in.new_leaf_index));
         inputs.push(pub_in.new_leaf);
@@ -110,14 +111,17 @@ where
             pub_in.mint,
             pub_in.withdraw_amount,
             priv_in.deposit_amount,
-            priv_in.secret,
-            params.leaf_params.clone(),
+            pub_in.nullifier,
+            priv_in.secret_1,
+            priv_in.secret_2,
             pub_in.new_leaf_index,
             pub_in.new_leaf,
             pub_in.old_root,
             priv_in.friend_nodes_1.clone(),
             priv_in.friend_nodes_2.clone(),
             pub_in.update_nodes.clone(),
+            params.nullifier_params.clone(),
+            params.leaf_params.clone(),
             params.inner_params.clone(),
         )
     }

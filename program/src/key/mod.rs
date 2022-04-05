@@ -2,7 +2,7 @@ mod deposit;
 
 pub use deposit::*;
 
-use crate::verifier::params::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
+use crate::params::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
 
 pub struct PreparedVerifyingKey<'a> {
     /// 

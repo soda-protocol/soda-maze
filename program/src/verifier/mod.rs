@@ -1,8 +1,8 @@
-pub mod state;
-pub mod params;
 pub mod store;
-pub mod processor;
 pub mod context;
+pub mod pda;
+pub mod fsm;
+pub mod vanilla;
 
 use std::ops::AddAssign;
 
@@ -12,8 +12,8 @@ use solana_program::{entrypoint::ProgramResult, account_info::{AccountInfo, next
 use crate::{bn::{G1Affine, G1Prepared, G1Projective, BigInteger256 as BigInteger, BitIteratorBE, Fqk}, Packer, OperationType};
 use crate::error::MazeError;
 
-use self::state::{VerifyStage, PublicInputBuffer, VerifyingBuffer, Proof};
-use params::{Fr, Bn254Parameters as BnParameters};
+use fsm::{VerifyStage, PublicInputBuffer, VerifyingBuffer, Proof};
+use crate::params::{Fr, Bn254Parameters as BnParameters};
 
 // #[inline(never)]
 // fn process(

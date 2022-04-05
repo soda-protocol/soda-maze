@@ -114,6 +114,7 @@ pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>, const HEIGHT:
 }
 
 pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {
+    pub nullifier_params: FH::Parameters,
     pub inner_params: FH::Parameters,
     pub leaf_params: FH::Parameters,
 }
@@ -125,7 +126,8 @@ pub struct WithdrawOriginInputs<F: PrimeField, const HEIGHT: u8> {
     pub withdraw_amount: u64,
     pub leaf_index_1: u64,
     pub leaf_index_2: u64,
-    pub secret: F,
+    pub secret_1: F,
+    pub secret_2: F,
     pub friend_nodes_1: Vec<F>,
     pub friend_nodes_2: Vec<F>,
 }
@@ -134,6 +136,7 @@ pub struct WithdrawOriginInputs<F: PrimeField, const HEIGHT: u8> {
 pub struct WithdrawPublicInputs<F: PrimeField> {
     pub mint: Pubkey,
     pub withdraw_amount: u64,
+    pub nullifier: F,
     pub old_root: F,
     pub new_leaf_index: u64,
     pub new_leaf: F,
@@ -143,7 +146,8 @@ pub struct WithdrawPublicInputs<F: PrimeField> {
 #[derive(Clone)]
 pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub deposit_amount: u64,
-    pub secret: F,
+    pub secret_1: F,
+    pub secret_2: F,
     pub friend_nodes_1: Vec<(bool, F)>,
     pub friend_nodes_2: Vec<(bool, F)>,
 }
@@ -173,7 +177,8 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
             withdraw_amount: 1,
             leaf_index_1: 0,
             leaf_index_2: 1,
-            secret: F::zero(),
+            secret_1: F::zero(),
+            secret_2: F::one(),
             friend_nodes_1,
             friend_nodes_2,
         };
@@ -210,10 +215,13 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let nullifier = FH::hash(&params.nullifier_params, &[orig_in.secret_1])
+            .map_err(|e| anyhow!("hash error: {}", e))?;
+
         let preimage = vec![
             orig_in.mint.to_field_element(),
             F::from(orig_in.deposit_amount),
-            orig_in.secret,
+            orig_in.secret_1,
         ];
         let leaf_1 = FH::hash(&params.leaf_params, &preimage[..]).unwrap();
         let old_root = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_1, leaf_1)
@@ -225,7 +233,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
         let preimage = vec![
             orig_in.mint.to_field_element(),
             F::from(orig_in.deposit_amount - orig_in.withdraw_amount),
-            orig_in.secret,
+            orig_in.secret_2,
         ];
         let leaf_2 = FH::hash(&params.leaf_params, &preimage[..]).unwrap();
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_2, leaf_2.clone())
@@ -235,13 +243,15 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
             mint: orig_in.mint,
             withdraw_amount: orig_in.withdraw_amount,
             new_leaf_index: orig_in.leaf_index_2,
+            nullifier,
             old_root,
             new_leaf: leaf_2,
             update_nodes,
         };
         let priv_in = WithdrawPrivateInputs {
             deposit_amount: orig_in.deposit_amount,
-            secret: orig_in.secret,
+            secret_1: orig_in.secret_1,
+            secret_2: orig_in.secret_2,
             friend_nodes_1,
             friend_nodes_2,
         };

@@ -2,8 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_pack::IsInitialized;
 
 use crate::Packer;
-
-use super::params::{Fq, Fq2, G1Projective254, G1Affine254, G2HomProjective254, G2Affine254, Fqk254};
+use crate::params::{Fq, Fq2, G1Projective254, G1Affine254, G2HomProjective254, G2Affine254, Fqk254};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct StateWrapper<S: Clone + BorshSerialize + BorshDeserialize> {

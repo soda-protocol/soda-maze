@@ -1,8 +1,9 @@
 use borsh::BorshDeserialize;
-use num_traits::One;
+use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{state::Proof, params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6}, processor::*, context::{UpdateContext, ReadOnlyContext, InitializeContext}}, OperationType, bn::Field};
+use crate::{verifier::{fsm::*, context::{UpdateContext, ReadOnlyContext, InitializeContext}}, params::{Fr, G1Projective254}, OperationType};
+use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
 const PROOF: Proof = Proof {
@@ -63,8 +64,8 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     input: &[u8],
 ) -> ProgramResult {
-    let data = &mut &F[..];
-    let f = Fqk254::deserialize(data).unwrap();
+    // let data = &mut &F[..];
+    // let f = Fqk254::deserialize(data).unwrap();
 
     // let r = G2HomProjective254 {
     //     x: Fq2::new_const(
@@ -81,15 +82,36 @@ pub fn process_instruction(
     //     ),
     // };
 
-    let stage = FinalExponentInverse1::default();
+    let mut stage = PrepareInputs::default();
+    stage.input_index = input[0];
+    stage.bit_index = input[1];
 
-    let f_ctx = UpdateContext::new(stage.f, f);
-    let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
-    let s1_ctx = ReadOnlyContext::new(stage.s1, f.c0.c1);
-    let s2_ctx = ReadOnlyContext::new(stage.s2, f.c1.c0);
-    let t6_ctx = ReadOnlyContext::new(stage.t6, f.c1.c1);
-    let v0_ctx = ReadOnlyContext::new(stage.v0, PROOF.a.x);
-    let f2_ctx = InitializeContext::new(Pubkey::default());
+    let public_inputs = vec![
+        Fr::new(BigInteger::new([
+            9497411607956386375,
+            268351533763702874,
+            18353951159736685747,
+            1825167008963268151,
+        ]));
+        32
+    ];
+
+    let proof_type = OperationType::Deposit;
+    let pvk = proof_type.verifying_key();
+
+    let public_inputs_ctx = ReadOnlyContext::new(stage.public_inputs, public_inputs);
+    let g_ic_ctx = UpdateContext::new(stage.g_ic, *pvk.g_ic_init);
+    let tmp_ctx = UpdateContext::new(stage.tmp, G1Projective254::zero());
+
+    stage.process(proof_type, &public_inputs_ctx, &g_ic_ctx, &tmp_ctx);
+
+    // let f_ctx = UpdateContext::new(stage.f, f);
+    // let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
+    // let s1_ctx = ReadOnlyContext::new(stage.s1, f.c0.c1);
+    // let s2_ctx = ReadOnlyContext::new(stage.s2, f.c1.c0);
+    // let t6_ctx = ReadOnlyContext::new(stage.t6, f.c1.c1);
+    // let v0_ctx = ReadOnlyContext::new(stage.v0, PROOF.a.x);
+    // let f2_ctx = InitializeContext::new(Pubkey::default());
 
     // let r_ctx = UpdateContext::new(stage.r, r);
     // let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
@@ -97,15 +119,15 @@ pub fn process_instruction(
     // let q1_ctx = InitializeContext::new(Pubkey::default());
     // let q2_ctx = InitializeContext::new(Pubkey::default());
     
-    stage.process(
-        &f_ctx,
-        &s0_ctx,
-        &s1_ctx,
-        &s2_ctx,
-        &t6_ctx,
-        &v0_ctx,
-        &f2_ctx,
-    );
+    // stage.process(
+    //     &f_ctx,
+    //     &s0_ctx,
+    //     &s1_ctx,
+    //     &s2_ctx,
+    //     &t6_ctx,
+    //     &v0_ctx,
+    //     &f2_ctx,
+    // );
     
     // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
     // let y15_ctx = ReadOnlyContext::new(ctx.y15, f2);
@@ -135,12 +157,11 @@ pub fn process_instruction(
 
 #[cfg(test)]
 mod tests {
-    use borsh::BorshSerialize;
     use solana_program::instruction::Instruction;
     use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
     use solana_client::rpc_client::{RpcClient};
 
-    use crate::{id, verifier::params::{Fqk254, Fq6, Fq2, Fq}, bn::BigInteger256};
+    use crate::{id, params::{Fqk254, Fq6, Fq2, Fq}, bn::BigInteger256};
 
     const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
     const DEVNET: &str = "https://api.devnet.solana.com";
@@ -167,44 +188,5 @@ mod tests {
 
         let res = client.send_transaction(&transaction).unwrap();
         println!("{}", res);
-    }
-
-    #[test]
-    fn test_pack() {
-        let f = Fqk254::new_const(
-            Fq6::new_const(
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-                    Fq::new(BigInteger256::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-                ),
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-                    Fq::new(BigInteger256::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-                ),
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
-                    Fq::new(BigInteger256::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
-                ),
-            ),
-            Fq6::new_const(
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
-                    Fq::new(BigInteger256::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-                ),
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
-                    Fq::new(BigInteger256::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
-                ),
-                Fq2::new_const(
-                    Fq::new(BigInteger256::new([4153767206144153341, 4757445080423304776, 7392391047398498789, 735036359864433540])),
-                    Fq::new(BigInteger256::new([786726130547703630, 11930992407036731514, 3203034900645816634, 1625741866668428970])),
-                ),
-            ),
-        );
-
-        let mut data = vec![];
-        f.serialize(&mut data).unwrap();
-
-        println!("{:?}", &data[..]);
     }
 }

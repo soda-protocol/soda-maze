@@ -47,18 +47,6 @@ macro_rules! impl_Fp {
                 }
                 self
             }
-
-            // // need unused assignment because the last iteration of the loop produces an assignment
-            // // to `borrow` that is unused.
-            // #[allow(unused_assignments)]
-            // fn sub_noborrow(a: &$BigIntegerType, b: &$BigIntegerType) -> $BigInteger {
-            //     let mut a = *a;
-            //     let mut borrow = 0;
-            //     for i in 0..$limbs {
-            //         a.0[i] = sbb!(a.0[i], b.0[i], &mut borrow);
-            //     }
-            //     a
-            // }
         }
 
         impl<P> AsRef<[u64]> for $Fp<P> {
@@ -214,32 +202,6 @@ macro_rules! impl_Fp {
             fn frobenius_map(&mut self, _: usize) {}
         }
 
-        /// Note that this implementation of `Ord` compares field elements viewing
-        /// them as integers in the range 0, 1, ..., P::MODULUS - 1. However, other
-        /// implementations of `PrimeField` might choose a different ordering, and
-        /// as such, users should use this `Ord` for applications where
-        /// any ordering suffices (like in a BTreeMap), and not in applications
-        /// where a particular ordering is required.
-        // impl<P: $FpParameters> Ord for $Fp<P> {
-        //     #[inline(always)]
-        //     fn cmp(&self, other: &Self) -> Ordering {
-        //         self.into_repr().cmp(&other.into_repr())
-        //     }
-        // }
-
-        /// Note that this implementation of `PartialOrd` compares field elements viewing
-        /// them as integers in the range 0, 1, ..., `P::MODULUS` - 1. However, other
-        /// implementations of `PrimeField` might choose a different ordering, and
-        /// as such, users should use this `PartialOrd` for applications where
-        /// any ordering suffices (like in a BTreeMap), and not in applications
-        /// where a particular ordering is required.
-        // impl<P: $FpParameters> PartialOrd for $Fp<P> {
-        //     #[inline(always)]
-        //     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        //         Some(self.cmp(other))
-        //     }
-        // }
-
         impl<P: $FpParameters> Neg for $Fp<P> {
             type Output = Self;
             #[inline]
@@ -348,35 +310,4 @@ macro_rules! impl_Fp {
             }
         }
     }
-}
-
-#[macro_export]
-macro_rules! field_new {
-    ($name:ident, $c0:expr) => {{
-        use $crate::FpParameters;
-        type Params = <$name as $crate::PrimeField>::Params;
-        let (is_positive, limbs) = soda_maze_macro::to_sign_and_limbs!($c0);
-        $name::const_from_str(
-            &limbs,
-            is_positive,
-            Params::R2,
-            Params::MODULUS,
-            Params::INV,
-        )
-    }};
-    ($name:ident, $c0:expr, $c1:expr $(,)?) => {
-        $name {
-            c0: $c0,
-            c1: $c1,
-            _p: core::marker::PhantomData,
-        }
-    };
-    ($name:ident, $c0:expr, $c1:expr, $c2:expr $(,)?) => {
-        $name {
-            c0: $c0,
-            c1: $c1,
-            c2: $c2,
-            _p: core::marker::PhantomData,
-        }
-    };
 }

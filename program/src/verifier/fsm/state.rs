@@ -2,7 +2,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
 
 use crate::{Packer, OperationType};
-use super::{params::{Fr, G1Affine254, G2Affine254}, processor::*};
+use crate::{params::{Fr, G1Affine254, G2Affine254}};
+
+use super::processor::*;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Proof {

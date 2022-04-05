@@ -1,4 +1,4 @@
-use crate::{verifier::params::{G1Projective254, Fq, G1Affine254, EllCoeffFq2, Fq2, Fqk254, Fq6}, bn::BigInteger256 as BigInteger};
+use crate::{params::{G1Projective254, Fq, G1Affine254, EllCoeffFq2, Fq2, Fqk254, Fq6}, bn::BigInteger256 as BigInteger};
 
 pub const DEPOSIT_G_IC_INIT: &G1Projective254 = &G1Projective254::new_const(
     Fq::new(BigInteger::new([8702585202244274910, 9214718725403065568, 17690655619678158896, 1222195394398354666])),

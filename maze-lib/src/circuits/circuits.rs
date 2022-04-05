@@ -1,7 +1,6 @@
 use ark_std::{cmp::Ordering, rc::Rc};
-use ark_r1cs_std::fields::fp::FpVar;
 use ark_ff::PrimeField;
-use ark_r1cs_std::alloc::AllocVar;
+use ark_r1cs_std::{fields::fp::FpVar, prelude::EqGadget, alloc::AllocVar};
 use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
 use crate::vanilla::{array::Pubkey, hasher::FieldHasher};
@@ -93,8 +92,11 @@ where
     mint: Pubkey,
     withdraw_amount: u64,
     deposit_amount: u64,
-    secret: F,
+    nullifier: F,
+    old_secret: F,
+    new_secret: F,
     leaf_params: Rc<FH::Parameters>,
+    nullifier_params: Rc<FH::Parameters>,
     proof_1: LeafExistance<F, FH, FHG>,
     proof_2: AddNewLeaf<F, FH, FHG>,
 }
@@ -108,13 +110,16 @@ where
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
         // alloc constant
         let leaf_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
+        let nullifier_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.nullifier_params)?;
         // alloc input
         let mint_var = FpVar::new_input(cs.clone(), || Ok(self.mint.to_field_element::<F>()))?;
         // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
         let withdraw_amount_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.withdraw_amount)))?;
+        let nullifier_var = FpVar::new_input(cs.clone(), || Ok(self.nullifier))?;
         // alloc witness
         let deposit_amount_var = Uint64::new_witness(cs.clone(), || Ok(self.deposit_amount))?;
-        let secret_var = FpVar::new_witness(cs.clone(), || Ok(self.secret))?;
+        let old_secret_var = FpVar::new_witness(cs.clone(), || Ok(self.old_secret))?;
+        let new_secret_var = FpVar::new_witness(cs.clone(), || Ok(self.new_secret))?;
 
         // restrain withdraw amount is less and equal than deposit amount
         let deposit_amount_var = deposit_amount_var.fp_var().clone();
@@ -125,14 +130,18 @@ where
         )?;
         let rest_amount_var = &deposit_amount_var - withdraw_amount_var;
 
+        // hash secret
+        let secret_hash_var = FHG::hash_gadget(&nullifier_params_var, &[old_secret_var.clone()])?;
+        secret_hash_var.enforce_equal(&nullifier_var)?;
+
         // hash origin data to leaf
-        let preimage = vec![mint_var.clone(), deposit_amount_var, secret_var.clone()];
+        let preimage = vec![mint_var.clone(), deposit_amount_var, old_secret_var];
         // existance proof
         let leaf_var = FHG::hash_gadget(&leaf_params_var, &preimage)?;
         let root_var = self.proof_1.synthesize(cs.clone(), leaf_var)?;
 
         // hash new back deposit data leaf
-        let preimage = vec![mint_var, rest_amount_var, secret_var];
+        let preimage = vec![mint_var, rest_amount_var, new_secret_var];
         // add new leaf proof
         let leaf_var = FHG::hash_gadget(&leaf_params_var, &preimage)?;
         self.proof_2.synthesize(cs.clone(), leaf_var, Some(root_var))?;
@@ -152,21 +161,27 @@ where
         mint: Pubkey,
         withdraw_amount: u64,
         deposit_amount: u64,
-        secret: F,
-        leaf_params: FH::Parameters,
+        nullifier: F,
+        old_secret: F,
+        new_secret: F,
         leaf_index_2: u64,
         leaf_2: F,
         old_root: F,
         friend_nodes_1: Vec<(bool, F)>,
         friend_nodes_2: Vec<(bool, F)>,
         update_nodes: Vec<F>,
+        nullifier_params: FH::Parameters,
+        leaf_params: FH::Parameters,
         inner_params: FH::Parameters,
     ) -> Self {
         Self {
             mint,
             withdraw_amount,
             deposit_amount,
-            secret,
+            nullifier,
+            old_secret,
+            new_secret,
+            nullifier_params: Rc::new(nullifier_params),
             leaf_params: Rc::new(leaf_params),
             proof_1: LeafExistance::new(
                 old_root,
@@ -190,7 +205,7 @@ mod test {
     use ark_bn254::Fr;
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, ConstraintSynthesizer};
-	use arkworks_utils::utils::common::{Curve, setup_params_x5_3, setup_params_x5_4};
+	use arkworks_utils::utils::common::{Curve, setup_params_x5_3, setup_params_x5_4, setup_params_x5_2};
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::poseidon::PoseidonHasherGadget;
@@ -266,17 +281,20 @@ mod test {
     }
 
     fn test_withdraw_inner(rng: &mut StdRng, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
+        let nullifier_params = setup_params_x5_2(Curve::Bn254);
         let inner_params = setup_params_x5_3::<Fr>(Curve::Bn254);
         let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         // deposit data
         let mint = Pubkey::new(<[u8; 32]>::rand(rng));
-        let secret = Fr::rand(rng);
+        let old_secret = Fr::rand(rng);
+        let new_secret = Fr::rand(rng);
+        let nullifier = PoseidonHasher::hash(&nullifier_params, &[old_secret]).unwrap();
         let rest_amount = deposit_amount.saturating_sub(withdraw_amount);
 
         let mint_fp = mint.to_field_element::<Fr>();
-        let preimage = vec![mint_fp, Fr::from(deposit_amount), secret];
+        let preimage = vec![mint_fp, Fr::from(deposit_amount), old_secret];
         let leaf_1 = PoseidonHasher::hash(&leaf_params, &preimage[..]).unwrap();
-        let preimage = vec![mint_fp, Fr::from(rest_amount), secret];
+        let preimage = vec![mint_fp, Fr::from(rest_amount), new_secret];
         let leaf_2 = PoseidonHasher::hash(&leaf_params, &preimage[..]).unwrap();
 
         let mut friend_nodes_1 = get_random_merkle_friends(rng);
@@ -306,14 +324,17 @@ mod test {
             mint,
             withdraw_amount,
             deposit_amount,
-            secret,
-            leaf_params,
+            nullifier,
+            old_secret,
+            new_secret,
             index_2,
             leaf_2,
             old_root,
             friend_nodes_1,
             friend_nodes_2,
             update_nodes,
+            nullifier_params,
+            leaf_params,
             inner_params,
         );
 

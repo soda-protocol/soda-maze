@@ -99,6 +99,7 @@ fn get_withdraw_const_params() -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     let curve = Curve::Bls381;
 
     WithdrawConstParams {
+        nullifier_params: setup_params_x5_2::<Fr>(curve),
         leaf_params: setup_params_x5_4::<Fr>(curve),
         inner_params: setup_params_x5_3::<Fr>(curve),
     }
@@ -263,6 +264,8 @@ enum Opt {
         leaf_index: u64,
         #[structopt(long, short = "m")]
         mint: Pubkey,
+        #[structopt(long, short = "n")]
+        nullifier: String,
         #[structopt(long = "withdraw-amount", short = "wa")]
         withdraw_amount: u64,
     },
@@ -441,11 +444,12 @@ fn main() {
             let mut merkle_tree = MerkleTree::new(&const_params.inner_params);
             let friend_nodes_1 = merkle_tree.blank.clone();
             
-            let secret = Fr::rand(&mut OsRng);
+            let secret_1 = Fr::rand(&mut OsRng);
+            let secret_2 = Fr::rand(&mut OsRng);
             let preimage = vec![
                 ArrayPubkey::new(mint.to_bytes()).to_field_element(),
                 Fr::from(deposit_amount),
-                secret,
+                secret_1,
             ];
             let leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
@@ -461,7 +465,8 @@ fn main() {
                 withdraw_amount,
                 leaf_index_1,
                 leaf_index_2,
-                secret,
+                secret_1,
+                secret_2,
                 friend_nodes_1,
                 friend_nodes_2,
             };
@@ -473,7 +478,8 @@ fn main() {
 
             let update_nodes_hex = write_to_hex(&pub_in.update_nodes);
             println!("update nodes: {}", update_nodes_hex);
-            println!("secret: {}", write_to_hex(&priv_in.secret));
+            println!("secret 1: {}", write_to_hex(&priv_in.secret_1));
+            println!("secret 2: {}", write_to_hex(&priv_in.secret_2));
             println!("old root: {:?}", write_to_hex(&pub_in.old_root));
             println!("new leaf: {}", write_to_hex(&pub_in.new_leaf));
 
@@ -521,14 +527,17 @@ fn main() {
             new_leaf,
             update_nodes,
             mint,
+            nullifier,
             leaf_index,
             withdraw_amount,
         } => {
             let vk: VerifyingKey<_> = read_from_hex(verifying_key);
             let proof: Proof<_> = read_from_hex(proof);
+            let nullifier: Fr = read_from_hex(nullifier);
 
             let pub_in = WithdrawPublicInputs {
                 mint: ArrayPubkey::new(mint.to_bytes()),
+                nullifier,
                 withdraw_amount,
                 old_root: read_from_hex(old_root),
                 new_leaf_index: leaf_index,
