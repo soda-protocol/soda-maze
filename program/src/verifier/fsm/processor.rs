@@ -54,7 +54,7 @@ impl PrepareInputs {
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
         let bits_len = bits.len();
     
-        const MAX_COMPRESS_CYCLE: usize = 4;
+        const MAX_COMPRESS_CYCLE: usize = 12;
 
         let pvk = proof_type.verifying_key();
         bits
@@ -70,7 +70,7 @@ impl PrepareInputs {
         
         self.bit_index += MAX_COMPRESS_CYCLE as u8;
         if self.bit_index as usize >= bits_len {
-            g_ic.add_assign(&tmp_ctx.borrow());
+            g_ic.add_assign(&tmp);
             self.input_index += 1;
             if public_inputs.get(self.input_index as usize).is_some() {
                 self.bit_index = 0;
@@ -627,10 +627,10 @@ impl FinalExponentMul0 {
 
         // f2 = f^(-1);
         // r = f^(p^6 - 1)
-        f1.mul_assign(*f2_ctx.borrow());
+        f1.mul_assign(*f2);
 
         // f2 = f^(p^6 - 1)
-        *f2 = *f1_ctx.borrow();
+        *f2 = *f1;
 
         // r = f^((p^6 - 1)(p^2))
         f1.frobenius_map(2);

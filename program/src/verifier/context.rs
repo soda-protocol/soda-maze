@@ -33,10 +33,6 @@ impl<S: Clone + BorshSerialize + BorshDeserialize> UpdateContext<S> {
         self.state.borrow_mut()
     }
 
-    pub fn borrow(&self) -> Ref<'_, S> {
-        self.state.borrow()
-    }
-
     pub fn take(self) -> S {
         self.state.into_inner()
     }
