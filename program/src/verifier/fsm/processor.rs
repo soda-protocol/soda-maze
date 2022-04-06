@@ -54,7 +54,7 @@ impl PrepareInputs {
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
         let bits_len = bits.len();
     
-        const MAX_COMPRESS_CYCLE: usize = 12;
+        const MAX_COMPRESS_CYCLE: usize = 9;
 
         let pvk = proof_type.verifying_key();
         bits
