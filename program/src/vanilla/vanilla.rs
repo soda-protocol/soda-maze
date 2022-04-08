@@ -4,8 +4,7 @@ use num_traits::Zero;
 use solana_program::{pubkey::Pubkey, entrypoint::ProgramResult};
 
 use crate::{params::{Fr, G1Projective254}, HEIGHT, error::MazeError, DEPOSIT_INPUTS, bn::BigInteger256, WITHDRAW_INPUTS, OperationType, verifier::fsm::PrepareInputs};
-
-use super::{fsm::VerifyStage, context::InitializeContext};
+use crate::verifier::{fsm::VerifyStage, context::InitializeContext};
 
 fn pubkey_to_fr(pubkey: Pubkey) -> Fr {
     let pubkey = &pubkey.to_bytes();

@@ -2,7 +2,6 @@ pub mod store;
 pub mod context;
 pub mod pda;
 pub mod fsm;
-pub mod vanilla;
 
 use std::ops::AddAssign;
 

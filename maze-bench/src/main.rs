@@ -133,7 +133,7 @@ struct MerkleTree {
 }
 
 impl MerkleTree {
-    pub fn new(params: &PoseidonParameters<Fr>) -> Self {
+    fn new(params: &PoseidonParameters<Fr>) -> Self {
         let mut nodes = Vec::with_capacity(HEIGHT as usize);
         let mut hash = PoseidonHasher::empty_hash();
 
@@ -151,7 +151,7 @@ impl MerkleTree {
         }
     }
 
-    pub fn get_friends(&self, index: u64) -> Vec<Fr> {
+    fn get_friends(&self, index: u64) -> Vec<Fr> {
         (0..HEIGHT)
             .into_iter()
             .map(|layer| {

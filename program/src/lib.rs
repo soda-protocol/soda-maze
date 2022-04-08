@@ -7,6 +7,7 @@ pub mod entrypoint;
 pub mod instruction;
 pub mod processor;
 pub mod key;
+pub mod vanilla;
 pub mod params;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
