@@ -14,5 +14,3 @@ pub struct Pool {
     pub root: Fr,
     pub index: u32,
 }
-
-

@@ -1,13 +1,18 @@
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::Zero;
 use solana_program::pubkey::Pubkey;
 
-use crate::{params::Fr, HEIGHT, bn::BigInteger256 as BigInteger};
+use crate::{params::Fr, bn::BigInteger256 as BigInteger, HEIGHT};
 
-pub const EMPTY_NODE_HASHES: &[Fr; 2] = &[
+const EMPTY_NODE_HASHES: &[Fr; 2] = &[
     Fr::new(BigInteger::new([0, 0, 0, 0])),
     Fr::new(BigInteger::new([0, 0, 0, 0])),
 ];
+
+#[inline]
+pub fn get_empty_node_hash(layer: usize) -> Fr {
+    assert!(layer < HEIGHT);
+    EMPTY_NODE_HASHES[layer]
+}
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct TreeNode {
@@ -15,8 +20,7 @@ pub struct TreeNode {
     pub hash: Fr,
 }
 
-#[inline]
-pub fn find_tree_node_pda<'a>(
+pub fn get_tree_node_pda<'a>(
     pool: &'a Pubkey,
     layer: u8,
     index: u32,
@@ -33,5 +37,3 @@ pub fn find_tree_node_pda<'a>(
 
     (key, (pool_ref, layer_bytes, index_bytes, [seed]))
 }
-
-

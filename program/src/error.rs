@@ -29,8 +29,8 @@ pub enum MazeError {
     InvalidAccountOwner,
     #[error("Authority is invalid")]
     InvalidAuthority,
-    #[error("Invalid update param")]
-    InvalidParam,
+    #[error("Invalid context status")]
+    InvalidContextStatus,
     #[error("Failed to unpack instruction data")]
     InstructionUnpackError,
     #[error("Math operation overflow")]

@@ -19,7 +19,10 @@ fn fr_to_bytes(nullifier: &Fr) -> [u8; 32] {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct Nullifier(bool);
+pub struct Nullifier {
+    pub is_initialized: bool,
+    pub owner: Pubkey,
+}
 
 pub fn get_nullifier_pda<'a>(
     pool: &'a Pubkey,
