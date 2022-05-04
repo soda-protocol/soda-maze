@@ -5,7 +5,7 @@ pub mod bn;
 pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
-pub mod processor;
+pub mod processor1;
 pub mod key;
 pub mod vanilla;
 pub mod params;

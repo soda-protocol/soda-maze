@@ -3,7 +3,9 @@ use solana_program::{program_error::ProgramError, account_info::AccountInfo, pub
 
 use crate::{OperationType, context::Context};
 
-use super::processor::*;
+use super::prepare_inputs::*;
+use super::miller_loop::*;
+use super::final_exponent::*;
 
 /************************************************************************************************************************************
  

@@ -3,8 +3,10 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::Zero;
 use solana_program::{pubkey::Pubkey, entrypoint::ProgramResult, program_pack::IsInitialized, program_error::ProgramError};
 
-use crate::{params::{Fr, G1Projective254}, HEIGHT, error::MazeError, DEPOSIT_INPUTS, bn::BigInteger256, WITHDRAW_INPUTS, OperationType, verifier::fsm::{PrepareInputs, VerifyState}, Packer};
-use crate::verifier::{fsm::FSM};
+use crate::params::{Fr, G1Projective254};
+use crate::{HEIGHT, DEPOSIT_INPUTS, WITHDRAW_INPUTS};
+use crate::{error::MazeError, bn::BigInteger256, OperationType, Packer};
+use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM, VerifyState};
 use crate::context::Context;
 
 #[inline]

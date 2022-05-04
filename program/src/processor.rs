@@ -1,7 +1,9 @@
-use solana_program::{pubkey::Pubkey, account_info::{AccountInfo, next_account_info}, entrypoint::ProgramResult, rent::Rent, sysvar::Sysvar};
+use solana_program::{pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
+use solana_program::{entrypoint::ProgramResult, rent::Rent, sysvar::Sysvar};
 
-use crate::{verifier::{fsm::*, StateWrapper, ProofA, ProofB, ProofC}, context::Context, vanilla::vanilla::{VanillaInfo, Operation}};
-use crate::Packer;
+use crate::verifier::{VerifyState, StateWrapper, ProofA, ProofB, ProofC, prepare_inputs::PrepareInputs};
+use crate::{context::Context, Packer};
+use crate::vanilla::vanilla::{VanillaInfo, Operation};
 
 #[inline(never)]
 pub fn process_create_vanilla_info(

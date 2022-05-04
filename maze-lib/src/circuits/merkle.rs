@@ -210,7 +210,7 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use ark_bn254::Fr;
     use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar};
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};

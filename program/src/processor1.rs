@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::fsm::*, context::{UpdateContext, ReadOnlyContext, InitializeContext}, params::{Fr, G1Projective254}, OperationType};
+use crate::{verifier::{fsm::*, prepare_inputs::PrepareInputs}, params::{Fr, G1Projective254}, OperationType};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 

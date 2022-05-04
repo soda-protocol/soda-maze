@@ -1,12 +1,12 @@
+pub mod pool;
+pub mod vanilla;
+pub mod node;
+
 use borsh::{BorshSerialize, BorshDeserialize};
 use concat_arrays::concat_arrays;
 use solana_program::pubkey::Pubkey;
 
 use crate::params::Fr;
-
-pub mod pool;
-pub mod vanilla;
-pub mod node;
 
 #[inline]
 fn fr_to_bytes(nullifier: &Fr) -> [u8; 32] {
