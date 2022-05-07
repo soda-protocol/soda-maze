@@ -1,97 +1,118 @@
-pub mod uint126;
+// pub mod uint126;
+pub mod array;
+pub mod uint;
+pub mod uint2;
+pub mod array2;
 
 use ark_ff::PrimeField;
-use ark_relations::r1cs::SynthesisError;
+use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar, R1CSVar};
+use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
 
-use uint126::Uint126;
+use self::uint::GeneralUint;
 
-fn array_mul_const<F: PrimeField>(
-    array: &[Uint126<F>],
-    constant: u128,
-) -> Result<Vec<Uint126<F>>, SynthesisError> {
-    assert!(!array.is_empty());
+// use self::uint126::Uint126;
 
-    let mut res = Vec::with_capacity(array.len() + 1);
-    let mut iter = array.iter();
+// use super::uint126::U126;
 
-    let (hi, lo) = iter.next().unwrap().mul_constant(constant)?;
-    res.push(lo);
-    let mut tmp = hi;
+type U126<F> = GeneralUint<F, BIT_SIZE>;
 
-    if let Some(v) = iter.next() {
-        let (hi, lo) = v.mul_constant(constant)?;
-        let (c, sum) = tmp.add_no_carry(&lo)?;
-        res.push(sum);
-        tmp = hi;
-        let mut carry = c;
+pub const BIT_SIZE: u32 = 126;
+pub const PRIME_LENGTH: usize = 12;
+pub const MODULUS_LENGTH: usize = PRIME_LENGTH * 2;
+pub const MODULUS: [u128; MODULUS_LENGTH] = [
+    5217175804021272938173857639386470627,
+    20504512440984368570375634982842649736,
+    14980320213494055727945337635945708328,
+    16095228728332069921862925763157718822,
+    22563912901485625892903404409719671456,
+    67174084442812919276451341121897694851,
+    396210734289974881854329569352686287,
+    68026446314505966650746423272869188619,
+    33163016477865278193781760969995298508,
+    38752055472634785082752047412861813264,
+    77700377108864573542735925507345108658,
+    9639361772306058418440018209226451648,
+    79644271933641188650826466460393731827,
+    12432924080713375365389497117979402200,
+    73973061915451825917866479557478222941,
+    67743906593044375400837886364440623418,
+    39836218244962850066907990555682860487,
+    81187501433027136684536554726744555131,
+    13023821752885007423488901562417721737,
+    39445900292978958344332733832851030135,
+    13650824604776585941445191602831633714,
+    21292839498938940799997982088923194589,
+    19666570999405728435609406136312941565,
+    69910805009745807039180465907423838473,
+];
 
-        iter.try_for_each(|val| {
-            let (hi, lo) = val.mul_constant(constant)?;
-            let (c, sum) = tmp.add_with_carry(&lo, &carry)?;
-            res.push(sum);
-            tmp = hi;
-            carry = c;
+// preimage = leaf_0 | leaf_1 | leaf_2 | ... ... | leaf_0 | leaf_1 | leaf_2
+//            \-----------------------------\/----------------------------/
+//                                     8 leaf in loop
+pub fn generate_preimage<F: PrimeField>(
+    leaf: FpVar<F>,
+) -> Result<Vec<U126<F>>, SynthesisError> {
+    let vars = GeneralUint::from_fp_var(leaf)?;
+    assert_eq!(vars.len(), 3);
+    assert!(vars[2].value()? < MODULUS[MODULUS_LENGTH - 1]);
 
-            Ok(())
-        })?;
-        tmp = tmp.add_carry(&carry)?;
+    let mut preimage = Vec::with_capacity(MODULUS_LENGTH);
+    for _ in 0..(MODULUS_LENGTH / vars.len()) {
+        preimage.extend_from_slice(&vars);
     }
 
-    res.push(tmp);
-
-    Ok(res)
+    Ok(preimage)
 }
 
-fn array_add_array<F: PrimeField>(
-    top_array: &[Uint126<F>],
-    bottom_array: Vec<Uint126<F>>,
-) -> Result<Vec<Uint126<F>>, SynthesisError> {
-    assert!(!top_array.is_empty());
-    assert_eq!(top_array.len() + 1, bottom_array.len());
 
-    let mut res = Vec::with_capacity(bottom_array);
-    let mut top_iter = top_array.iter();
-    let mut bottom_iter = bottom_array.into_iter();
+
+/////////////////////////////////////////
+// quotient * modulus + e = m^2
+// e + s = modulus => e < modulus
+// pub fn verify_rabin_encryption<F: PrimeField>(
+//     cs: ConstraintSystemRef<F>,
+//     index: FpVar<F>,
+//     secret: FpVar<F>,
+//     quotient: Vec<U126>,
+//     s: Vec<U126>,
+//     e: Vec<F>,
+// ) -> Result<(), SynthesisError> {
+//     assert_eq!(quotient.len(), MODULUS_LENGTH);
+//     assert_eq!(e.len(), MODULUS_LENGTH);
+
+//     let quotient_var = quotient
+//         .into_iter()
+//         .map(|q| Uint126::new_witness(cs.clone(), || Ok(q)))
+//         .collect::<Result<Vec<_>, SynthesisError>>()?;
+
     
-    let (c, sum) = top_iter.next().unwrap().add_no_carry(&bottom_iter.next().unwrap())?;
-    res.push(sum);
-    let mut carry = c;
 
-    top_iter.try_for_each(|top| {
-        let bottom = bottom_iter.next().unwrap();
-        let (c, sum) = top.add_with_carry(&bottom, &carry)?;
-        res.push(sum);
-        carry = c;
+//     Ok(())
+// }
 
-        Ok(())
-    })?;
+#[cfg(test)]
+mod tests {
+    use num_traits::{FromPrimitive, ToPrimitive};
+    use rsa::algorithms::generate_multi_prime_key_with_exp;
+    use ark_std::{test_rng, rand::prelude::StdRng};
+    use num_bigint_dig::{RandPrime, BigUint};
 
-    let sum = bottom_iter.next().unwrap().add_carry(&carry)?;
-    res.push(sum);
+    use crate::circuits::rabin::MODULUS_LENGTH;
 
-    Ok(res)
-}
+    #[test]
+    fn test_prime_key() {
+        let rng = &mut test_rng();
 
-pub fn array_mul_const_array<F: PrimeField>(
-    array: Vec<Uint126<F>>,
-    constants: Vec<u128>,
-) -> Result<Vec<Uint126<F>>, SynthesisError> {
-    assert!(!constants.is_empty());
-    let mut res = Vec::with_capacity(array.len() + constants.len());
-    let mut constants_iter = constants.into_iter();
+        let p = rng.gen_prime(1512);
+        let q = rng.gen_prime(1512);
+        let ref n = p * q;
 
-    constants_iter.enumerate().try_for_each(|(i, constant)| {
-        let tmp_array = array_mul_const(&array, constant)?;
-        if res.is_empty() {
-            res.extend(tmp_array);
-        } else {
-            let new_array = array_add_array(&res[i..], tmp_array)?;
-            res.truncate(i);
-            res.extend(new_array);
-        }
+        let ref mask = BigUint::from_u128(0x3FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFFu128).unwrap();
+        let res = (0..MODULUS_LENGTH).into_iter().map(|i| {
+            let v = (n >> (MODULUS_LENGTH * i)) & mask;
+            v.to_u128().unwrap()
+        }).collect::<Vec<_>>();
 
-        Ok(())
-    })?;
-
-    Ok(res)
+        println!("{:?}", res);
+    }
 }

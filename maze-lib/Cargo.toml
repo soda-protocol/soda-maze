@@ -19,10 +19,12 @@ bitvec = "1.0.0"
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-traits = "0.2.14"
+num-bigint-dig = "0.8.1"
 
 [dev-dependencies]
 ark-bn254 = "0.3.0"
 criterion = "0.3.5"
+rsa = "0.6.1"
 
 [features]
 default = ["bn254"]
