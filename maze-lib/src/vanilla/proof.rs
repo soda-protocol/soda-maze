@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use ark_std::marker::PhantomData;
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, FpParameters};
 use num_bigint::BigUint;
 use num_integer::Integer;
 
@@ -133,6 +133,7 @@ pub struct WithdrawOriginInputs<F: PrimeField, const HEIGHT: u8> {
     pub secret_2: F,
     pub friend_nodes_1: Vec<F>,
     pub friend_nodes_2: Vec<F>,
+    pub rabin_leaf_padding: Option<Vec<BigUint>>,
 }
 
 #[derive(Clone)]
@@ -155,6 +156,7 @@ pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub friend_nodes_1: Vec<(bool, F)>,
     pub friend_nodes_2: Vec<(bool, F)>,
     pub quotient: Option<Vec<BigUint>>,
+    pub padding: Option<Vec<BigUint>>,
 }
 
 impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for WithdrawVanillaProof<F, FH, HEIGHT> {
@@ -176,6 +178,17 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
         let mut friend_nodes_2 = vec![FH::empty_hash(); HEIGHT as usize];
         friend_nodes_2[0] = leaf;
 
+        let rabin_leaf_padding = if let Some(param) = &params.rabin_param {
+            let mut leaf_len = F::Params::MODULUS_BITS as u64 / param.bit_size;
+            if F::Params::MODULUS_BITS as u64 % param.bit_size != 0 {
+                leaf_len += 1;
+            }
+
+            Some(vec![BigUint::from(0u64); param.modulus_len - leaf_len as usize])
+        } else {
+            None
+        };
+
         let origin_inputs = WithdrawOriginInputs {
             mint: Pubkey::default(),
             deposit_amount: 1,
@@ -186,6 +199,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
             secret_2: F::one(),
             friend_nodes_1,
             friend_nodes_2,
+            rabin_leaf_padding,
         };
 
         Self::generate_vanilla_proof(params, &origin_inputs)
@@ -244,15 +258,27 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_2, leaf_2.clone())
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
-        let (quotient, cypher) = if let Some(param) = &params.rabin_param {
+        let (padding, quotient, cypher) = if let Some(param) = &params.rabin_param {
             let preimage = param.gen_preimage(leaf_1);
             let (quotient, cypher) = (&preimage * &preimage).div_rem(&param.modulus);
             let quotient = param.gen_quotient_array(quotient);
             let cypher = param.gen_cypher_array(cypher);
             
-            (Some(quotient), Some(cypher))
+            let leaf_padding = if let Some(padding) = &orig_in.rabin_leaf_padding {
+                let mut leaf_len = F::Params::MODULUS_BITS as u64 / param.bit_size;
+                if F::Params::MODULUS_BITS as u64 % param.bit_size != 0 {
+                    leaf_len += 1;
+                }
+                assert_eq!(leaf_len as usize + padding.len(), param.modulus_len);
+
+                padding.clone()
+            } else {
+                panic!("rabin leaf padding should not be none")
+            };
+
+            (Some(leaf_padding), Some(quotient), Some(cypher))
         } else {
-            (None, None)
+            (None, None, None)
         };
 
         let pub_in = WithdrawPublicInputs {
@@ -272,6 +298,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
             friend_nodes_1,
             friend_nodes_2,
             quotient,
+            padding,
         };
 
         Ok((pub_in, priv_in))

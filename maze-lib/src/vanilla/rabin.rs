@@ -12,7 +12,7 @@ pub struct RabinParam {
 }
 
 impl RabinParam {
-    pub fn new(
+    pub fn new<F: PrimeField>(
         modulus: BigUint,
         modulus_len: usize,
         bit_size: u64,

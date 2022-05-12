@@ -26,16 +26,14 @@ fn poly_array_to_biguint<F: PrimeField>(
 fn gen_preimage_from_fp_var<F: PrimeField>(
     leaf: FpVar<F>,
     modulus: &[GeneralUint<F>],
+    padding: Vec<GeneralUint<F>>,
     bit_size: u64,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    let mut res = padding;
     let leaf_array = GeneralUint::split_fp_var(leaf, bit_size)?;
-    let mut res = Vec::with_capacity(modulus.len());
-    for _ in 0..modulus.len() / leaf_array.len() {
-        res.extend_from_slice(&leaf_array);
-    }
-    for _ in 0..modulus.len() % leaf_array.len() {
-        res.push(GeneralUint::zero());
-    }
+    res.extend(leaf_array);
+    assert_eq!(res.len(), modulus.len());
+
     let preimage_uint = poly_array_to_biguint(&res, bit_size)?;
     let modulus_uint = poly_array_to_biguint(modulus, bit_size)?;
     assert!(preimage_uint < modulus_uint);
@@ -79,6 +77,7 @@ fn rabin_encrypt<F: PrimeField>(
 pub struct RabinEncryption<F: PrimeField> {
     modulus: Vec<BigUint>,
     quotient: Vec<BigUint>,
+    padding: Vec<BigUint>,
     cypher: Vec<F>,
     bit_size: u64,
     cypher_batch_size: usize,
@@ -88,6 +87,7 @@ impl<F: PrimeField> RabinEncryption<F> {
     pub fn new(
         modulus: Vec<BigUint>,
         quotient: Vec<BigUint>,
+        padding: Vec<BigUint>,
         cypher: Vec<F>,
         bit_size: u64,
         cypher_batch_size: usize,
@@ -103,6 +103,7 @@ impl<F: PrimeField> RabinEncryption<F> {
         Self {
             modulus,
             quotient,
+            padding,
             cypher,
             bit_size,
             cypher_batch_size,
@@ -129,11 +130,16 @@ impl<F: PrimeField> RabinEncryption<F> {
             .into_iter()
             .map(|m| GeneralUint::new_witness(cs.clone(), || Ok(m), self.bit_size))
             .collect::<Result<Vec<_>, SynthesisError>>()?;
+        let padding = self.padding
+            .into_iter()
+            .map(|p| GeneralUint::new_witness(cs.clone(), || Ok(p), self.bit_size))
+            .collect::<Result<Vec<_>, SynthesisError>>()?;
 
         // transform fp leaf to preimage
         let preimage = gen_preimage_from_fp_var(
             leaf_var,
             &modulus,
+            padding,
             self.bit_size,
         )?;
         // transform fp cypher to general uint
@@ -290,15 +296,19 @@ mod tests {
     fn test_gen_preimage_from_fp_var() {
         let rng = &mut test_rng();
         let modulus = biguint_to_poly_array(&MODULUS);
+        let padding = get_random_uint_array(rng);
         let leaf = get_rand_fr(rng);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let modulus = modulus.into_iter().map(|m| {
             GeneralUint::new_constant(m)
         }).collect::<Vec<_>>();
+        let padding = padding.into_iter().map(|m| {
+            GeneralUint::new_witness(cs.clone(), || Ok(m), BIT_SIZE).unwrap()
+        }).collect::<Vec<_>>();
         let leaf = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
 
-        let _ = gen_preimage_from_fp_var(leaf, &modulus, BIT_SIZE).unwrap();
+        let _ = gen_preimage_from_fp_var(leaf, &modulus, padding, BIT_SIZE).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
@@ -356,6 +366,7 @@ mod tests {
     fn test_rabin_encryption_synthesize() {
         let rng = &mut test_rng();
         let leaf = get_rand_fr(rng);
+        let padding = get_random_uint_array(rng);
 
         let preimage = get_preimage_from_leaf(leaf);
         let (quotient, cypher) = (&preimage * &preimage).div_rem(&MODULUS);
@@ -367,6 +378,7 @@ mod tests {
         let rabin_encryption = RabinEncryption::<Fr>::new(
             modulus,
             quotient,
+            padding,
             cypher,
             BIT_SIZE,
             CYPHER_BATCH_SIZE,

@@ -116,6 +116,7 @@ where
             Some(RabinEncryption::new(
                 param.modulus_array.clone(),
                 priv_in.quotient.clone().unwrap(),
+                priv_in.padding.clone().unwrap(),
                 pub_in.cypher.clone().unwrap(),
                 param.bit_size,
                 param.cypher_batch_size,
