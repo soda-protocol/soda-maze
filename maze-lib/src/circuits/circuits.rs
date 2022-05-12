@@ -4,7 +4,7 @@ use ark_r1cs_std::{fields::fp::FpVar, prelude::EqGadget, alloc::AllocVar};
 use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
 use crate::vanilla::{array::Pubkey, hasher::FieldHasher};
-use super::FieldHasherGadget;
+use super::{FieldHasherGadget, RabinEncryption};
 use super::merkle::{AddNewLeaf, LeafExistance};
 use super::uint64::Uint64;
 
@@ -99,6 +99,7 @@ where
     nullifier_params: Rc<FH::Parameters>,
     proof_1: LeafExistance<F, FH, FHG>,
     proof_2: AddNewLeaf<F, FH, FHG>,
+    rabin_encrytion: Option<RabinEncryption<F>>,
 }
 
 impl<F, FH, FHG> ConstraintSynthesizer<F> for WithdrawCircuit<F, FH, FHG>
@@ -138,6 +139,10 @@ where
         let preimage = vec![mint_var.clone(), deposit_amount_var, old_secret_var];
         // existance proof
         let leaf_var = FHG::hash_gadget(&leaf_params_var, &preimage)?;
+        // if need rabin encrytion for leaf
+        if let Some(rabin_encrytion) = self.rabin_encrytion {
+            rabin_encrytion.synthesize(cs.clone(), leaf_var.clone())?;
+        }
         let root_var = self.proof_1.synthesize(cs.clone(), leaf_var)?;
 
         // hash new back deposit data leaf
@@ -173,6 +178,7 @@ where
         nullifier_params: FH::Parameters,
         leaf_params: FH::Parameters,
         inner_params: FH::Parameters,
+        rabin_encrytion: Option<RabinEncryption<F>>,
     ) -> Self {
         Self {
             mint,
@@ -196,6 +202,7 @@ where
                 update_nodes,
                 inner_params,
             ),
+            rabin_encrytion,
         }
     }
 }
@@ -336,6 +343,7 @@ mod tests {
             nullifier_params,
             leaf_params,
             inner_params,
+            None,
         );
 
         let cs = ConstraintSystem::<_>::new_ref();

@@ -2,6 +2,7 @@ pub mod merkle;
 pub mod hasher;
 pub mod array;
 pub mod proof;
+pub mod rabin;
 
 use anyhow::Result;
 use ark_ff::PrimeField;

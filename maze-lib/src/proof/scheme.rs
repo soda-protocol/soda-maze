@@ -3,7 +3,7 @@ use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 
 use crate::vanilla::{hasher::FieldHasher, proof::*};
-use crate::circuits::{DepositCircuit, WithdrawCircuit, FieldHasherGadget};
+use crate::circuits::{DepositCircuit, WithdrawCircuit, FieldHasherGadget, RabinEncryption};
 
 use super::ProofScheme;
 
@@ -94,6 +94,11 @@ where
         inputs.push(pub_in.mint.to_field_element());
         inputs.push(F::from(pub_in.withdraw_amount));
         inputs.push(pub_in.nullifier);
+        
+        if let Some(cypher) = &pub_in.cypher {
+            inputs.extend_from_slice(cypher);
+        }
+
         inputs.push(pub_in.old_root);
         inputs.push(F::from(pub_in.new_leaf_index));
         inputs.push(pub_in.new_leaf);
@@ -107,6 +112,18 @@ where
         pub_in: &WithdrawPublicInputs<F>,
         priv_in: &WithdrawPrivateInputs<F>,
     ) -> WithdrawCircuit<F, FH, FHG> {
+        let rabin_encrytion = if let Some(param) = &params.rabin_param {
+            Some(RabinEncryption::new(
+                param.modulus_array.clone(),
+                priv_in.quotient.clone().unwrap(),
+                pub_in.cypher.clone().unwrap(),
+                param.bit_size,
+                param.cypher_batch_size,
+            ))
+        } else {
+            None
+        };
+
         WithdrawCircuit::<F, FH, FHG>::new(
             pub_in.mint,
             pub_in.withdraw_amount,
@@ -123,6 +140,7 @@ where
             params.nullifier_params.clone(),
             params.leaf_params.clone(),
             params.inner_params.clone(),
+            rabin_encrytion,
         )
     }
 }

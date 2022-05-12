@@ -1,6 +1,6 @@
 use ark_ff::{PrimeField, FpParameters};
 use ark_relations::{r1cs::{Namespace, SynthesisError, ConstraintSystemRef, Variable, LinearCombination}, lc};
-use ark_r1cs_std::{alloc::AllocVar, R1CSVar, Assignment, boolean::AllocatedBool, fields::fp::{FpVar, AllocatedFp}};
+use ark_r1cs_std::{alloc::AllocVar, R1CSVar, Assignment, boolean::AllocatedBool, fields::fp::FpVar};
 use num_bigint::BigUint;
 use num_integer::Integer;
 
@@ -84,31 +84,31 @@ impl<F: PrimeField> GeneralUint<F> {
         })
     }
 
-    pub fn from_fp_var<const BIT_SIZE: u64, const WITH_REST: bool>(fp_var: FpVar<F>) -> Result<Vec<Self>, SynthesisError> {
+    pub fn split_fp_var(fp_var: FpVar<F>, bit_size: u64) -> Result<Vec<Self>, SynthesisError> {
         if let FpVar::Var(fp_var) = fp_var {
             let modulus_bits = F::Params::MODULUS_BITS as u64;
             let ref cs = fp_var.cs;
-            let base = BigUint::from(1u64) << BIT_SIZE;
+            let base = BigUint::from(1u64) << bit_size;
             let base_field = F::from(base.clone());
             let fp = fp_var.value()?;
             let mut rest: BigUint = fp.into();
             let mut res = Vec::new();
 
-            let (mut lc, coeff) = (0..modulus_bits / BIT_SIZE)
+            let (mut lc, coeff) = (0..modulus_bits / bit_size)
                 .into_iter()
                 .try_fold((lc!(), F::one()), |(lc, coeff), _| {
                     let (r, lo) = rest.div_rem(&base);
                     rest = r;
 
-                    let lo_var = Self::new_witness(cs.clone(), || Ok(lo), BIT_SIZE)?;
+                    let lo_var = Self::new_witness(cs.clone(), || Ok(lo), bit_size)?;
                     let lc = lc + (coeff, lo_var.variable()?);
                     res.push(lo_var);
 
                     Ok((lc, coeff * base_field))
                 })?;
 
-            if WITH_REST && modulus_bits % BIT_SIZE != 0 {
-                let bit_size = modulus_bits % BIT_SIZE;
+            if modulus_bits % bit_size != 0 {
+                let bit_size = modulus_bits % bit_size;
                 let lo_var = Self::new_witness(cs.clone(), || Ok(rest), bit_size)?;
                 lc += (coeff, lo_var.variable()?);
                 res.push(lo_var);
@@ -126,35 +126,42 @@ impl<F: PrimeField> GeneralUint<F> {
         }
     }
 
-    pub fn to_pub_fp_var<const BIT_SIZE: u64>(array: &[Self]) -> Result<FpVar<F>, SynthesisError> {
-        let mut cs = ConstraintSystemRef::None;
-        let (_, lc, val) = array.iter().try_fold(
-            (BigUint::from(1u64), lc!(), BigUint::from(0u64)),
-            |(base, lc, val), elem| {
-                assert_eq!(elem.bit_size, BIT_SIZE);
+    pub fn partly_split_fp_var(
+        fp_var: FpVar<F>,
+        bit_size: u64,
+        batch_size: usize,
+    ) -> Result<Vec<Self>, SynthesisError> {
+        if let FpVar::Var(fp_var) = fp_var {
+            let ref cs = fp_var.cs;
+            let base = BigUint::from(1u64) << bit_size;
+            let base_field = F::from(base.clone());
+            let fp = fp_var.value()?;
+            let mut rest: BigUint = fp.into();
+            let mut res = Vec::new();
 
-                if cs.is_none() && !elem.cs.is_none() {
-                    cs = elem.cs.clone();
-                }
-                let base = base * (BigUint::from(1u64) << BIT_SIZE);
-                let val = val + &base * elem.value()?;
-                let lc = lc + (F::from(base.clone()), elem.variable()?);
-                
-                Ok((base, lc, val))
-            })?;
-        assert!(val < F::Params::MODULUS.into());
-       
-        if cs.is_none() {
-            Err(SynthesisError::MissingCS)
-        } else {
-            let fp_var = AllocatedFp::new_input(cs.clone(), || Ok(F::from(val)))?;
-            cs.enforce_constraint(
+            let (lc, _) = (0..batch_size)
+                .into_iter()
+                .try_fold((lc!(), F::one()), |(lc, coeff), _| {
+                    let (r, lo) = rest.div_rem(&base);
+                    rest = r;
+
+                    let lo_var = Self::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+                    let lc = lc + (coeff, lo_var.variable()?);
+                    res.push(lo_var);
+
+                    Ok((lc, coeff * base_field))
+                })?;
+            assert_eq!(rest, BigUint::from(0u64));
+
+            fp_var.cs.enforce_constraint(
                 LinearCombination::from(fp_var.variable),
                 LinearCombination::from(Variable::One),
-                LinearCombination::from(cs.new_lc(lc)?),
+                lc,
             )?;
 
-            Ok(fp_var.into())
+            Ok(res)
+        } else {
+            unreachable!("fp var should not be constant");
         }
     }
 
@@ -299,8 +306,11 @@ impl<F: PrimeField> GeneralUint<F> {
     }
 
     pub fn split(&self, bits: u64) -> Result<(Self, Self), SynthesisError> {
-        assert!(bits > 0);
+        if self.is_zero() {
+            return Ok((Self::zero(), Self::zero()));
+        }
 
+        assert!(bits > 0);
         if bits >= self.bit_size {
             Ok((Self::zero(), self.clone()))
         } else {
@@ -386,14 +396,14 @@ mod tests {
     }
 
     #[test]
-    fn test_from_fp_var() {
+    fn test_split_fp_var() {
         let rng = &mut test_rng();
         let fr = Fr::rand(rng);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let fp_var = FpVar::new_witness(cs.clone(), || Ok(fr)).unwrap();
 
-        let res = GeneralUint::from_fp_var::<BITS, true>(fp_var).unwrap();
+        let res = GeneralUint::split_fp_var(fp_var, BITS).unwrap();
         assert_eq!(res.len(), 3);
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());

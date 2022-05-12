@@ -5,5 +5,5 @@ mod hasher;
 mod rabin;
 
 pub use hasher::*;
-pub use circuits::*;
 pub use rabin::*;
+pub use circuits::*;
