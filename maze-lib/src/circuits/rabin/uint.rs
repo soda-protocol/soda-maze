@@ -97,8 +97,8 @@ impl<F: PrimeField> GeneralUint<F> {
             let (mut lc, coeff) = (0..modulus_bits / bit_size)
                 .into_iter()
                 .try_fold((lc!(), F::one()), |(lc, coeff), _| {
-                    let (r, lo) = rest.div_rem(&base);
-                    rest = r;
+                    let (hi, lo) = rest.div_rem(&base);
+                    rest = hi;
 
                     let lo_var = Self::new_witness(cs.clone(), || Ok(lo), bit_size)?;
                     let lc = lc + (coeff, lo_var.variable()?);
@@ -109,9 +109,9 @@ impl<F: PrimeField> GeneralUint<F> {
 
             if modulus_bits % bit_size != 0 {
                 let bit_size = modulus_bits % bit_size;
-                let lo_var = Self::new_witness(cs.clone(), || Ok(rest), bit_size)?;
-                lc += (coeff, lo_var.variable()?);
-                res.push(lo_var);
+                let var = Self::new_witness(cs.clone(), || Ok(rest), bit_size)?;
+                lc += (coeff, var.variable()?);
+                res.push(var);
             }
 
             fp_var.cs.enforce_constraint(
@@ -142,8 +142,8 @@ impl<F: PrimeField> GeneralUint<F> {
             let (lc, _) = (0..batch_size)
                 .into_iter()
                 .try_fold((lc!(), F::one()), |(lc, coeff), _| {
-                    let (r, lo) = rest.div_rem(&base);
-                    rest = r;
+                    let (hi, lo) = rest.div_rem(&base);
+                    rest = hi;
 
                     let lo_var = Self::new_witness(cs.clone(), || Ok(lo), bit_size)?;
                     let lc = lc + (coeff, lo_var.variable()?);

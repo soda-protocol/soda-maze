@@ -42,14 +42,14 @@ impl RabinParam {
     ) -> BigUint {
         let leaf_uint: BigUint = leaf.into();
         let modulus_bits = F::Params::MODULUS_BITS as usize;
-        let mut f_bits = modulus_bits / (self.bit_size as usize);
+        let mut batch_size = modulus_bits / (self.bit_size as usize);
         if modulus_bits % (self.bit_size as usize) != 0 {
-            f_bits += 1;
+            batch_size += 1;
         }
     
         let mut preimage = leaf_uint.clone();
-        for _ in 0..self.modulus_len / f_bits {
-            preimage <<= self.bit_size;
+        for _ in 1..self.modulus_len / batch_size {
+            preimage <<= self.bit_size as usize * batch_size;
             preimage += &leaf_uint;
         }
         assert!(&preimage < &self.modulus);
