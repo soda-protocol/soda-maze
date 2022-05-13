@@ -49,7 +49,6 @@ impl MillerLoop {
 
         let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
         ell(&mut self.f, &coeff, &self.proof_a);
-
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
@@ -70,8 +69,8 @@ impl MillerLoop {
                 return Ok(());
             }
         }
+        self.coeff_index += 1;
 
-        let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
         let coeff = match bit {
             1 => addition_step(&mut self.r, &self.proof_b),
             -1 => {
@@ -81,7 +80,6 @@ impl MillerLoop {
             _ => unreachable!("bit is always be 1 or -1 at hear"),
         };
         ell(&mut self.f, &coeff, &self.proof_a);
-
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
 
@@ -95,7 +93,6 @@ impl MillerLoop {
             }
 
             q2.y = -q2.y;
-
         } else {
             self.coeff_index += 1;
             self.step = 0;
