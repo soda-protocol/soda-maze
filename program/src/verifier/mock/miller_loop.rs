@@ -45,65 +45,64 @@ impl MillerLoop {
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
 
-        // only first loop need this !!!
-        self.f.square_in_place();
+        const MAX_LOOP: usize = 3;
+        for _ in 0..MAX_LOOP {
+            self.f.square_in_place();
 
-        let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
-        ell(&mut self.f, &coeff, &self.proof_a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-        self.coeff_index += 1;
+            let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
+            ell(&mut self.f, &coeff, &self.proof_a);
+            ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+            ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+            self.coeff_index += 1;
 
-        self.index -= 1;
-        let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
-        let coeff = match bit {
-            1 => addition_step(&mut self.r, &self.proof_b),
-            -1 => addition_step(&mut self.r, &(-self.proof_b)),
-            _ => {
-                if self.index == 0 {
-                    let q1 = mul_by_char::<BnParameters>(self.proof_b);
-                    let mut q2 = mul_by_char::<BnParameters>(q1);
-    
-                    if <BnParameters as Bn>::X_IS_NEGATIVE {
-                        self.r.y = -self.r.y;
-                        self.f.conjugate();
+            self.index -= 1;
+            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+            let coeff = match bit {
+                1 => addition_step(&mut self.r, &self.proof_b),
+                -1 => addition_step(&mut self.r, &(-self.proof_b)),
+                _ => {
+                    if self.index == 0 {
+                        let q1 = mul_by_char::<BnParameters>(self.proof_b);
+                        let mut q2 = mul_by_char::<BnParameters>(q1);
+        
+                        if <BnParameters as Bn>::X_IS_NEGATIVE {
+                            self.r.y = -self.r.y;
+                            self.f.conjugate();
+                        }
+
+                        q2.y = -q2.y;
+        
+                        // in Finalize
+                        return Ok(());
+                    } else {
+                        continue;
                     }
+                },
+            };
+
+            ell(&mut self.f, &coeff, &self.proof_a);
+            ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+            ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+            self.coeff_index += 1;
     
-                    q2.y = -q2.y;
+            if self.index == 0 {
+                let q1 = mul_by_char::<BnParameters>(self.proof_b);
+                let mut q2 = mul_by_char::<BnParameters>(q1);
     
-                    // in Finalize
-                    return Ok(());
-                } else {
-                    // in next loop
-                    self.step = 0;
-                    return Ok(());
+                if <BnParameters as Bn>::X_IS_NEGATIVE {
+                    self.r.y = -self.r.y;
+                    self.f.conjugate();
                 }
-            },
-        };
-
-        ell(&mut self.f, &coeff, &self.proof_a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-        self.coeff_index += 1;
-
-        if self.index == 0 {
-            let q1 = mul_by_char::<BnParameters>(self.proof_b);
-            let mut q2 = mul_by_char::<BnParameters>(q1);
-
-            if <BnParameters as Bn>::X_IS_NEGATIVE {
-                self.r.y = -self.r.y;
-                self.f.conjugate();
+    
+                q2.y = -q2.y;
+    
+                // in Finalize
+                return Ok(());
             }
-
-            q2.y = -q2.y;
-
-            // in Finalize
-            Ok(())
-        } else {
-            self.step = 0;
-            // next loop
-            Ok(())
         }
+
+        // next loop
+        Ok(())
     }
 }
 
