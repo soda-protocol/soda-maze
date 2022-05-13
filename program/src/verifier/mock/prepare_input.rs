@@ -11,7 +11,7 @@ use crate::{OperationType, error::MazeError, verifier::{ProofA, ProofB, ProofC}}
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
     pub input_index: u8,
-    pub bit_index: u8,
+    pub bit_index: u16,
     pub public_inputs: Vec<Fr>, // Vec<Fr>
     pub g_ic: G1Projective254, // G1Projective254
     pub tmp: G1Projective254, // G1Projective254
@@ -26,7 +26,7 @@ impl PrepareInputs {
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
         let bits_len = bits.len();
     
-        const MAX_COMPRESS_CYCLE: usize = 48;
+        const MAX_COMPRESS_CYCLE: usize = 52;
 
         let pvk = proof_type.verifying_key();
         bits
@@ -40,7 +40,7 @@ impl PrepareInputs {
                 }
             });
         
-        self.bit_index += MAX_COMPRESS_CYCLE as u8;
+        self.bit_index += MAX_COMPRESS_CYCLE as u16;
         if self.bit_index as usize >= bits_len {
             self.g_ic.add_assign(&self.tmp);
 

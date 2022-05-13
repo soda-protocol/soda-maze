@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::FinalExponentInverse}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -190,17 +190,22 @@ pub fn process_instruction(
 
     // stage.process(&proof_type)
 
-    let stage = MillerLoopFinalize {
-        coeff_index: input[0],
-        prepared_input: G1_AFFINE_VALUE.clone(),
-        proof_a: PROOF_A.clone(),
-        proof_c: PROOF_C.clone(),
-        q1: G2_AFFINE_VALUE.clone(),
-        q2: G2_AFFINE_VALUE.clone(),
-        r: G2HOMPROJECTIVE_VALUE.clone(),
+    // let stage = MillerLoopFinalize {
+    //     coeff_index: input[0],
+    //     prepared_input: G1_AFFINE_VALUE.clone(),
+    //     proof_a: PROOF_A.clone(),
+    //     proof_c: PROOF_C.clone(),
+    //     q1: G2_AFFINE_VALUE.clone(),
+    //     q2: G2_AFFINE_VALUE.clone(),
+    //     r: G2HOMPROJECTIVE_VALUE.clone(),
+    //     f: FQK254_VALUE.clone(),
+    // };
+    // stage.process(&proof_type)
+
+    let stage = FinalExponentInverse {
         f: FQK254_VALUE.clone(),
     };
-    stage.process(&proof_type)
+    stage.process()
 
     // let f_ctx = UpdateContext::new(stage.f, f);
     // let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
@@ -274,7 +279,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![1, 3, 2],
+                data: vec![10],
             }],
             Some(&user.pubkey()),
             &[&user],
