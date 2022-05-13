@@ -26,7 +26,7 @@ impl PrepareInputs {
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
         let bits_len = bits.len();
     
-        const MAX_COMPRESS_CYCLE: usize = 64;
+        const MAX_COMPRESS_CYCLE: usize = 48;
 
         let pvk = proof_type.verifying_key();
         bits
@@ -49,6 +49,8 @@ impl PrepareInputs {
                 self.bit_index = 0;
             }
         }
+
+        let c = G1Affine254::from(self.g_ic);
 
         Ok(())
     }
