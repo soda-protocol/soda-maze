@@ -1,4 +1,5 @@
 pub mod fsm;
+pub mod mock;
 pub mod prepare_inputs;
 pub mod miller_loop;
 pub mod final_exponent;
