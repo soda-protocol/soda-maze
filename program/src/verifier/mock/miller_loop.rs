@@ -27,7 +27,6 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoop {
-    pub step: u8,
     pub index: u8,
     pub coeff_index: u8,
     pub f: Fqk254, // Fqk254
@@ -73,17 +72,6 @@ impl MillerLoop {
                         q2.y = -q2.y;
         
                         // in Finalize
-                        let coeff = addition_step(&mut self.r, &q1);
-                        ell(&mut self.f, &coeff, &self.proof_a);
-                        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-                        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-                        self.coeff_index += 1;
-                
-                        let coeff = addition_step(&mut self.r, &q2);
-                        ell(&mut self.f, &coeff, &self.proof_a);
-                        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-                        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-
                         return Ok(());
                     } else {
                         continue;
@@ -119,7 +107,7 @@ impl MillerLoop {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoopFinalize {
-    pub step: u8,
+    pub coeff_index: u8,
     pub prepared_input: G1Affine254, // G1Affine254
     pub proof_a: G1Affine254, // G1Affine254
     pub proof_c: G1Affine254, // G1Affine254
@@ -131,23 +119,22 @@ pub struct MillerLoopFinalize {
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
-    pub fn process_step_0(
+    pub fn process(
         mut self,
         proof_type: &OperationType,
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
-        let mut index = pvk.gamma_g2_neg_pc.len() - 2;
 
         let coeff = addition_step(&mut self.r, &self.q1);
         ell(&mut self.f, &coeff, &self.proof_a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[index], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[index], &self.proof_c);
-        index += 1;
+        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+        self.coeff_index += 1;
 
         let coeff = addition_step(&mut self.r, &self.q2);
         ell(&mut self.f, &coeff, &self.proof_a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[index ], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[index], &self.proof_c);
+        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
         Ok(())
     }

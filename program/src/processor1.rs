@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::MillerLoop}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -36,13 +36,25 @@ const G1_AFFINE_VALUE: G1Affine254 = G1Affine254::new_const(
     false
 );
 
+const G2_AFFINE_VALUE: G2Affine254 = G2Affine254::new_const(
+    Fq2::new_const(
+        Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+        Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+    ),
+    Fq2::new_const(
+        Fq::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+        Fq::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
+    ),
+    false,
+);
+
 const G1_PROJECTIVE_VALUE: G1Projective254 = G1Projective254::new_const(
     Fq::new(BigInteger::new([8702585202244274910, 9214718725403065568, 17690655619678158896, 1222195394398354666])),
     Fq::new(BigInteger::new([3439699351422384141, 18051431940401055444, 13194437363659758174, 2607686238957372954])),
     Fq::new(BigInteger::new([15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287])),
 );
 
-const G2HOMPROJECTIVE: G2HomProjective254 = G2HomProjective254 {
+const G2HOMPROJECTIVE_VALUE: G2HomProjective254 = G2HomProjective254 {
     x: Fq2::new_const(
         Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
         Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
@@ -165,18 +177,29 @@ pub fn process_instruction(
 
     // stage.process(&proof_type)
 
-    let stage = MillerLoop {
-        step: input[0],
-        index: input[1],
-        coeff_index: input[2],
-        f: FQK254_VALUE.clone(),
-        r: G2HOMPROJECTIVE.clone(),
+    // let stage = MillerLoop {
+    //     index: input[0],
+    //     coeff_index: input[1],
+    //     f: FQK254_VALUE.clone(),
+    //     r: G2HOMPROJECTIVE.clone(),
+    //     prepared_input: G1_AFFINE_VALUE.clone(),
+    //     proof_a: PROOF_A.clone(),
+    //     proof_b: PROOF_B.clone(),
+    //     proof_c: PROOF_C.clone(),
+    // };
+
+    // stage.process(&proof_type)
+
+    let stage = MillerLoopFinalize {
+        coeff_index: input[0],
         prepared_input: G1_AFFINE_VALUE.clone(),
         proof_a: PROOF_A.clone(),
-        proof_b: PROOF_B.clone(),
         proof_c: PROOF_C.clone(),
+        q1: G2_AFFINE_VALUE.clone(),
+        q2: G2_AFFINE_VALUE.clone(),
+        r: G2HOMPROJECTIVE_VALUE.clone(),
+        f: FQK254_VALUE.clone(),
     };
-
     stage.process(&proof_type)
 
     // let f_ctx = UpdateContext::new(stage.f, f);
@@ -251,7 +274,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![1, 6, 3],
+                data: vec![1, 3, 2],
             }],
             Some(&user.pubkey()),
             &[&user],
