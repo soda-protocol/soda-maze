@@ -177,7 +177,7 @@ pub fn process_instruction(
         proof_c: PROOF_C.clone(),
     };
 
-    stage.process_step_0(&proof_type)
+    stage.process(&proof_type)
 
     // let f_ctx = UpdateContext::new(stage.f, f);
     // let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
