@@ -39,16 +39,17 @@ pub struct MillerLoop {
 }
 
 impl MillerLoop {
-    pub fn process_step_0(
+    pub fn process(
         mut self,
         proof_type: &OperationType,
     ) -> Result<(), ProgramError> {
+        let pvk = proof_type.verifying_key();
+
         self.f.square_in_place();
 
         let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
         ell(&mut self.f, &coeff, &self.proof_a);
 
-        let pvk = proof_type.verifying_key();
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
@@ -70,7 +71,36 @@ impl MillerLoop {
             }
         }
 
-        self.step += 1;
+        let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+        let coeff = match bit {
+            1 => addition_step(&mut self.r, &self.proof_b),
+            -1 => {
+                let neg_b = -self.proof_b;
+                addition_step(&mut self.r, &neg_b)
+            }
+            _ => unreachable!("bit is always be 1 or -1 at hear"),
+        };
+        ell(&mut self.f, &coeff, &self.proof_a);
+
+        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+
+        if self.index == 0 {
+            let q1 = mul_by_char::<BnParameters>(self.proof_b);
+            let mut q2 = mul_by_char::<BnParameters>(q1);
+
+            if <BnParameters as Bn>::X_IS_NEGATIVE {
+                self.r.y = -self.r.y;
+                self.f.conjugate();
+            }
+
+            q2.y = -q2.y;
+
+        } else {
+            self.coeff_index += 1;
+            self.step = 0;
+        }
+
         Ok(())
     }
 }
