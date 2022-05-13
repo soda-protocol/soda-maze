@@ -45,43 +45,46 @@ impl MillerLoop {
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
 
+        // only first loop need this !!!
         self.f.square_in_place();
 
         let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+        self.coeff_index += 1;
 
         self.index -= 1;
         let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
-        if bit == 0 {
-            if self.index == 0 {
-                let q1 = mul_by_char::<BnParameters>(self.proof_b);
-                let mut q2 = mul_by_char::<BnParameters>(q1);
-
-                if <BnParameters as Bn>::X_IS_NEGATIVE {
-                    self.r.y = -self.r.y;
-                    self.f.conjugate();
-                }
-
-                q2.y = -q2.y;
-
-                return Ok(());
-            }
-        }
-        self.coeff_index += 1;
-
         let coeff = match bit {
             1 => addition_step(&mut self.r, &self.proof_b),
-            -1 => {
-                let neg_b = -self.proof_b;
-                addition_step(&mut self.r, &neg_b)
-            }
-            _ => unreachable!("bit is always be 1 or -1 at hear"),
+            -1 => addition_step(&mut self.r, &(-self.proof_b)),
+            _ => {
+                if self.index == 0 {
+                    let q1 = mul_by_char::<BnParameters>(self.proof_b);
+                    let mut q2 = mul_by_char::<BnParameters>(q1);
+    
+                    if <BnParameters as Bn>::X_IS_NEGATIVE {
+                        self.r.y = -self.r.y;
+                        self.f.conjugate();
+                    }
+    
+                    q2.y = -q2.y;
+    
+                    // in Finalize
+                    return Ok(());
+                } else {
+                    // in next loop
+                    self.step = 0;
+                    return Ok(());
+                }
+            },
         };
+
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+        self.coeff_index += 1;
 
         if self.index == 0 {
             let q1 = mul_by_char::<BnParameters>(self.proof_b);
@@ -93,12 +96,14 @@ impl MillerLoop {
             }
 
             q2.y = -q2.y;
-        } else {
-            self.coeff_index += 1;
-            self.step = 0;
-        }
 
-        Ok(())
+            // in Finalize
+            Ok(())
+        } else {
+            self.step = 0;
+            // next loop
+            Ok(())
+        }
     }
 }
 

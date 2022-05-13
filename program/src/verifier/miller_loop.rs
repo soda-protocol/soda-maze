@@ -284,7 +284,7 @@ impl MillerLoop {
         let prepared_input = prepared_input_ctx.take()?;
 
         let pvk = proof_type.verifying_key();
-        ell(&mut f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &prepared_input);
+        ell(&mut f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &prepared_input); // !!!!!!!!!!!!!!!!!!!!!!! here is proof c !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         if self.index == 0 {
             let q1 = mul_by_char::<BnParameters>(proof_b);
