@@ -1,4 +1,4 @@
-use std::ops::MulAssign;
+use std::ops::{MulAssign, Mul};
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::One;
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
@@ -326,10 +326,10 @@ impl FinalExponentHardPart4 {
     pub fn process(
         self,
         proof_type: &OperationType,
-        r_ctx: &Context<Fqk254>,
-        y1_ctx: &Context<Fqk254>,
-        y4_ctx: &Context<Fqk254>,
-        y8_ctx: &Context<Fqk254>,
+        r_ctx: &Context<Box<Fqk254>>,
+        y1_ctx: &Context<Box<Fqk254>>,
+        y4_ctx: &Context<Box<Fqk254>>,
+        y8_ctx: &Context<Box<Fqk254>>,
     ) -> Result<FSM, ProgramError> {
         if r_ctx.pubkey() != &self.r {
             msg!("r_ctx pubkey mismatch");
@@ -353,16 +353,16 @@ impl FinalExponentHardPart4 {
         let y4 = y4_ctx.take()?;
         let mut y8 = y8_ctx.take()?;
 
-        let y9 = y8 * &y1;
-        let y10 = y8 * &y4;
-        let y11 = y10 * &r;
+        let y9 = y8.mul(y1.as_ref());
+        let y10 = y8.mul(y4.as_ref());
+        let y11 = y10 * r.as_ref();
         let mut y12 = y9;
         y12.frobenius_map(1);
         let y13 = y12 * &y11;
         y8.frobenius_map(2);
-        let y14 = y8 * &y13;
+        let y14 = y8.mul(&y13);
         r.conjugate();
-        let mut y15 = r * &y9;
+        let mut y15 = r.mul(&y9);
         y15.frobenius_map(3);
         let y16 = y15 * &y14;
 
