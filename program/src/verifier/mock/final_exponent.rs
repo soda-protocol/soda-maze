@@ -139,10 +139,11 @@ impl ExpByNegX2 {
 
 pub struct FinalExponentMulStep3 {
     pub index: u8,
-    pub y3: Fqk254,
-    pub y5: Fqk254,
-    pub y5_inv: Fqk254,
-    pub y6: Fqk254,
+    pub y3: Box<Fqk254>,
+    pub y4: Box<Fqk254>,
+    pub y5: Box<Fqk254>,
+    pub y5_inv: Box<Fqk254>,
+    pub y6: Box<Fqk254>,
 }
 
 impl FinalExponentMulStep3 {
@@ -157,6 +158,9 @@ impl FinalExponentMulStep3 {
             self.y3.conjugate();
             self.y6.conjugate();
 
+            let y7 = self.y6.mul(self.y4.as_ref());
+            let _y8 = y7.mul(self.y3.as_ref());
+
             Ok(())
         } else {
             Ok(())
@@ -167,24 +171,21 @@ impl FinalExponentMulStep3 {
 pub struct FinalExponentMulStep4 {
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
-    pub y3: Box<Fqk254>,
     pub y4: Box<Fqk254>,
-    pub y6: Box<Fqk254>,
+    pub y8: Box<Fqk254>,
 }
 
 impl FinalExponentMulStep4 {
     #[inline(never)]
     pub fn process(&mut self) -> Result<(), ProgramError> {
-        let y7 = self.y6.mul(self.y4.as_ref());
-        let mut y8 = y7.mul(self.y3.as_ref());
-        let y9 = y8.mul(self.y1.as_ref());
-        let y10 = y8.mul(self.y4.as_ref());
+        let y9 = self.y8.mul(self.y1.as_ref());
+        let y10 = self.y8.mul(self.y4.as_ref());
         let y11 = y10.mul(self.r.as_ref());
         let mut y12 = y9;
         y12.frobenius_map(1);
         let y13 = y12 * &y11;
-        y8.frobenius_map(2);
-        let y14 = y8 * &y13;
+        self.y8.frobenius_map(2);
+        let y14 = self.y8.mul(&y13);
         self.r.conjugate();
         let mut y15 = self.r.mul(y9);
         y15.frobenius_map(3);

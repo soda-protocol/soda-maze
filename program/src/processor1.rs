@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, ExpByNegX1, FinalExponentMulStep4}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, ExpByNegX1, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -217,11 +217,14 @@ pub fn process_instruction(
     // };
     // stage.process()
 
-    let mut stage = Box::new(FinalExponentMulStep4 {
-        r: Box::new(FQK254_VALUE.clone()),
-        y1: Box::new(FQK254_VALUE.clone()),
+    let mut r_inv = FQK254_VALUE.clone();
+    r_inv.conjugate();
+    let stage = Box::new(FinalExponentMulStep3 {
+        index: input[0],
         y3: Box::new(FQK254_VALUE.clone()),
         y4: Box::new(FQK254_VALUE.clone()),
+        y5: Box::new(FQK254_VALUE.clone()),
+        y5_inv: Box::new(r_inv),
         y6: Box::new(FQK254_VALUE.clone()),
     });
     stage.process()
