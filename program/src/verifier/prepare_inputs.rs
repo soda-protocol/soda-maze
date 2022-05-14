@@ -4,7 +4,7 @@ use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::context::Context;
-use crate::bn::{BnParameters as Bn, BitIteratorBE};
+use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::{OperationType, error::MazeError, verifier::ProofB};
 
@@ -14,7 +14,7 @@ use super::miller_loop::MillerLoop;
 #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
     pub input_index: u8,
-    pub bit_index: u16,
+    pub bit_index: u8,
     pub public_inputs: Pubkey, // Vec<Fr>
     pub g_ic: Pubkey, // G1Projective254
     pub tmp: Pubkey, // G1Projective254
@@ -54,13 +54,12 @@ impl PrepareInputs {
         let mut tmp = tmp_ctx.borrow_mut()?;
 
         let public_input = public_inputs[self.input_index as usize];
-        let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
-        let bits_len = bits.len();
+        let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
         let pvk = proof_type.verifying_key();
 
-        const MAX_LOOP: usize = 52;
-        bits
-            .into_iter()
+        const MAX_LOOP: usize = 40;
+        BitIteratorBE::new(public_input)
+            .skip(256 - fr_bits)
             .skip(self.bit_index as usize)
             .take(MAX_LOOP)
             .for_each(|bit| {
@@ -68,10 +67,10 @@ impl PrepareInputs {
                 if bit {
                     tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
                 }
+                self.bit_index += 1;
             });
 
-        self.bit_index += MAX_LOOP as u16;
-        if self.bit_index as usize >= bits_len {
+        if self.bit_index as usize >= fr_bits {
             g_ic.add_assign(&tmp);
             self.input_index += 1;
 

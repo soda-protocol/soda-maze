@@ -139,33 +139,9 @@ impl MillerLoop {
             ell(&mut f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &prepared_input);
             ell(&mut f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &proof_c);
             self.coeff_index += 1;
-    
-            if self.index == 0 {
-                let q1 = mul_by_char::<BnParameters>(proof_b);
-                let mut q2 = mul_by_char::<BnParameters>(q1);
-    
-                if <BnParameters as Bn>::X_IS_NEGATIVE {
-                    r.y = -r.y;
-                    f.conjugate();
-                }
 
-                q2.y = -q2.y;
-    
-                // in Finalize
-                proof_b_ctx.erase()?;
-                q1_ctx.fill(q1)?;
-                q2_ctx.fill(q2)?;
-                return Ok(FSM::MillerLoopFinalize(MillerLoopFinalize {
-                    coeff_index: self.coeff_index,
-                    prepared_input: self.prepared_input,
-                    proof_a: self.proof_a,
-                    proof_c: self.proof_c,
-                    r: self.r,
-                    f: self.f,
-                    q1: *q1_ctx.pubkey(),
-                    q2: *q2_ctx.pubkey(),
-                }));
-            }
+            // the first value of ATE_LOOP_COUNT is zero, so index will not be zero
+            assert_ne!(self.index, 0);
         }
         // next loop
         Ok(FSM::MillerLoop(self))

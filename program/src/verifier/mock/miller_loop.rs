@@ -83,21 +83,9 @@ impl MillerLoop {
             ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
-    
-            if self.index == 0 {
-                let q1 = mul_by_char::<BnParameters>(self.proof_b);
-                let mut q2 = mul_by_char::<BnParameters>(q1);
-    
-                if <BnParameters as Bn>::X_IS_NEGATIVE {
-                    self.r.y = -self.r.y;
-                    self.f.conjugate();
-                }
-    
-                q2.y = -q2.y;
-    
-                // in Finalize
-                return Ok(());
-            }
+
+            // in ATE_LOOP_COUNT, the first value is zero, so index will not be zero
+            assert_ne!(self.index, 0);
         }
 
         // next loop
