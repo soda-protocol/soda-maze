@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::FinalExponentInverse}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, ExpByNegX}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -202,8 +202,18 @@ pub fn process_instruction(
     // };
     // stage.process(&proof_type)
 
-    let stage = FinalExponentInverse {
-        f: FQK254_VALUE.clone(),
+    // let stage = FinalExponentInverse {
+    //     f: FQK254_VALUE.clone(),
+    // };
+    // stage.process()
+
+    let mut r_inv = FQK254_VALUE.clone();
+    r_inv.conjugate();
+    let stage = ExpByNegX {
+        index: 0,
+        r: FQK254_VALUE.clone(),
+        r_inv,
+        y0: Fqk254::one(),
     };
     stage.process()
 

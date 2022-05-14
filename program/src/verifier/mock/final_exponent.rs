@@ -152,9 +152,8 @@ pub struct FinalExponentInverse {
 }
 
 impl FinalExponentInverse {
-    #[allow(clippy::too_many_arguments)]
     pub fn process(
-        mut self,
+        self,
     ) -> Result<(), ProgramError> {
         let mut f1 = self.f.clone();
         f1.conjugate();
@@ -178,95 +177,51 @@ impl FinalExponentInverse {
             // proof failed
             Ok(())
         }
+        // let mut r_inv = f1.clone();
+        // r_inv.conjugate();
         // let y0 = Fqk254::one();
     }
 }
 
-// #[derive(Clone, BorshSerialize, BorshDeserialize)]
-// pub struct FinalExponentMul0 {
-//     pub step: u8,
-//     pub f1: Pubkey, // Fqk254 
-//     pub f2: Pubkey, // Fqk254
-// }
+impl_exp_by_negx_struct!(FinalExponentMul1, y0);
+impl_exp_by_neg_x!(FinalExponentMul1);
 
-// impl FinalExponentMul0 {
-//     pub fn process_1(
-//         self,
-//         f1_ctx: &Context<Fqk254>,
-//         f2_ctx: &Context<Fqk254>,
-//         y0_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if f1_ctx.pubkey() != &self.f1 {
-//             msg!("f1_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if f2_ctx.pubkey() != &self.f2 {
-//             msg!("f2_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
+pub struct ExpByNegX {
+    pub index: u8,
+    pub r: Fqk254,
+    pub r_inv: Fqk254,
+    pub y0: Fqk254,
+}
 
-//         let mut f1 = f1_ctx.borrow_mut()?;
-//         let f2 = f2_ctx.take()?;
+impl ExpByNegX {
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let naf = <BnParameters as Bn>::NAF;
 
-//         f1.mul_assign(f2);
+        const MAX_LOOP: usize = 8;
+        for _ in 0..MAX_LOOP {
+            self.y0.square_in_place();
 
-//         y0_ctx.fill(Fqk254::one())?;
-//         f2_ctx.close()?;
-//         Ok(FSM::FinalExponentMul1(FinalExponentMul1 {
-//             step: 1,
-//             index: 0,
-//             y0: *y0_ctx.pubkey(),
-//             r: self.f1,
-//         }))
-//     }
-// }
+            let value = naf[self.index as usize];
+            self.index += 1;
 
-// impl_exp_by_negx_struct!(FinalExponentMul1, y0);
-// impl_exp_by_neg_x!(FinalExponentMul1);
+            if value > 0 {
+                self.y0.mul_assign(&self.r);
+            } else {
+                self.y0.mul_assign(&self.r_inv);
+            }
 
-// impl FinalExponentMul1 {
-//     pub fn process_0(
-//         mut self,
-//         y0_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if y0_ctx.pubkey() != &self.y0 {
-//             msg!("y0_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let mut res = y0_ctx.borrow_mut()?;
-
-//         res.square_in_place();
-
-//         self.step += 1;
-//         Ok(FSM::FinalExponentMul1(self))
-//     }
-
-//     pub fn process_1(
-//         self,
-//         r_ctx: &Context<Fqk254>,
-//         y0_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if r_ctx.pubkey() != &self.r {
-//             msg!("r_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y0_ctx.pubkey() != &self.y0 {
-//             msg!("y0_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let (s, is_self) = self.process_1_inner(r_ctx, y0_ctx)?;
-//         if is_self {
-//             Ok(FSM::FinalExponentMul1(s))
-//         } else {
-//             Ok(FSM::FinalExponentMul2(FinalExponentMul2 {
-//                 r: s.r,
-//                 y0: s.y0,
-//             }))
-//         }
-//     }
-// }
+            if (self.index as usize) >= naf.len() {
+                if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                    self.y0.conjugate();
+                }
+                // finished
+                return Ok(());
+            }
+        }
+        // next loop
+        Ok(())
+    }
+}
 
 // #[derive(Clone, BorshSerialize, BorshDeserialize)]
 // pub struct FinalExponentMul2 {
