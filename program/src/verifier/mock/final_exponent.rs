@@ -83,19 +83,18 @@ macro_rules! impl_exp_by_neg_x {
             ) -> (Self, bool) {
                 let naf = <BnParameters as Bn>::NAF;
 
-                const MAX_LOOP: usize = 5;
+                const MAX_LOOP: usize = 9;
                 for _ in 0..MAX_LOOP {
                     self.y0.square_in_place();
         
                     let value = naf[self.index as usize];
                     self.index += 1;
 
-                    self.y0.mul_assign(&self.r);
-                    // if value > 0 {
-                    //     self.y0.mul_assign(&self.r);
-                    // } else {
-                    //     self.y0.mul_assign(&self.r_inv);
-                    // }
+                    if value > 0 {
+                        self.y0.mul_assign(&self.r);
+                    } else if value < 0 {
+                        self.y0.mul_assign(&self.r_inv);
+                    }
         
                     if (self.index as usize) >= naf.len() {
                         if !<BnParameters as Bn>::X_IS_NEGATIVE {
