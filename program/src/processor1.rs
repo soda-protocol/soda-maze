@@ -217,64 +217,25 @@ pub fn process_instruction(
     // };
     // stage.process()
 
-    let mut r_inv = FQK254_VALUE.clone();
-    r_inv.conjugate();
-    let stage = Box::new(FinalExponentMulStep3 {
-        index: input[0],
-        y3: Box::new(FQK254_VALUE.clone()),
+    // let mut r_inv = FQK254_VALUE.clone();
+    // r_inv.conjugate();
+    // let stage = Box::new(FinalExponentMulStep3 {
+    //     index: input[0],
+    //     y3: Box::new(FQK254_VALUE.clone()),
+    //     y4: Box::new(FQK254_VALUE.clone()),
+    //     y5: Box::new(FQK254_VALUE.clone()),
+    //     y5_inv: Box::new(r_inv),
+    //     y6: Box::new(FQK254_VALUE.clone()),
+    // });
+    // stage.process()
+
+    let mut stage = Box::new(FinalExponentMulStep4 {
+        r: Box::new(FQK254_VALUE.clone()),
+        y1: Box::new(FQK254_VALUE.clone()),
         y4: Box::new(FQK254_VALUE.clone()),
-        y5: Box::new(FQK254_VALUE.clone()),
-        y5_inv: Box::new(r_inv),
-        y6: Box::new(FQK254_VALUE.clone()),
+        y8: Box::new(FQK254_VALUE.clone()),
     });
     stage.process()
-
-    // let f_ctx = UpdateContext::new(stage.f, f);
-    // let s0_ctx = ReadOnlyContext::new(stage.s0, f.c0.c0);
-    // let s1_ctx = ReadOnlyContext::new(stage.s1, f.c0.c1);
-    // let s2_ctx = ReadOnlyContext::new(stage.s2, f.c1.c0);
-    // let t6_ctx = ReadOnlyContext::new(stage.t6, f.c1.c1);
-    // let v0_ctx = ReadOnlyContext::new(stage.v0, PROOF.a.x);
-    // let f2_ctx = InitializeContext::new(Pubkey::default());
-
-    // let r_ctx = UpdateContext::new(stage.r, r);
-    // let proof_b_ctx = ReadOnlyContext::new(stage.proof_b, PROOF.b);
-    // let proof_c_ctx = ReadOnlyContext::new(stage.proof_c, PROOF.c);
-    // let q1_ctx = InitializeContext::new(Pubkey::default());
-    // let q2_ctx = InitializeContext::new(Pubkey::default());
-    
-    // stage.process(
-    //     &f_ctx,
-    //     &s0_ctx,
-    //     &s1_ctx,
-    //     &s2_ctx,
-    //     &t6_ctx,
-    //     &v0_ctx,
-    //     &f2_ctx,
-    // );
-    
-    // let y14_ctx = ReadOnlyContext::new(ctx.y14, f);
-    // let y15_ctx = ReadOnlyContext::new(ctx.y15, f2);
-    // // let y15_ctx = InitializeContext::new(Pubkey::default());
-    // ctx.process(OperationType::Deposit, &y14_ctx, &y15_ctx);
-
-    // match ctx.step {
-    //     0 => {
-    //         let f1_ctx = UpdateContext::new(ctx.f1, f);
-    //         let f2_ctx = UpdateContext::new(ctx.f2, f2);
-    //         ctx.process_0(&f1_ctx, &f2_ctx);
-    //     }
-    //     1 => {
-    //         let f1_ctx = UpdateContext::new(ctx.f1, f);
-    //         let f2_ctx = ReadOnlyContext::new(ctx.f2, f2);
-    //         let y0_ctx = InitializeContext::new(Pubkey::default());
-    //         // let y5_ctx = InitializeContext::new(Pubkey::default());
-    //         // let y6_ctx = InitializeContext::new(Pubkey::default());
-
-    //         ctx.process_1(&f1_ctx, &f2_ctx, &y0_ctx);
-    //     }
-    //     _ => {}
-    // }
 }
 
 #[cfg(test)]
