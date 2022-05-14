@@ -218,11 +218,11 @@ pub fn process_instruction(
     // stage.process()
 
     let stage = Box::new(FinalExponentMulStep4 {
-        r: FQK254_VALUE.clone(),
-        y1: FQK254_VALUE.clone(),
-        y3: FQK254_VALUE.clone(),
-        y4: FQK254_VALUE.clone(),
-        y6: FQK254_VALUE.clone(),
+        r: Box::new(FQK254_VALUE.clone()),
+        y1: Box::new(FQK254_VALUE.clone()),
+        y3: Box::new(FQK254_VALUE.clone()),
+        y4: Box::new(FQK254_VALUE.clone()),
+        y6: Box::new(FQK254_VALUE.clone()),
     });
     stage.process()
 

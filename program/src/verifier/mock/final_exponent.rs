@@ -1,4 +1,4 @@
-use std::ops::MulAssign;
+use std::ops::{MulAssign, Mul};
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
@@ -165,21 +165,26 @@ impl FinalExponentMulStep3 {
 }
 
 pub struct FinalExponentMulStep4 {
-    pub r: Fqk254,
-    pub y1: Fqk254,
-    pub y3: Fqk254,
-    pub y4: Fqk254,
-    pub y6: Fqk254,
+    pub r: Box<Fqk254>,
+    pub y1: Box<Fqk254>,
+    pub y3: Box<Fqk254>,
+    pub y4: Box<Fqk254>,
+    pub y6: Box<Fqk254>,
 }
 
 impl FinalExponentMulStep4 {
     #[inline(never)]
     pub fn process(&self) -> Result<(), ProgramError> {
-        let y7 = self.y6 * &self.y4;
-        let y8 = y7 * &self.y3;
-        let _y9 = y8 * &self.y1;
-        let y10 = y8 * &self.y4;
-        let _y11 = y10 * &self.r;
+        let y7 = self.y6.mul(self.y4.as_ref());
+        let mut y8 = y7.mul(self.y3.as_ref());
+        let y9 = y8.mul(self.y1.as_ref());
+        let y10 = y8.mul(self.y4.as_ref());
+        let y11 = y10.mul(self.r.as_ref());
+        let mut y12 = y9;
+        y12.frobenius_map(1);
+        let y13 = y12 * &y11;
+        y8.frobenius_map(2);
+        let _y14 = y8 * &y13;
 
         Ok(())
     }
