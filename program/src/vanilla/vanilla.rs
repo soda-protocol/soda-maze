@@ -142,11 +142,12 @@ impl Operation {
 
     pub fn to_verify_state(
         self,
-        public_inputs_1_ctx: &Context<Vec<Fr>>,
-        public_inputs_2_ctx: &Context<Vec<Fr>>,
-        public_inputs_3_ctx: &Context<Vec<Fr>>,
+        public_inputs_ctx: &Context<Vec<Fr>>,
         g_ic_ctx: &Context<G1Projective254>,
         tmp_ctx: &Context<G1Projective254>,
+        proof_a_pukey: Pubkey,
+        proof_b_pukey: Pubkey,
+        proof_c_pukey: Pubkey,
     ) -> Result<VerifyState, ProgramError> {
         let proof_type = self.operation_type();
         let pvk = proof_type.verifying_key();
@@ -157,37 +158,17 @@ impl Operation {
             Operation::Deposit(deposit) => deposit.to_public_inputs(),
             Operation::Withdarw(withdraw) => withdraw.to_public_inputs(),
         };
-        
-        let batch_len = public_inputs.len() / 3;
-        let mut public_inputs_1 = Vec::with_capacity(batch_len);
-        let mut public_inputs_2 = Vec::with_capacity(batch_len);
-        let mut public_inputs_3 = Vec::with_capacity(public_inputs.len() - batch_len * 2);
 
-        public_inputs
-            .into_iter()
-            .enumerate()
-            .for_each(|(i, p_i)| {
-                if i < batch_len {
-                    public_inputs_1.push(p_i);
-                } else if i < batch_len * 2 {
-                    public_inputs_2.push(p_i);
-                } else {
-                    public_inputs_3.push(p_i);
-                }
-            });
-
-        public_inputs_1_ctx.fill(public_inputs_1)?;
-        public_inputs_2_ctx.fill(public_inputs_2)?;
-        public_inputs_3_ctx.fill(public_inputs_3)?;
-
+        public_inputs_ctx.fill(public_inputs)?;
         let fsm = FSM::PrepareInputs(PrepareInputs {
             input_index: 0,
             bit_index: 0,
-            public_inputs_1: *public_inputs_1_ctx.pubkey(),
-            public_inputs_2: *public_inputs_2_ctx.pubkey(),
-            public_inputs_3: *public_inputs_3_ctx.pubkey(),
+            public_inputs: *public_inputs_ctx.pubkey(),
             g_ic: *g_ic_ctx.pubkey(),
             tmp: *tmp_ctx.pubkey(),
+            proof_a: proof_a_pukey,
+            proof_b: proof_b_pukey,
+            proof_c: proof_c_pukey,
         });
 
         Ok(VerifyState {

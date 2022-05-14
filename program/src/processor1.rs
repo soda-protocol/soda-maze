@@ -142,29 +142,26 @@ pub fn process_instruction(
 ) -> ProgramResult {
     let proof_type = OperationType::Deposit;
 
-    // let stage = PrepareInputs {
-    //     input_index: input[0],
-    //     bit_index: input[1],
-    //     public_inputs: G1_AFFINE_VALUE.to_vec(),
-    //     g_ic: G1_PROJECTIVE_VALUE.clone(),
-    //     tmp: G1_PROJECTIVE_VALUE.clone(),
-    // };
-
-    // let proof_type = OperationType::Deposit;
-
-    // stage.process(&proof_type)
-
-    let stage = MillerLoop {
-        index: input[0],
-        coeff_index: input[1],
-        f: FQK254_VALUE.clone(),
-        r: G2_HOMPROJECTIVE_VALUE.clone(),
-        prepared_input: G1_AFFINE_VALUE.clone(),
-        proof_a: PROOF_A.clone(),
-        proof_b: PROOF_B.clone(),
-        proof_c: PROOF_C.clone(),
+    let stage = PrepareInputs {
+        input_index: input[0],
+        bit_index: input[1] as u16,
+        public_inputs: PUBLIC_INPUTS.to_vec(),
+        g_ic: G1_PROJECTIVE_VALUE.clone(),
+        tmp: G1_PROJECTIVE_VALUE.clone(),
     };
     stage.process(&proof_type)
+
+    // let stage = MillerLoop {
+    //     index: input[0],
+    //     coeff_index: input[1],
+    //     f: FQK254_VALUE.clone(),
+    //     r: G2_HOMPROJECTIVE_VALUE.clone(),
+    //     prepared_input: G1_AFFINE_VALUE.clone(),
+    //     proof_a: PROOF_A.clone(),
+    //     proof_b: PROOF_B.clone(),
+    //     proof_c: PROOF_C.clone(),
+    // };
+    // stage.process(&proof_type)
 
     // let stage = MillerLoopFinalize {
     //     coeff_index: input[0],
@@ -238,7 +235,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![64, 38],
+                data: vec![56, 38],
             }],
             Some(&user.pubkey()),
             &[&user],

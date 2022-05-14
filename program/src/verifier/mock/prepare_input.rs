@@ -34,9 +34,10 @@ impl PrepareInputs {
             .take(MAX_LOOP)
             .for_each(|bit| {
                 self.tmp.double_in_place();
-                if bit {
-                    self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
-                }
+                self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
+                // if bit {
+                //     self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
+                // }
             });
         
         self.bit_index += MAX_LOOP as u16;
