@@ -217,13 +217,13 @@ pub fn process_instruction(
     // };
     // stage.process()
 
-    let stage = FinalExponentMulStep4 {
+    let stage = Box::new(FinalExponentMulStep4 {
         r: FQK254_VALUE.clone(),
         y1: FQK254_VALUE.clone(),
         y3: FQK254_VALUE.clone(),
         y4: FQK254_VALUE.clone(),
         y6: FQK254_VALUE.clone(),
-    };
+    });
     stage.process()
 
     // let f_ctx = UpdateContext::new(stage.f, f);

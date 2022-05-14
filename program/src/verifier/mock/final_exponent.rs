@@ -173,7 +173,8 @@ pub struct FinalExponentMulStep4 {
 }
 
 impl FinalExponentMulStep4 {
-    pub fn process(self) -> Result<(), ProgramError> {
+    #[inline(never)]
+    pub fn process(&self) -> Result<(), ProgramError> {
         let y7 = self.y6 * &self.y4;
         let y8 = y7 * &self.y3;
         let _y9 = y8 * &self.y1;
