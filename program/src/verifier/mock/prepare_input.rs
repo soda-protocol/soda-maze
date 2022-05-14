@@ -50,7 +50,7 @@ impl PrepareInputs {
             }
         }
 
-        let c = G1Affine254::from(self.g_ic);
+        let _c = G1Affine254::from(self.g_ic);
 
         Ok(())
     }
