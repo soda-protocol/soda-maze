@@ -25,14 +25,13 @@ impl PrepareInputs {
         let public_input = self.public_inputs[self.input_index as usize];
         let bits = BitIteratorBE::new(public_input).skip_while(|b| !b).collect::<Vec<_>>();
         let bits_len = bits.len();
-    
-        const MAX_COMPRESS_CYCLE: usize = 52;
-
         let pvk = proof_type.verifying_key();
+
+        const MAX_LOOP: usize = 52;
         bits
             .into_iter()
             .skip(self.bit_index as usize)
-            .take(MAX_COMPRESS_CYCLE)
+            .take(MAX_LOOP)
             .for_each(|bit| {
                 self.tmp.double_in_place();
                 if bit {
@@ -40,7 +39,7 @@ impl PrepareInputs {
                 }
             });
         
-        self.bit_index += MAX_COMPRESS_CYCLE as u16;
+        self.bit_index += MAX_LOOP as u16;
         if self.bit_index as usize >= bits_len {
             self.g_ic.add_assign(&self.tmp);
 

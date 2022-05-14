@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, ExpByNegX1, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -54,7 +54,7 @@ const G1_PROJECTIVE_VALUE: G1Projective254 = G1Projective254::new_const(
     Fq::new(BigInteger::new([15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287])),
 );
 
-const G2HOMPROJECTIVE_VALUE: G2HomProjective254 = G2HomProjective254 {
+const G2_HOMPROJECTIVE_VALUE: G2HomProjective254 = G2HomProjective254 {
     x: Fq2::new_const(
         Fq::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
         Fq::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
@@ -135,29 +135,6 @@ const PUBLIC_INPUTS: &[Fr; 32] = &[
     Fr::new(BigInteger::new([13208303890985533178, 12442437710149681723, 9219358705006067983, 3191371954673554778])),
 ];
 
-const F: &[u8] = &[
-    126, 152, 201, 175, 249, 33, 161, 199, 1, 172, 76, 87, 210, 207,
-    252, 5, 30, 17, 90, 205, 21, 228, 187, 87, 89, 223, 220, 186, 220, 23, 104, 30, 134,
-    34, 52, 42, 1, 58, 128, 66, 234, 38, 103, 89, 145, 224, 178, 180, 170, 155, 214, 79,
-    206, 105, 59, 179, 116, 29, 186, 0, 105, 72, 201, 39, 217, 22, 28, 183, 157, 121, 151,
-    30, 16, 36, 158, 17, 67, 41, 218, 68, 55, 39, 135, 162, 109, 82, 76, 44, 36, 184, 73,
-    6, 81, 85, 0, 25, 250, 62, 154, 131, 104, 82, 77, 183, 59, 130, 101, 173, 44, 107, 172,
-    172, 15, 193, 202, 92, 229, 189, 241, 127, 90, 21, 118, 88, 226, 7, 74, 44, 253, 150,
-    227, 49, 68, 37, 165, 57, 72, 142, 15, 57, 24, 215, 5, 66, 229, 33, 247, 180, 125, 12,
-    151, 102, 132, 59, 183, 198, 172, 95, 51, 10, 78, 63, 208, 90, 63, 3, 235, 10, 122, 160,
-    78, 143, 97, 102, 147, 165, 58, 41, 44, 144, 69, 119, 115, 44, 170, 142, 64, 59, 157, 203,
-    143, 22, 126, 152, 201, 175, 249, 33, 161, 199, 1, 172, 76, 87, 210, 207, 252, 5, 30, 17,
-    90, 205, 21, 228, 187, 87, 89, 223, 220, 186, 220, 23, 104, 30, 134, 34, 52, 42, 1, 58,
-    128, 66, 234, 38, 103, 89, 145, 224, 178, 180, 170, 155, 214, 79, 206, 105, 59, 179, 116,
-    29, 186, 0, 105, 72, 201, 39, 217, 22, 28, 183, 157, 121, 151, 30, 16, 36, 158, 17, 67, 41,
-    218, 68, 55, 39, 135, 162, 109, 82, 76, 44, 36, 184, 73, 6, 81, 85, 0, 25, 250, 62, 154, 131,
-    104, 82, 77, 183, 59, 130, 101, 173, 44, 107, 172, 172, 15, 193, 202, 92, 229, 189, 241, 127,
-    90, 21, 118, 88, 226, 7, 74, 44, 253, 150, 227, 49, 68, 37, 165, 57, 72, 142, 15, 57, 24, 215,
-    5, 66, 229, 33, 247, 180, 125, 12, 151, 102, 132, 59, 183, 198, 172, 95, 51, 10, 78, 63, 208,
-    90, 63, 3, 235, 10, 122, 160, 78, 143, 97, 102, 147, 165, 58, 41, 44, 144, 69, 119, 115, 44,
-    170, 142, 64, 59, 157, 203, 143, 22,
-];
-
 pub fn process_instruction(
     _program_id: &Pubkey,
     _accounts: &[AccountInfo],
@@ -177,18 +154,17 @@ pub fn process_instruction(
 
     // stage.process(&proof_type)
 
-    // let stage = MillerLoop {
-    //     index: input[0],
-    //     coeff_index: input[1],
-    //     f: FQK254_VALUE.clone(),
-    //     r: G2HOMPROJECTIVE.clone(),
-    //     prepared_input: G1_AFFINE_VALUE.clone(),
-    //     proof_a: PROOF_A.clone(),
-    //     proof_b: PROOF_B.clone(),
-    //     proof_c: PROOF_C.clone(),
-    // };
-
-    // stage.process(&proof_type)
+    let stage = MillerLoop {
+        index: input[0],
+        coeff_index: input[1],
+        f: FQK254_VALUE.clone(),
+        r: G2_HOMPROJECTIVE_VALUE.clone(),
+        prepared_input: G1_AFFINE_VALUE.clone(),
+        proof_a: PROOF_A.clone(),
+        proof_b: PROOF_B.clone(),
+        proof_c: PROOF_C.clone(),
+    };
+    stage.process(&proof_type)
 
     // let stage = MillerLoopFinalize {
     //     coeff_index: input[0],
@@ -229,13 +205,13 @@ pub fn process_instruction(
     // });
     // stage.process()
 
-    let mut stage = Box::new(FinalExponentMulStep4 {
-        r: Box::new(FQK254_VALUE.clone()),
-        y1: Box::new(FQK254_VALUE.clone()),
-        y4: Box::new(FQK254_VALUE.clone()),
-        y8: Box::new(FQK254_VALUE.clone()),
-    });
-    stage.process()
+    // let mut stage = Box::new(FinalExponentMulStep4 {
+    //     r: Box::new(FQK254_VALUE.clone()),
+    //     y1: Box::new(FQK254_VALUE.clone()),
+    //     y4: Box::new(FQK254_VALUE.clone()),
+    //     y8: Box::new(FQK254_VALUE.clone()),
+    // });
+    // stage.process()
 }
 
 #[cfg(test)]

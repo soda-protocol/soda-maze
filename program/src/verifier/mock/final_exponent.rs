@@ -8,6 +8,39 @@ use crate::bn::{Field, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, C
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;
 
+fn exp_by_neg_x(
+    index: &mut u8,
+    res: &mut Fqk254,
+    fe: &Fqk254,
+    fe_inv: &Fqk254,
+) -> bool {
+    let naf = <BnParameters as Bn>::NAF;
+
+    const MAX_LOOP: usize = 8;
+    for _ in 0..MAX_LOOP {
+        res.square_in_place();
+
+        let value = naf[*index as usize];
+        *index += 1;
+
+        if value > 0 {
+            res.mul_assign(fe);
+        } else if value < 0 {
+            res.mul_assign(fe_inv);
+        }
+
+        if (*index as usize) >= naf.len() {
+            if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                res.conjugate();
+            }
+            // finished
+            return true;
+        }
+    }
+    // next loop
+    false
+}
+
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentInverse {
     pub f: Fqk254, // Fqk254
@@ -45,48 +78,14 @@ impl FinalExponentInverse {
     }
 }
 
-#[inline]
-fn exp_by_neg_x(
-    index: &mut u8,
-    res: &mut Fqk254,
-    fe: &Fqk254,
-    fe_inv: &Fqk254,
-) -> bool {
-    let naf = <BnParameters as Bn>::NAF;
-
-    const MAX_LOOP: usize = 8;
-    for _ in 0..MAX_LOOP {
-        res.square_in_place();
-
-        let value = naf[*index as usize];
-        *index += 1;
-
-        if value > 0 {
-            res.mul_assign(fe);
-        } else if value < 0 {
-            res.mul_assign(fe_inv);
-        }
-
-        if (*index as usize) >= naf.len() {
-            if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                res.conjugate();
-            }
-            // finished
-            return true;
-        }
-    }
-    // next loop
-    false
-}
-
-pub struct ExpByNegX1 {
+pub struct FinalExponentMulStep1 {
     pub index: u8,
     pub r: Fqk254,
     pub r_inv: Fqk254,
     pub y0: Fqk254,
 }
 
-impl ExpByNegX1 {
+impl FinalExponentMulStep1 {
     pub fn process(mut self) -> Result<(), ProgramError> {
         let finished = exp_by_neg_x(
             &mut self.index,
@@ -111,14 +110,14 @@ impl ExpByNegX1 {
     }
 }
 
-pub struct ExpByNegX2 {
+pub struct FinalExponentMulStep2 {
     pub index: u8,
     pub y3: Fqk254,
     pub y3_inv: Fqk254,
     pub y4: Fqk254,
 }
 
-impl ExpByNegX2 {
+impl FinalExponentMulStep2 {
     pub fn process(mut self) -> Result<(), ProgramError> {
         let finished = exp_by_neg_x(
             &mut self.index,
@@ -194,139 +193,3 @@ impl FinalExponentMulStep4 {
         Ok(())
     }
 }
-
-// impl_fqk_mul_struct!(FinalExponentMul11, r, y8, y9, y11);
-
-// impl FinalExponentMul11 {
-//     pub fn process(
-//         self,
-//         y9_ctx: &Context<Fqk254>,
-//         y11_ctx: &Context<Fqk254>,
-//         y13_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if y9_ctx.pubkey() != &self.y9 {
-//             msg!("y9_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y11_ctx.pubkey() != &self.y11 {
-//             msg!("y11_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let y11 = y11_ctx.take()?;
-//         let mut y12 = y9_ctx.take()?;
-        
-//         y12.frobenius_map(1);
-//         let y13 = y12 * y11;
-
-//         y11_ctx.erase()?;
-//         y13_ctx.fill(y13)?;
-//         Ok(FSM::FinalExponentMul12(FinalExponentMul12 {
-//             r: self.r,
-//             y8: self.y8,
-//             y9: self.y9,
-//             y13: *y13_ctx.pubkey(),
-//         }))
-//     }
-// }
-
-// impl_fqk_mul_struct!(FinalExponentMul12, r, y8, y9, y13);
-
-// impl FinalExponentMul12 {
-//     pub fn process(
-//         self,
-//         y8_ctx: &Context<Fqk254>,
-//         y13_ctx: &Context<Fqk254>,
-//         y14_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if y8_ctx.pubkey() != &self.y8 {
-//             msg!("y8_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y13_ctx.pubkey() != &self.y13 {
-//             msg!("y13_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let mut y8 = y8_ctx.take()?;
-//         let y13 = y13_ctx.take()?;
-
-//         y8.frobenius_map(2);
-//         let y14 = y8 * y13;
-
-//         y8_ctx.close()?;
-//         y13_ctx.erase()?;
-//         y14_ctx.fill(y14)?;
-//         Ok(FSM::FinalExponentMul13(FinalExponentMul13 {
-//             r: self.r,
-//             y9: self.y9,
-//             y14: *y14_ctx.pubkey(),
-//         }))
-//     }
-// }
-
-// impl_fqk_mul_struct!(FinalExponentMul13, r, y9, y14);
-
-// impl FinalExponentMul13 {
-//     pub fn process(
-//         self,
-//         r_ctx: &Context<Fqk254>,
-//         y9_ctx: &Context<Fqk254>,
-//         y15_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if r_ctx.pubkey() != &self.r {
-//             msg!("r_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y9_ctx.pubkey() != &self.y9 {
-//             msg!("y9_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let mut r = r_ctx.take()?;
-//         let y9 = y9_ctx.take()?;
-
-//         r.conjugate();
-//         let y15 = r * y9;
-
-//         r_ctx.close()?;
-//         y9_ctx.close()?;
-//         y15_ctx.fill(y15)?;
-//         Ok(FSM::FinalExponentFinalize(FinalExponentFinalize {
-//             r: self.r,
-//             y14: self.y14,
-//             y15: *y15_ctx.pubkey(),
-//         }))
-//     }
-// }
-
-// impl_fqk_mul_struct!(FinalExponentFinalize, r, y14, y15);
-
-// impl FinalExponentFinalize {
-//     pub fn process(
-//         self,
-//         proof_type: &OperationType,
-//         y14_ctx: &Context<Fqk254>,
-//         y15_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if y14_ctx.pubkey() != &self.y14 {
-//             msg!("y14_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y15_ctx.pubkey() != &self.y15 {
-//             msg!("y15_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let y14 = y14_ctx.take()?;
-//         let mut y15 = y15_ctx.take()?;
-
-//         y15.frobenius_map(3);
-//         let y16 = y15 * y14;
-
-//         y14_ctx.close()?;
-//         y15_ctx.close()?;
-//         let pvk = proof_type.verifying_key();
-//         Ok(FSM::Finished(&y16 == pvk.alpha_g1_beta_g2))
-//     }
-// }
