@@ -78,6 +78,43 @@ macro_rules! impl_exp_by_neg_x {
     ($name:ident) => {
         impl $name {
             #[inline]
+            fn process_inner(
+                mut self,
+            ) -> (Self, bool) {
+                let naf = <BnParameters as Bn>::NAF;
+
+                const MAX_LOOP: usize = 6;
+                for _ in 0..MAX_LOOP {
+                    self.y0.square_in_place();
+        
+                    let value = naf[self.index as usize];
+                    self.index += 1;
+        
+                    if value > 0 {
+                        self.y0.mul_assign(&self.r);
+                    } else {
+                        self.y0.mul_assign(&self.r_inv);
+                    }
+        
+                    if (self.index as usize) >= naf.len() {
+                        if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                            self.y0.conjugate();
+                        }
+                        // finished
+                        return (self, true);
+                    }
+                }
+                // next loop
+                (self, false)
+            }
+        }
+    };
+}
+
+macro_rules! impl_exp_by_neg_xx {
+    ($name:ident) => {
+        impl $name {
+            #[inline]
             fn process_1_inner(
                 mut self,
                 f_ctx: &Context<Fqk254>,
@@ -184,7 +221,7 @@ impl FinalExponentInverse {
 }
 
 impl_exp_by_negx_struct!(FinalExponentMul1, y0);
-impl_exp_by_neg_x!(FinalExponentMul1);
+impl_exp_by_neg_x!(ExpByNegX);
 
 pub struct ExpByNegX {
     pub index: u8,
@@ -194,74 +231,38 @@ pub struct ExpByNegX {
 }
 
 impl ExpByNegX {
-    pub fn process(mut self) -> Result<(), ProgramError> {
-        let naf = <BnParameters as Bn>::NAF;
+    pub fn process(self) -> Result<(), ProgramError> {
+        let (s, finished) = self.process_inner();
 
-        const MAX_LOOP: usize = 8;
-        for _ in 0..MAX_LOOP {
-            self.y0.square_in_place();
-
-            let value = naf[self.index as usize];
-            self.index += 1;
-
-            if value > 0 {
-                self.y0.mul_assign(&self.r);
-            } else {
-                self.y0.mul_assign(&self.r_inv);
-            }
-
-            if (self.index as usize) >= naf.len() {
-                if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                    self.y0.conjugate();
-                }
-                // finished
-                return Ok(());
-            }
+        if finished {
+            // there is some rest compute uint to calculate y1, y2, y3
+            let y1 = s.y0.cyclotomic_square();
+            let y2 = y1.cyclotomic_square();
+            let _y3 = y2 * y1;
+            // finished
+            Ok(())
+        } else {
+            // next loop
+            Ok(())
         }
-        // next loop
-        Ok(())
     }
 }
 
 // #[derive(Clone, BorshSerialize, BorshDeserialize)]
 // pub struct FinalExponentMul2 {
-//     pub r: Pubkey, // Fqk254
-//     pub y0: Pubkey, // Fqk254
+//     pub r: Fqk254, // Fqk254
+//     pub y0: Fqk254, // Fqk254
 // }
 
 // impl FinalExponentMul2 {
 //     pub fn process(
 //         self,
-//         y0_ctx: &Context<Fqk254>,
-//         y1_ctx: &Context<Fqk254>,
-//         y2_ctx: &Context<Fqk254>,
-//     ) -> Result<FSM, ProgramError> {
-//         if y0_ctx.pubkey() != &self.y0 {
-//             msg!("y0_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y1_ctx.pubkey() != &self.y0 {
-//             msg!("y1_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-//         if y2_ctx.pubkey() != &self.y0 {
-//             msg!("y2_ctx pubkey mismatch");
-//             return Err(MazeError::UnmatchedAccounts.into());
-//         }
-
-//         let y0 = y0_ctx.take()?;
-
-//         let y1 = y0.cyclotomic_square();
+//     ) -> Result<(), ProgramError> {
+//         let y1 = self.y0.cyclotomic_square();
 //         let y2 = y1.cyclotomic_square();
+//         let y3 = y2 * y1;
 
-//         y0_ctx.erase()?;
-//         y1_ctx.fill(y1)?;
-//         y2_ctx.fill(y2)?;
-//         Ok(FSM::FinalExponentMul3(FinalExponentMul3 {
-//             r: self.r,
-//             y1: *y1_ctx.pubkey(),
-//             y2: *y2_ctx.pubkey(),
-//         }))
+//         Ok(())
 //     }
 // }
 
