@@ -8,181 +8,6 @@ use crate::bn::{Field, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, C
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;
 
-macro_rules! impl_exp_by_negx_struct {
-    ($name:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey, // Fqk254
-        }
-    };
-    ($name:ident, $field0:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey,
-            pub $field0: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey,
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey,
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey,
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-            pub $field3: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident, $field4:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub step: u8,
-            pub index: u8,
-            pub r: Pubkey,
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-            pub $field3: Pubkey,
-            pub $field4: Pubkey,
-        }
-    };
-}
-
-macro_rules! impl_exp_by_neg_x {
-    ($name:ident) => {
-        impl $name {
-            #[inline]
-            fn process_inner(
-                mut self,
-            ) -> (Self, bool) {
-                let naf = <BnParameters as Bn>::NAF;
-
-                const MAX_LOOP: usize = 9;
-                for _ in 0..MAX_LOOP {
-                    self.y0.square_in_place();
-        
-                    let value = naf[self.index as usize];
-                    self.index += 1;
-
-                    if value > 0 {
-                        self.y0.mul_assign(&self.r);
-                    } else if value < 0 {
-                        self.y0.mul_assign(&self.r_inv);
-                    }
-        
-                    if (self.index as usize) >= naf.len() {
-                        if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                            self.y0.conjugate();
-                        }
-                        // finished
-                        return (self, true);
-                    }
-                }
-                // next loop
-                (self, false)
-            }
-        }
-    };
-}
-
-macro_rules! impl_exp_by_neg_xx {
-    ($name:ident) => {
-        impl $name {
-            #[inline]
-            fn process_1_inner(
-                mut self,
-                f_ctx: &Context<Fqk254>,
-                res_ctx: &Context<Fqk254>,
-            ) -> Result<(Self, bool), ProgramError> {
-                let mut res = res_ctx.borrow_mut()?;
-                let f = f_ctx.take()?;
-
-                let naf = <BnParameters as Bn>::NAF;
-                let value = naf[self.index as usize];
-                self.index += 1;
-
-                if value != 0 {
-                    self.step = 0;
-        
-                    if value > 0 {
-                        res.mul_assign(f);
-                    } else {
-                        let mut f_inv = f;
-                        f_inv.conjugate();
-                        res.mul_assign(f_inv);
-                    }
-                }
-
-                if (self.index as usize) < naf.len() {
-                    Ok((self, true))
-                } else {
-                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                        res.conjugate();
-                    }
-        
-                    Ok((self, false))
-                }
-            }
-        }
-    };
-}
-
-macro_rules! impl_fqk_mul_struct {
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-            pub $field3: Pubkey,
-        }
-    };
-    ($name:ident, $field0:ident, $field1:ident, $field2:ident, $field3:ident, $field4: ident) => {
-        #[derive(Clone, Default, BorshSerialize, BorshDeserialize)]
-        pub struct $name {
-            pub $field0: Pubkey,
-            pub $field1: Pubkey,
-            pub $field2: Pubkey,
-            pub $field3: Pubkey,
-            pub $field4: Pubkey,
-        }
-    };
-}
-
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentInverse {
     pub f: Fqk254, // Fqk254
@@ -220,29 +45,89 @@ impl FinalExponentInverse {
     }
 }
 
-impl_exp_by_negx_struct!(FinalExponentMul1, y0);
-impl_exp_by_neg_x!(ExpByNegX);
+#[inline]
+fn exp_by_neg_x(
+    index: &mut u8,
+    res: &mut Fqk254,
+    fe: &Fqk254,
+    fe_inv: &Fqk254,
+) -> bool {
+    let naf = <BnParameters as Bn>::NAF;
 
-pub struct ExpByNegX {
+    const MAX_LOOP: usize = 8;
+    for _ in 0..MAX_LOOP {
+        res.square_in_place();
+
+        let value = naf[*index as usize];
+        *index += 1;
+
+        if value > 0 {
+            res.mul_assign(fe);
+        } else if value < 0 {
+            res.mul_assign(fe_inv);
+        }
+
+        if (*index as usize) >= naf.len() {
+            if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                res.conjugate();
+            }
+            // finished
+            return true;
+        }
+    }
+    // next loop
+    false
+}
+
+pub struct ExpByNegX1 {
     pub index: u8,
     pub r: Fqk254,
     pub r_inv: Fqk254,
     pub y0: Fqk254,
 }
 
-impl ExpByNegX {
-    pub fn process(self) -> Result<(), ProgramError> {
-        let (s, finished) = self.process_inner();
-
+impl ExpByNegX1 {
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let finished = exp_by_neg_x(
+            &mut self.index,
+            &mut self.y0,
+            &self.r,
+            &self.r_inv,
+        );
         if finished {
             // there is some rest compute uint to calculate y1, y2, y3
-            let y1 = s.y0.cyclotomic_square();
+            let y1 = self.y0.cyclotomic_square();
             let y2 = y1.cyclotomic_square();
-            let _y3 = y2 * y1;
+            let mut y3 = y2 * y1;
+            y3.conjugate();
             // finished
             Ok(())
         } else {
             // next loop
+            Ok(())
+        }
+    }
+}
+
+pub struct ExpByNegX2 {
+    pub index: u8,
+    pub y3: Fqk254,
+    pub y3_inv: Fqk254,
+    pub y4: Fqk254,
+}
+
+impl ExpByNegX2 {
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let finished = exp_by_neg_x(
+            &mut self.index,
+            &mut self.y4,
+            &self.y3,
+            &self.y3_inv,
+        );
+        if finished {
+            let y5 = self.y4.cyclotomic_square();
+            Ok(())
+        } else {
             Ok(())
         }
     }
