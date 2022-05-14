@@ -210,7 +210,7 @@ pub fn process_instruction(
     let mut r_inv = FQK254_VALUE.clone();
     r_inv.conjugate();
     let stage = ExpByNegX {
-        index: 0,
+        index: input[0],
         r: FQK254_VALUE.clone(),
         r_inv,
         y0: Fqk254::one(),
