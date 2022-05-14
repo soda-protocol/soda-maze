@@ -83,7 +83,7 @@ macro_rules! impl_exp_by_neg_x {
             ) -> (Self, bool) {
                 let naf = <BnParameters as Bn>::NAF;
 
-                const MAX_LOOP: usize = 4;
+                const MAX_LOOP: usize = 5;
                 for _ in 0..MAX_LOOP {
                     self.y0.square_in_place();
         
