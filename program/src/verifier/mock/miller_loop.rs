@@ -44,9 +44,8 @@ impl MillerLoop {
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
 
-        const MAX_LOOP: usize = 4;
-        let mut loop_times = 0;
-        while loop_times < MAX_LOOP {
+        const MAX_LOOP: usize = 2;
+        for _ in 0..MAX_LOOP {
             self.f.square_in_place();
 
             let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
@@ -54,7 +53,6 @@ impl MillerLoop {
             ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
-            loop_times += 1;
 
             self.index -= 1;
             let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
@@ -85,7 +83,6 @@ impl MillerLoop {
             ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
-            loop_times += 1;
     
             if self.index == 0 {
                 let q1 = mul_by_char::<BnParameters>(self.proof_b);
