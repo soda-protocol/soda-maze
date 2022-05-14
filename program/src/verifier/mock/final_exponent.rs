@@ -174,7 +174,7 @@ pub struct FinalExponentMulStep4 {
 
 impl FinalExponentMulStep4 {
     #[inline(never)]
-    pub fn process(&self) -> Result<(), ProgramError> {
+    pub fn process(&mut self) -> Result<(), ProgramError> {
         let y7 = self.y6.mul(self.y4.as_ref());
         let mut y8 = y7.mul(self.y3.as_ref());
         let y9 = y8.mul(self.y1.as_ref());
@@ -184,7 +184,11 @@ impl FinalExponentMulStep4 {
         y12.frobenius_map(1);
         let y13 = y12 * &y11;
         y8.frobenius_map(2);
-        let _y14 = y8 * &y13;
+        let y14 = y8 * &y13;
+        self.r.conjugate();
+        let mut y15 = self.r.mul(y9);
+        y15.frobenius_map(3);
+        let _y16 = y15 * &y14;
 
         Ok(())
     }
