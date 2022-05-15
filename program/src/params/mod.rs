@@ -4,6 +4,7 @@ mod fq2;
 mod fq6;
 mod fq12;
 mod model;
+mod rabin;
 
 pub use fr::*;
 pub use fq::*;
@@ -11,6 +12,7 @@ pub use fq2::*;
 pub use fq6::*;
 pub use fq12::*;
 pub use model::*;
+pub use rabin::*;
 
 use std::marker::PhantomData;
 

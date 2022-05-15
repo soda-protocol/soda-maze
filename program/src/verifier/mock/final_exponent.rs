@@ -3,7 +3,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::{bn::BnParameters as Bn, OperationType, error::MazeError};
+use crate::{bn::BnParameters as Bn, ProofType, error::MazeError};
 use crate::bn::{Field, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper};
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;

@@ -5,11 +5,12 @@ pub mod bn;
 pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
-pub mod processor1;
+pub mod processor;
 pub mod key;
 pub mod vanilla;
 pub mod params;
 pub mod context;
+pub mod state;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
 
@@ -31,24 +32,25 @@ use crate::key::*;
 pub const HEIGHT: usize = 24;
 pub const DEPOSIT_INPUTS: usize = 28;
 pub const WITHDRAW_INPUTS: usize = 28;
+pub const CREDENTIAL_LEN: usize = 12;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub enum OperationType {
+pub enum ProofType {
     Deposit,
     Withdraw,
 }
 
-impl OperationType {
+impl ProofType {
     pub const fn inputs_len(&self) -> usize {
         match self {
-            OperationType::Deposit => DEPOSIT_INPUTS,
-            OperationType::Withdraw => WITHDRAW_INPUTS,
+            ProofType::Deposit => DEPOSIT_INPUTS,
+            ProofType::Withdraw => WITHDRAW_INPUTS,
         }
     }
 
     pub const fn verifying_key(&self) -> &PreparedVerifyingKey {
         match self {
-            OperationType::Deposit => &PreparedVerifyingKey {
+            ProofType::Deposit => &PreparedVerifyingKey {
                 g_ic_init: DEPOSIT_G_IC_INIT,
                 gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
                 alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,
@@ -56,7 +58,7 @@ impl OperationType {
                 delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
             },
             // TODO: implement withdraw
-            OperationType::Withdraw => &PreparedVerifyingKey {
+            ProofType::Withdraw => &PreparedVerifyingKey {
                 g_ic_init: DEPOSIT_G_IC_INIT,
                 gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
                 alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,

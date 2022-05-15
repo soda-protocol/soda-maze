@@ -4,7 +4,7 @@ use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
-use crate::{OperationType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
+use crate::{ProofType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
 
 fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     let mut c0 = coeffs.0;
@@ -40,7 +40,7 @@ pub struct MillerLoop {
 impl MillerLoop {
     pub fn process(
         mut self,
-        proof_type: &OperationType,
+        proof_type: &ProofType,
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
 
@@ -109,7 +109,7 @@ impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
     pub fn process(
         mut self,
-        proof_type: &OperationType,
+        proof_type: &ProofType,
     ) -> Result<(), ProgramError> {
         let pvk = proof_type.verifying_key();
 

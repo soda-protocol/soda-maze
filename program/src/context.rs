@@ -2,7 +2,7 @@ use std::{cell::{RefCell, RefMut}, ops::{DerefMut, Deref}};
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, program_error::ProgramError, entrypoint::ProgramResult, rent::Rent};
 
-use crate::{verifier::StateWrapper, Packer, error::MazeError};
+use crate::{state::StateWrapper, Packer, error::MazeError};
 
 #[derive(Debug, PartialEq)]
 enum Status {
@@ -31,16 +31,20 @@ impl<'a, S: Clone + BorshSerialize + BorshDeserialize> DerefMut for RefMutWrappe
     }
 }
 
-pub struct Context<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize> {
+pub type Context512<'a, 'b, S> = Context<'a, 'b, S, 512>;
+pub type Context1024<'a, 'b, S> = Context<'a, 'b, S, 1024>;
+pub type Context2048<'a, 'b, S> = Context<'a, 'b, S, 2048>;
+
+pub struct Context<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> {
     state_info: &'a AccountInfo<'b>,
     status: RefCell<Status>,
     state: RefCell<Option<S>>,
 }
 
-impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize> Context<'a, 'b, S> {
+impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> Context<'a, 'b, S, LEN> {
     pub fn new(state_info: &'a AccountInfo<'b>, program_id: &Pubkey) -> Result<Self, ProgramError> {
         let ctx = if let Some(state_wrapper)
-            = StateWrapper::unchecked_unpack_from_account_info(state_info, program_id)? {
+            = StateWrapper::<S, LEN>::unchecked_unpack_from_account_info(state_info, program_id)? {
             Self {
                 state_info,
                 status: RefCell::new(Status::Pending),
@@ -123,14 +127,14 @@ impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize> Context<'a, 'b, S> {
 
         match status {
             Status::Filled => {
-                StateWrapper::new(state.unwrap())
+                StateWrapper::<S, LEN>::new(state.unwrap())
                     .unchecked_initialize_to_account_info(rent, state_info)?;
             }
             Status::Updating => {
-                StateWrapper::new(state.unwrap()).pack_to_account_info(state_info)?;
+                StateWrapper::<S, LEN>::new(state.unwrap()).pack_to_account_info(state_info)?;
             }
             Status::Erased => {
-                StateWrapper::<S>::erase_account_info(state_info)?;
+                StateWrapper::<S, LEN>::erase_account_info(state_info)?;
             }
             Status::Closed => {
                 **receiver_info.lamports.borrow_mut() = receiver_info

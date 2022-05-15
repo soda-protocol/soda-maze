@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, OperationType, context::Context};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, ProofType, context::Context};
 use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -139,7 +139,7 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     input: &[u8],
 ) -> ProgramResult {
-    let proof_type = OperationType::Deposit;
+    let proof_type = ProofType::Deposit;
 
     let stage = PrepareInputs {
         input_index: input[0],
@@ -234,7 +234,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![30, 52],
+                data: vec![30, 40],
             }],
             Some(&user.pubkey()),
             &[&user],

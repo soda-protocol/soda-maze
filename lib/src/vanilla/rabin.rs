@@ -8,7 +8,7 @@ pub struct RabinParam {
     pub modulus_array: Vec<BigUint>,
     pub modulus_len: usize,
     pub bit_size: u64,
-    pub cypher_batch_size: usize,
+    pub cypher_batch: usize,
 }
 
 impl RabinParam {
@@ -16,7 +16,7 @@ impl RabinParam {
         modulus: BigUint,
         modulus_len: usize,
         bit_size: u64,
-        cypher_batch_size: usize,
+        cypher_batch: usize,
     ) -> Self {
         let base = BigUint::from(1u64) << bit_size;
         let mut rest = modulus.clone();
@@ -32,7 +32,7 @@ impl RabinParam {
             modulus_array,
             modulus_len,
             bit_size,
-            cypher_batch_size,
+            cypher_batch,
         }
     }
 
@@ -75,14 +75,14 @@ impl RabinParam {
         &self,
         cypher: BigUint,
     ) -> Vec<F> {
-        let cypher_bits = self.cypher_batch_size * (self.bit_size as usize);
+        let cypher_bits = self.cypher_batch * (self.bit_size as usize);
         assert!(cypher_bits < F::Params::MODULUS_BITS as usize);
-        assert_eq!(self.modulus_len % self.cypher_batch_size, 0);
+        assert_eq!(self.modulus_len % self.cypher_batch, 0);
 
         let base = BigUint::from(1u64) << cypher_bits;
         let mut rest = cypher;
     
-        let res = (0..self.modulus_len / self.cypher_batch_size).into_iter().map(|_| {
+        let res = (0..self.modulus_len / self.cypher_batch).into_iter().map(|_| {
             let (hi, lo) = rest.div_rem(&base);
             rest = hi;
             F::from(lo)

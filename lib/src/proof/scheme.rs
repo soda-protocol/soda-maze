@@ -7,7 +7,7 @@ use crate::circuits::{DepositCircuit, WithdrawCircuit, FieldHasherGadget, RabinE
 
 use super::ProofScheme;
 
-pub struct DepositProof<F, FH, FHG, S, const HEIGHT: u8>
+pub struct DepositProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -20,12 +20,12 @@ where
     _s: PhantomData<S>,
 }
 
-impl<F, FH, FHG, S, const HEIGHT: u8> ProofScheme<
+impl<F, FH, FHG, S> ProofScheme<
     F,
     DepositCircuit<F, FH, FHG>,
     S,
-    DepositVanillaProof<F, FH, HEIGHT>,
-> for DepositProof<F, FH, FHG, S, HEIGHT>
+    DepositVanillaProof<F, FH>,
+> for DepositProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -64,7 +64,7 @@ where
     }
 }
 
-pub struct WithdrawProof<F, FH, FHG, S, const HEIGHT: u8>
+pub struct WithdrawProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -77,12 +77,12 @@ where
     _s: PhantomData<S>,
 }
 
-impl<F, FH, FHG, S, const HEIGHT: u8> ProofScheme<
+impl<F, FH, FHG, S> ProofScheme<
     F,
     WithdrawCircuit<F, FH, FHG>,
     S,
-    WithdrawVanillaProof<F, FH, HEIGHT>,
-> for WithdrawProof<F, FH, FHG, S, HEIGHT>
+    WithdrawVanillaProof<F, FH>,
+> for WithdrawProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -119,7 +119,7 @@ where
                 priv_in.padding.clone().unwrap(),
                 pub_in.cypher.clone().unwrap(),
                 param.bit_size,
-                param.cypher_batch_size,
+                param.cypher_batch,
             ))
         } else {
             None

@@ -6,7 +6,7 @@ use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 use crate::context::Context;
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
 use crate::params::{*, Bn254Parameters as BnParameters, FrParameters};
-use crate::{OperationType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
+use crate::{ProofType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
@@ -20,7 +20,7 @@ pub struct PrepareInputs {
 impl PrepareInputs {
     pub fn process(
         mut self,
-        proof_type: &OperationType,
+        proof_type: &ProofType,
     ) -> Result<(), ProgramError> {
         let public_input = self.public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;

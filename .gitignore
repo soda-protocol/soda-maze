@@ -1,4 +1,5 @@
-maze-lib/target
-maze-bench/target
+lib/target
+bench/target
 program/target
+tools/gen-params/target
 *Cargo.lock

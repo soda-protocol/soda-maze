@@ -5,19 +5,20 @@ use solana_program::{pubkey::Pubkey, entrypoint::ProgramResult, program_pack::Is
 
 use crate::params::{Fr, G1Projective254};
 use crate::{HEIGHT, DEPOSIT_INPUTS, WITHDRAW_INPUTS};
-use crate::{error::MazeError, bn::BigInteger256, OperationType, Packer};
-use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM, VerifyState};
-use crate::context::Context;
+use crate::{error::MazeError, bn::BigInteger256, ProofType, Packer};
+use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM};
+use crate::context::{Context512, Context2048};
+use crate::state::VerifyState;
 
 #[inline]
 fn pubkey_to_fr(pubkey: Pubkey) -> Fr {
     let pubkey = &pubkey.to_bytes();
-    let (d0, d1, d2, d3) = array_refs![pubkey, 8, 8, 8, 8];
+    let (d0, d1, d2, d3) = array_refs![pubkey, 8, 8, 8, 8];    
     let fr_data = [
         u64::from_le_bytes(*d0),
         u64::from_le_bytes(*d1),
         u64::from_le_bytes(*d2),
-        u64::from_le_bytes(*d3) & 0x1FFF_FFFF_FFFF_FFFF,
+        u64::from_le_bytes(*d3) & ((1u64 << 61) - 1),
     ];
 
     Fr::new(BigInteger256::new(fr_data))
@@ -54,8 +55,8 @@ impl DepositInfo {
         Ok(())
     }
 
-    pub fn to_public_inputs(self) -> Vec<Fr> {
-        let mut inputs = Vec::with_capacity(DEPOSIT_INPUTS);
+    pub fn to_public_inputs(self) -> Box<Vec<Fr>> {
+        let mut inputs = Box::new(Vec::with_capacity(DEPOSIT_INPUTS));
 
         inputs.push(pubkey_to_fr(self.mint));
         inputs.push(Fr::new(BigInteger256::from(self.deposit_amount)));
@@ -75,6 +76,7 @@ pub struct WithdrawInfo {
     pub mint: Pubkey,
     pub withdraw_amount: u64,
     pub nullifier: Fr,
+    pub credential: Vec<Fr>,
     pub old_root: Fr,
     pub new_leaf: Fr,
     pub new_leaf_index: u32,
@@ -89,10 +91,16 @@ impl WithdrawInfo {
         if !self.new_leaf.is_valid() {
             return Err(MazeError::DepositTooSmall.into());
         }
-        if !self.update_nodes.iter().all(|x| x.is_valid()) {
+        if self.credential.len() != WITHDRAW_INPUTS {
+            return Err(MazeError::DepositTooSmall.into());
+        }
+        if !self.credential.iter().all(|x| x.is_valid()) {
             return Err(MazeError::DepositTooSmall.into());
         }
         if self.update_nodes.len() != HEIGHT {
+            return Err(MazeError::DepositTooSmall.into());
+        }
+        if !self.update_nodes.iter().all(|x| x.is_valid()) {
             return Err(MazeError::DepositTooSmall.into());
         }
         if self.new_leaf_index >= 1 << HEIGHT {
@@ -102,12 +110,13 @@ impl WithdrawInfo {
         Ok(())
     }
 
-    pub fn to_public_inputs(self) -> Vec<Fr> {
-        let mut inputs = Vec::with_capacity(WITHDRAW_INPUTS);
+    pub fn to_public_inputs(self) -> Box<Vec<Fr>> {
+        let mut inputs = Box::new(Vec::with_capacity(WITHDRAW_INPUTS));
 
         inputs.push(pubkey_to_fr(self.mint));
         inputs.push(Fr::new(BigInteger256::from(self.withdraw_amount)));
         inputs.push(self.nullifier);
+
         inputs.push(self.old_root);
         inputs.push(Fr::new(BigInteger256::from(self.new_leaf_index as u64)));
         inputs.push(self.new_leaf);
@@ -126,10 +135,10 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn operation_type(&self) -> OperationType {
+    pub fn proof_type(&self) -> ProofType {
         match self {
-            Operation::Deposit(_) => OperationType::Deposit,
-            Operation::Withdarw(_) => OperationType::Withdraw,
+            Operation::Deposit(_) => ProofType::Deposit,
+            Operation::Withdarw(_) => ProofType::Withdraw,
         }
     }
 
@@ -142,33 +151,31 @@ impl Operation {
 
     pub fn to_verify_state(
         self,
-        public_inputs_ctx: &Context<Vec<Fr>>,
-        g_ic_ctx: &Context<G1Projective254>,
-        tmp_ctx: &Context<G1Projective254>,
-        proof_a_pukey: Pubkey,
+        g_ic_ctx: &Context512<G1Projective254>,
+        tmp_ctx: &Context512<G1Projective254>,
+        public_inputs_ctx: &Context2048<Box<Vec<Fr>>>,
+        proof_ac_pukey: Pubkey,
         proof_b_pukey: Pubkey,
-        proof_c_pukey: Pubkey,
     ) -> Result<VerifyState, ProgramError> {
-        let proof_type = self.operation_type();
+        let proof_type = self.proof_type();
         let pvk = proof_type.verifying_key();
-        g_ic_ctx.fill(*pvk.g_ic_init)?;
-        tmp_ctx.fill(G1Projective254::zero())?;
-
         let public_inputs = match self {
             Operation::Deposit(deposit) => deposit.to_public_inputs(),
             Operation::Withdarw(withdraw) => withdraw.to_public_inputs(),
         };
 
+        g_ic_ctx.fill(*pvk.g_ic_init)?;
+        tmp_ctx.fill(G1Projective254::zero())?;
         public_inputs_ctx.fill(public_inputs)?;
+
         let fsm = FSM::PrepareInputs(PrepareInputs {
             input_index: 0,
             bit_index: 0,
             public_inputs: *public_inputs_ctx.pubkey(),
             g_ic: *g_ic_ctx.pubkey(),
             tmp: *tmp_ctx.pubkey(),
-            proof_a: proof_a_pukey,
+            proof_ac: proof_ac_pukey,
             proof_b: proof_b_pukey,
-            proof_c: proof_c_pukey,
         });
 
         Ok(VerifyState {

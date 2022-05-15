@@ -22,7 +22,7 @@ fn poly_array_to_biguint<F: PrimeField>(
     Ok(res)
 }
 
-// preimage = leaf | leaf | ... | 0 | ... | 0
+// preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
 fn gen_preimage_from_fp_var<F: PrimeField>(
     leaf: FpVar<F>,
     modulus: &[GeneralUint<F>],
@@ -44,10 +44,10 @@ fn gen_preimage_from_fp_var<F: PrimeField>(
 fn gen_cypher_from_fp_var<F: PrimeField>(
     cypher: Vec<FpVar<F>>,
     bit_size: u64,
-    cypher_batch_size: usize,
+    cypher_batch: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     let cypher = cypher.into_iter()
-        .map(|c| GeneralUint::partly_split_fp_var(c, bit_size, cypher_batch_size))
+        .map(|c| GeneralUint::partly_split_fp_var(c, bit_size, cypher_batch))
         .collect::<Result<Vec<_>, SynthesisError>>()?
         .into_iter()
         .flatten()
@@ -80,7 +80,7 @@ pub struct RabinEncryption<F: PrimeField> {
     padding: Vec<BigUint>,
     cypher: Vec<F>,
     bit_size: u64,
-    cypher_batch_size: usize,
+    cypher_batch: usize,
 }
 
 impl<F: PrimeField> RabinEncryption<F> {
@@ -90,15 +90,15 @@ impl<F: PrimeField> RabinEncryption<F> {
         padding: Vec<BigUint>,
         cypher: Vec<F>,
         bit_size: u64,
-        cypher_batch_size: usize,
+        cypher_batch: usize,
     ) -> Self {
         assert_eq!(modulus.len(), quotient.len());
         modulus.iter().zip(quotient.iter()).for_each(|(m, q)| {
             assert!(m.bits() <= bit_size);
             assert!(q.bits() <= bit_size);
         });
-        assert!(cypher_batch_size as u64 * bit_size < F::Params::MODULUS_BITS as u64);
-        assert_eq!(modulus.len() % cypher_batch_size as usize, 0);
+        assert!(cypher_batch as u64 * bit_size < F::Params::MODULUS_BITS as u64);
+        assert_eq!(modulus.len() % cypher_batch as usize, 0);
 
         Self {
             modulus,
@@ -106,7 +106,7 @@ impl<F: PrimeField> RabinEncryption<F> {
             padding,
             cypher,
             bit_size,
-            cypher_batch_size,
+            cypher_batch,
         }
     }
 
@@ -143,7 +143,7 @@ impl<F: PrimeField> RabinEncryption<F> {
             self.bit_size,
         )?;
         // transform fp cypher to general uint
-        let cypher = gen_cypher_from_fp_var(fp_cypher, self.bit_size, self.cypher_batch_size)?;
+        let cypher = gen_cypher_from_fp_var(fp_cypher, self.bit_size, self.cypher_batch)?;
         // encryption
         rabin_encrypt(&modulus, &preimage, &quotient, cypher, self.bit_size)?;
 
@@ -165,7 +165,7 @@ mod tests {
     use super::{GeneralUint, rabin_encrypt, gen_preimage_from_fp_var, gen_cypher_from_fp_var, RabinEncryption};
     
     const BIT_SIZE: u64 = 124;
-    const CYPHER_BATCH_SIZE: usize = 2;
+    const CYPHER_BATCH: usize = 2;
     const PRIME_LENGTH: usize = 12;
     const MODULUS_LEN: usize = PRIME_LENGTH * 2;
     
@@ -226,14 +226,14 @@ mod tests {
     }
 
     pub fn gen_cypher_array(cypher: BigUint) -> Vec<Fr> {
-        let cypher_bits = CYPHER_BATCH_SIZE * (BIT_SIZE as usize);
+        let cypher_bits = CYPHER_BATCH * (BIT_SIZE as usize);
         assert!(cypher_bits < <Fr as PrimeField>::Params::MODULUS_BITS as usize);
-        assert_eq!(MODULUS_LEN % CYPHER_BATCH_SIZE, 0);
+        assert_eq!(MODULUS_LEN % CYPHER_BATCH, 0);
 
         let base = BigUint::from(1u64) << cypher_bits;
         let mut rest = cypher;
     
-        let res = (0..MODULUS_LEN / CYPHER_BATCH_SIZE).into_iter().map(|_| {
+        let res = (0..MODULUS_LEN / CYPHER_BATCH).into_iter().map(|_| {
             let (hi, lo) = rest.div_rem(&base);
             rest = hi;
             Fr::from(lo)
@@ -326,7 +326,7 @@ mod tests {
             FpVar::new_input(cs.clone(), || Ok(c)).unwrap()
         }).collect::<Vec<_>>();
 
-        let _ = gen_cypher_from_fp_var(cypher, BIT_SIZE, CYPHER_BATCH_SIZE).unwrap();
+        let _ = gen_cypher_from_fp_var(cypher, BIT_SIZE, CYPHER_BATCH).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
@@ -381,7 +381,7 @@ mod tests {
             padding,
             cypher,
             BIT_SIZE,
-            CYPHER_BATCH_SIZE,
+            CYPHER_BATCH,
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();

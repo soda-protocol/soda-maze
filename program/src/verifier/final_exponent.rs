@@ -3,9 +3,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::One;
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::{bn::BnParameters as Bn, bn::Field, OperationType, error::MazeError};
+use crate::{bn::BnParameters as Bn, bn::Field, ProofType, error::MazeError};
 use crate::params::{*, Bn254Parameters as BnParameters};
-use crate::context::Context;
+use crate::context::Context512;
 
 use super::fsm::FSM;
 
@@ -50,9 +50,9 @@ pub struct FinalExponentEasyPart {
 impl FinalExponentEasyPart {
     pub fn process(
         self,
-        r_ctx: &Context<Fqk254>,
-        r_inv_ctx: &Context<Fqk254>,
-        y0_ctx: &Context<Fqk254>,
+        r_ctx: &Context512<Fqk254>,
+        r_inv_ctx: &Context512<Fqk254>,
+        y0_ctx: &Context512<Fqk254>,
     ) -> Result<FSM, ProgramError> {
         if r_ctx.pubkey() != &self.r {
             msg!("r_ctx pubkey mismatch");
@@ -106,11 +106,11 @@ pub struct FinalExponentHardPart1 {
 impl FinalExponentHardPart1 {
     pub fn process(
         mut self,
-        r_ctx: &Context<Fqk254>,
-        r_inv_ctx: &Context<Fqk254>,
-        y0_ctx: &Context<Fqk254>,
-        y3_ctx: &Context<Fqk254>,
-        y4_ctx: &Context<Fqk254>,
+        r_ctx: &Context512<Fqk254>,
+        r_inv_ctx: &Context512<Fqk254>,
+        y0_ctx: &Context512<Fqk254>,
+        y3_ctx: &Context512<Fqk254>,
+        y4_ctx: &Context512<Fqk254>,
     ) -> Result<FSM, ProgramError> {
         if r_ctx.pubkey() != &self.r {
             msg!("r_ctx pubkey mismatch");
@@ -178,11 +178,11 @@ pub struct FinalExponentHardPart2 {
 impl FinalExponentHardPart2 {
     pub fn process(
         mut self,
-        y3_ctx: &Context<Fqk254>,
-        y3_inv_ctx: &Context<Fqk254>,
-        y4_ctx: &Context<Fqk254>,
-        y5_ctx: &Context<Fqk254>,
-        y6_ctx: &Context<Fqk254>,
+        y3_ctx: &Context512<Fqk254>,
+        y3_inv_ctx: &Context512<Fqk254>,
+        y4_ctx: &Context512<Fqk254>,
+        y5_ctx: &Context512<Fqk254>,
+        y6_ctx: &Context512<Fqk254>,
     ) -> Result<FSM, ProgramError> {
         if y3_ctx.pubkey() != &self.y3 {
             msg!("y3_ctx pubkey mismatch");
@@ -248,11 +248,11 @@ pub struct FinalExponentHardPart3 {
 impl FinalExponentHardPart3 {
     pub fn process(
         mut self,
-        y3_ctx: &Context<Fqk254>,
-        y4_ctx: &Context<Fqk254>,
-        y5_ctx: &Context<Fqk254>,
-        y5_inv_ctx: &Context<Fqk254>,
-        y6_ctx: &Context<Fqk254>,
+        y3_ctx: &Context512<Fqk254>,
+        y4_ctx: &Context512<Fqk254>,
+        y5_ctx: &Context512<Fqk254>,
+        y5_inv_ctx: &Context512<Fqk254>,
+        y6_ctx: &Context512<Fqk254>,
     ) -> Result<FSM, ProgramError> {
         if y5_ctx.pubkey() != &self.y5 {
             msg!("y5_ctx pubkey mismatch");
@@ -325,11 +325,11 @@ pub struct FinalExponentHardPart4 {
 impl FinalExponentHardPart4 {
     pub fn process(
         self,
-        proof_type: &OperationType,
-        r_ctx: &Context<Box<Fqk254>>,
-        y1_ctx: &Context<Box<Fqk254>>,
-        y4_ctx: &Context<Box<Fqk254>>,
-        y8_ctx: &Context<Box<Fqk254>>,
+        proof_type: &ProofType,
+        r_ctx: &Context512<Box<Fqk254>>,
+        y1_ctx: &Context512<Box<Fqk254>>,
+        y4_ctx: &Context512<Box<Fqk254>>,
+        y8_ctx: &Context512<Box<Fqk254>>,
     ) -> Result<FSM, ProgramError> {
         if r_ctx.pubkey() != &self.r {
             msg!("r_ctx pubkey mismatch");

@@ -7,13 +7,13 @@ use num_integer::Integer;
 use super::{array::Pubkey, hasher::FieldHasher, VanillaProof, merkle::gen_merkle_path, rabin::RabinParam};
 
 #[derive(Default)]
-pub struct DepositVanillaProof<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> {
+pub struct DepositVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
     _f: PhantomData<F>,
     _fh: PhantomData<FH>,
 }
 
 #[derive(Clone)]
-pub struct DepositOriginInputs<F: PrimeField, const HEIGHT: u8> {
+pub struct DepositOriginInputs<F: PrimeField> {
     pub mint: Pubkey,
     pub amount: u64,
     pub secret: F,
@@ -24,6 +24,7 @@ pub struct DepositOriginInputs<F: PrimeField, const HEIGHT: u8> {
 pub struct DepositConstParams<F: PrimeField, FH: FieldHasher<F>> {
     pub inner_params: FH::Parameters,
     pub leaf_params: FH::Parameters,
+    pub height: usize,
 }
 
 #[derive(Clone)]
@@ -42,9 +43,9 @@ pub struct DepositPrivateInputs<F: PrimeField> {
     pub friend_nodes: Vec<(bool, F)>,
 }
 
-impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for DepositVanillaProof<F, FH, HEIGHT> {
+impl<F: PrimeField, FH: FieldHasher<F>> VanillaProof<F> for DepositVanillaProof<F, FH> {
     type ConstParams = DepositConstParams<F, FH>;
-    type OriginInputs = DepositOriginInputs<F, HEIGHT>;
+    type OriginInputs = DepositOriginInputs<F>;
     type PublicInputs = DepositPublicInputs<F>;
     type PrivateInputs = DepositPrivateInputs<F>;
 
@@ -54,7 +55,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
             amount: 1,
             secret: F::zero(),
             leaf_index: 0,
-            friend_nodes: vec![FH::empty_hash(); HEIGHT as usize],
+            friend_nodes: vec![FH::empty_hash(); params.height],
         };
 
         Self::generate_vanilla_proof(params, &orig_in)
@@ -62,10 +63,10 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
 
     fn generate_vanilla_proof(
         params: &DepositConstParams<F, FH>,
-        orig_in: &DepositOriginInputs<F, HEIGHT>,
+        orig_in: &DepositOriginInputs<F>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        assert_eq!(orig_in.friend_nodes.len(), HEIGHT as usize);
-        assert!(orig_in.leaf_index < (1 << HEIGHT));
+        assert_eq!(orig_in.friend_nodes.len(), params.height);
+        assert!(orig_in.leaf_index < (1 << params.height));
         assert!(orig_in.amount > 0, "amount must be greater than 0");
 
         let friend_nodes = orig_in.friend_nodes
@@ -110,7 +111,7 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for De
 }
 
 #[derive(Default)]
-pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> {
+pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
     _f: PhantomData<F>,
     _fh: PhantomData<FH>,
 }
@@ -119,11 +120,12 @@ pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {
     pub nullifier_params: FH::Parameters,
     pub inner_params: FH::Parameters,
     pub leaf_params: FH::Parameters,
+    pub height: usize,
     pub rabin_param: Option<RabinParam>,
 }
 
 #[derive(Clone)]
-pub struct WithdrawOriginInputs<F: PrimeField, const HEIGHT: u8> {
+pub struct WithdrawOriginInputs<F: PrimeField> {
     pub mint: Pubkey,
     pub deposit_amount: u64,
     pub withdraw_amount: u64,
@@ -159,9 +161,9 @@ pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub padding: Option<Vec<BigUint>>,
 }
 
-impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for WithdrawVanillaProof<F, FH, HEIGHT> {
+impl<F: PrimeField, FH: FieldHasher<F>> VanillaProof<F> for WithdrawVanillaProof<F, FH> {
     type ConstParams = WithdrawConstParams<F, FH>;
-    type OriginInputs = WithdrawOriginInputs<F, HEIGHT>;
+    type OriginInputs = WithdrawOriginInputs<F>;
     type PublicInputs = WithdrawPublicInputs<F>;
     type PrivateInputs = WithdrawPrivateInputs<F>;
 
@@ -174,8 +176,8 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
         let leaf = FH::hash(&params.leaf_params, &preimage)
             .map_err(|e| anyhow!("hash error: {}", e))?;
 
-        let friend_nodes_1 = vec![FH::empty_hash(); HEIGHT as usize];
-        let mut friend_nodes_2 = vec![FH::empty_hash(); HEIGHT as usize];
+        let friend_nodes_1 = vec![FH::empty_hash(); params.height];
+        let mut friend_nodes_2 = vec![FH::empty_hash(); params.height];
         friend_nodes_2[0] = leaf;
 
         let rabin_leaf_padding = if let Some(param) = &params.rabin_param {
@@ -207,11 +209,11 @@ impl<F: PrimeField, FH: FieldHasher<F>, const HEIGHT: u8> VanillaProof<F> for Wi
 
     fn generate_vanilla_proof(
         params: &WithdrawConstParams<F, FH>,
-        orig_in: &WithdrawOriginInputs<F, HEIGHT>,
+        orig_in: &WithdrawOriginInputs<F>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        assert_eq!(orig_in.friend_nodes_1.len(), HEIGHT as usize);
-        assert_eq!(orig_in.friend_nodes_2.len(), HEIGHT as usize);
-        assert!(orig_in.leaf_index_2 < (1 << HEIGHT));
+        assert_eq!(orig_in.friend_nodes_1.len(), params.height);
+        assert_eq!(orig_in.friend_nodes_2.len(), params.height);
+        assert!(orig_in.leaf_index_2 < (1 << params.height));
         assert!(orig_in.leaf_index_1 < orig_in.leaf_index_2, "leaf_index_1 must be less than leaf_index_2");
         assert!(orig_in.withdraw_amount > 0, "withdraw amount must be greater than 0");
         assert!(orig_in.deposit_amount >= orig_in.withdraw_amount, "deposit amount must be greater or equal than withdraw amount");

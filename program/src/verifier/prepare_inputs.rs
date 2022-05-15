@@ -3,10 +3,10 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::context::Context;
+use crate::context::{Context512, Context2048};
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
 use crate::params::{*, Bn254Parameters as BnParameters};
-use crate::{OperationType, error::MazeError, verifier::ProofB};
+use crate::{ProofType, error::MazeError, verifier::ProofB};
 
 use super::fsm::FSM;
 use super::miller_loop::MillerLoop;
@@ -18,28 +18,23 @@ pub struct PrepareInputs {
     pub public_inputs: Pubkey, // Vec<Fr>
     pub g_ic: Pubkey, // G1Projective254
     pub tmp: Pubkey, // G1Projective254
-    pub proof_a: Pubkey,
-    pub proof_b: Pubkey,
-    pub proof_c: Pubkey,
+    pub proof_ac: Pubkey, // ProofA and ProofC
+    pub proof_b: Pubkey, // ProofB
 }
 
 impl PrepareInputs {
     #[allow(clippy::too_many_arguments)]
     pub fn process(
         mut self,
-        proof_type: &OperationType,
-        public_inputs_ctx: &Context<Box<Vec<Fr>>>,
-        g_ic_ctx: &Context<G1Projective254>,
-        tmp_ctx: &Context<G1Projective254>,
-        proof_b_ctx: &Context<ProofB>,
-        prepared_input_ctx: &Context<G1Affine254>,
-        r_ctx: &Context<G2HomProjective254>,
-        f_ctx: &Context<Fqk254>,
+        proof_type: &ProofType,
+        public_inputs_ctx: &Context2048<Box<Vec<Fr>>>,
+        proof_b_ctx: &Context512<ProofB>,
+        g_ic_ctx: &Context512<G1Projective254>,
+        tmp_ctx: &Context512<G1Projective254>,
+        prepared_input_ctx: &Context512<G1Affine254>,
+        r_ctx: &Context512<G2HomProjective254>,
+        f_ctx: &Context512<Fqk254>,
     ) -> Result<FSM, ProgramError> {
-        if public_inputs_ctx.pubkey() != &self.public_inputs {
-            msg!("public_inputs pubkey mismatch");
-            return Err(MazeError::UnmatchedAccounts.into());
-        }
         if g_ic_ctx.pubkey() != &self.g_ic {
             msg!("g_ic_ctx pubkey mismatch");
             return Err(MazeError::UnmatchedAccounts.into());
@@ -96,19 +91,17 @@ impl PrepareInputs {
                 let prepared_input = G1Affine254::from(*g_ic);
 
                 tmp_ctx.erase()?;
-                public_inputs_ctx.erase()?;
+                g_ic_ctx.erase()?;
                 prepared_input_ctx.fill(prepared_input)?;
                 r_ctx.fill(r)?;
                 f_ctx.fill(f)?;
-                g_ic_ctx.erase()?;
-
+                public_inputs_ctx.close()?;
                 Ok(FSM::MillerLoop(MillerLoop {
                     index,
                     coeff_index: 0,
                     prepared_input: *prepared_input_ctx.pubkey(),
-                    proof_a: self.proof_a,
+                    proof_ac: self.proof_ac,
                     proof_b: self.proof_b,
-                    proof_c: self.proof_c,
                     r: *r_ctx.pubkey(),
                     f: *f_ctx.pubkey(),
                 }))
