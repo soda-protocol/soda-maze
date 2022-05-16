@@ -1,6 +1,5 @@
-mod deposit;
-
-pub use deposit::*;
+pub mod deposit;
+pub mod withdraw;
 
 use crate::params::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
 

@@ -6,7 +6,7 @@ pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
 pub mod processor;
-pub mod key;
+pub mod vk;
 pub mod vanilla;
 pub mod params;
 pub mod context;
@@ -27,7 +27,7 @@ use solana_program::{
 };
 
 use crate::error::MazeError;
-use crate::key::*;
+use crate::vk::PreparedVerifyingKey;
 
 pub const HEIGHT: usize = 24;
 pub const DEPOSIT_INPUTS: usize = 28;
@@ -51,19 +51,19 @@ impl ProofType {
     pub const fn verifying_key(&self) -> &PreparedVerifyingKey {
         match self {
             ProofType::Deposit => &PreparedVerifyingKey {
-                g_ic_init: DEPOSIT_G_IC_INIT,
-                gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
-                alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,
-                gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
-                delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
+                g_ic_init: vk::deposit::G_IC_INIT,
+                gamma_abc_g1: vk::deposit::GAMMA_ABC_G1,
+                alpha_g1_beta_g2: vk::deposit::ALPHA_G1_BETA_G2,
+                gamma_g2_neg_pc: vk::deposit::GAMMA_G2_NEG_PC,
+                delta_g2_neg_pc: vk::deposit::DELTA_G2_NEG_PC,
             },
             // TODO: implement withdraw
             ProofType::Withdraw => &PreparedVerifyingKey {
-                g_ic_init: DEPOSIT_G_IC_INIT,
-                gamma_abc_g1: DEPOSIT_GAMMA_ABC_G1,
-                alpha_g1_beta_g2: DEPOSIT_ALPHA_G1_BETA_G2,
-                gamma_g2_neg_pc: DEPOSIT_GAMMA_G2_NEG_PC,
-                delta_g2_neg_pc: DEPOSIT_DELTA_G2_NEG_PC,
+                g_ic_init: vk::withdraw::G_IC_INIT,
+                gamma_abc_g1: vk::withdraw::GAMMA_ABC_G1,
+                alpha_g1_beta_g2: vk::withdraw::ALPHA_G1_BETA_G2,
+                gamma_g2_neg_pc: vk::withdraw::GAMMA_G2_NEG_PC,
+                delta_g2_neg_pc: vk::withdraw::DELTA_G2_NEG_PC,
             }
         }
     }

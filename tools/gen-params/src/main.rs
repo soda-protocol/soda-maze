@@ -61,97 +61,99 @@ fn write_to_file<Se: CanonicalSerialize>(path: &PathBuf, data: &Se) {
     data.serialize(&mut file).expect("serialize failed");
 }
 
-fn write_pvk_to_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> std::io::Result<()> {
+fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> std::io::Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(path)?;
 
+    writeln!(&mut file, "use crate::{{params::{{G1Projective254, Fq, G1Affine254, EllCoeffFq2, Fq2, Fqk254, Fq6}}, bn::BigInteger256 as BigInteger}};\n")?;
+
     let g_ic_init = pvk.vk.gamma_abc_g1[0].into_projective();
-    writeln!(&mut file, "pub const DEPOSIT_G_IC_INIT: &G1Projective254 = &G1Projective254::new_const(")?;
-    writeln!(&mut file, "   Fq::new(BigInteger::new({:?})),", g_ic_init.x.0.0)?;
-    writeln!(&mut file, "   Fq::new(BigInteger::new({:?})),", g_ic_init.y.0.0)?;
-    writeln!(&mut file, "   Fq::new(BigInteger::new({:?})),", g_ic_init.z.0.0)?;
+    writeln!(&mut file, "pub const G_IC_INIT: &G1Projective254 = &G1Projective254::new_const(")?;
+    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.x.0.0)?;
+    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.y.0.0)?;
+    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.z.0.0)?;
     writeln!(&mut file, ");\n")?;
-
-    writeln!(&mut file, "pub const DEPOSIT_GAMMA_ABC_G1: &[G1Affine254] = &[")?;
+        
+    writeln!(&mut file, "pub const GAMMA_ABC_G1: &[G1Affine254] = &[")?;
     for g_ic in pvk.vk.gamma_abc_g1[1..].iter() {
-        writeln!(&mut file, "  G1Affine254::new_const(")?;
-        writeln!(&mut file, "      Fq::new(BigInteger::new({:?})),", g_ic.x.0.0)?;
-        writeln!(&mut file, "      Fq::new(BigInteger::new({:?})),", g_ic.y.0.0)?;
-        writeln!(&mut file, "      {}", g_ic.infinity)?;
-        writeln!(&mut file, "  ),")?;
+        writeln!(&mut file, "    G1Affine254::new_const(")?;
+        writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.x.0.0)?;
+        writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.y.0.0)?;
+        writeln!(&mut file, "        {}", g_ic.infinity)?;
+        writeln!(&mut file, "    ),")?;
     }
     writeln!(&mut file, "];\n")?;
 
-    writeln!(&mut file, "pub const DEPOSIT_ALPHA_G1_BETA_G2: &Fqk254 = &Fqk254::new_const(")?;
-    writeln!(&mut file, "   Fq6::new_const(")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "   ),")?;
-    writeln!(&mut file, "   Fq6::new_const(")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "       Fq2::new_const(")?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
-    writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
-    writeln!(&mut file, "       ),")?;
-    writeln!(&mut file, "   ),")?;
+    writeln!(&mut file, "pub const ALPHA_G1_BETA_G2: &Fqk254 = &Fqk254::new_const(")?;
+    writeln!(&mut file, "    Fq6::new_const(")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "    ),")?;
+    writeln!(&mut file, "    Fq6::new_const(")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "        Fq2::new_const(")?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
+    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
+    writeln!(&mut file, "        ),")?;
+    writeln!(&mut file, "    ),")?;
     writeln!(&mut file, ");\n")?;
 
-    writeln!(&mut file, "pub const DEPOSIT_GAMMA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
+    writeln!(&mut file, "pub const GAMMA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
     for (a, b, c) in pvk.gamma_g2_neg_pc.ell_coeffs.iter() {
-        writeln!(&mut file, "   (")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "   ),")?;
+        writeln!(&mut file, "    (")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "    ),")?;
     }
     writeln!(&mut file, "];\n")?;
 
-    writeln!(&mut file, "pub const DEPOSIT_DELTA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
+    writeln!(&mut file, "pub const DELTA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
     for (a, b, c) in pvk.delta_g2_neg_pc.ell_coeffs.iter() {
-        writeln!(&mut file, "   (")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "       Fq2::new_const(")?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "           Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
-        writeln!(&mut file, "       ),")?;
-        writeln!(&mut file, "   ),")?;
+        writeln!(&mut file, "    (")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "        Fq2::new_const(")?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "        ),")?;
+        writeln!(&mut file, "    ),")?;
     }
-    writeln!(&mut file, "];\n")?;
+    writeln!(&mut file, "];")?;
 
     file.flush()
 }
@@ -188,7 +190,7 @@ struct RabinPrimes {
 struct RabinParameters {
     modulus: String,
     modulus_len: usize,
-    bit_size: u64,
+    bit_size: usize,
     cypher_batch: usize,
 }
 
@@ -316,7 +318,7 @@ fn main() {
             let parameter = RabinParameters {
                 modulus: hex::encode(modulus.to_bytes_le()),
                 modulus_len: prime_len * 2,
-                bit_size: bit_size as u64,
+                bit_size,
                 cypher_batch,
             };
             write_json_to_file(&param_path, &parameter);
@@ -337,7 +339,7 @@ fn main() {
             write_to_file(&vk_path, &vk);
 
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
-            write_pvk_to_file(&pvk_path, &pvk).expect("write pvk to file error");
+            write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
         },
         Opt::SetupWithdraw {
             height,
@@ -360,7 +362,33 @@ fn main() {
             write_to_file(&vk_path, &vk);
 
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
-            write_pvk_to_file(&pvk_path, &pvk).expect("write pvk to file error");
+            write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_bn254::Fr;
+    use arkworks_utils::prelude::ark_ff::{BigInteger, PrimeField};
+    use num_bigint::BigUint;
+    use num_integer::Integer;
+    use soda_maze_lib::vanilla::rabin::{biguint_to_biguint_array, biguint_to_prime_field};
+    
+    #[test]
+    fn test() {
+        let modulus = "73d64eaa4e8dbcf2b871d1f672177ccdaa1625a61effe43545c2d82b9287f1d146c91f7bbf8a160a6e6b43dfb8c051d4647d88d415dbb570ed5576025c54294da9e7ef18d6cb04504c27f577d396a8c6a7b45488467b9c6b00eed26c907a3420b2e15394e0794882d04e3585657e2a7a4c09b0a65cb095477a68426c3ef136f35f5c71dac8f52031caf43b6e3da774166881702de0bf693d6df73c0f8d812fccf7edf919b687ee6fd5a0d7b2bda2549cff0f32cd62bec9399d9803cb589c9295a6b5b0bb74ed6acac1485f663072dd38b5679de6b58ebf05e20ae02d3f1cabaa1115dad1746c47313e2d0ebf7ccc6c1a00c8bd3cecb25c38aa37faae96b159dd2f471fd4e95a8656dd3a6f7d03aebb5b1a602f0fb4972b0b5c4d12243e255d4923b232ff4324158d044cd69cb3492740ab875d0adfe318c01294f82f239800b7d1fe274694706c7c67dbd71259531db06ba559353ebfd9cd078a43ee06d18de911ff10e5a2669d4243face8e7c12009cfd2705b4";
+        let modulus = hex::decode(modulus).expect("modulus is an invalid hex string");
+        let modulus = BigUint::from_bytes_le(&modulus);
+
+        let modulus_array = biguint_to_biguint_array(modulus, 24, 124);
+        modulus_array.chunks(2).for_each(|chunk| {
+            let val: BigUint = &chunk[0] + (&chunk[1] * (BigUint::from(1u64) << 124));
+
+            let val: Fr = val.into();
+            println!("{}", &val);
+
+            println!("Fr::new(BigInteger::new({:?}))", val.0.0);
+        });
     }
 }

@@ -6,7 +6,7 @@ use super::uint::GeneralUint;
 pub fn polynomial_mul<F: PrimeField>(
     a: &[GeneralUint<F>],
     b: &[GeneralUint<F>],
-    bit_size: u64,
+    bit_size: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     assert_eq!(a.len(), b.len());
     let order = a.len();
@@ -50,7 +50,7 @@ pub fn polynomial_mul<F: PrimeField>(
 
 pub fn polynomial_square<F: PrimeField>(
     a: &[GeneralUint<F>],
-    bit_size: u64,
+    bit_size: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     let order = a.len();
     let part_1 = (1..=order).into_iter().map(|i| {
@@ -108,7 +108,7 @@ pub fn polynomial_square<F: PrimeField>(
 pub fn polynomial_add<F: PrimeField>(
     mut a: Vec<GeneralUint<F>>,
     mut b: Vec<GeneralUint<F>>,
-    bit_size: u64,
+    bit_size: usize,
 ) -> Result<(GeneralUint<F>, Vec<GeneralUint<F>>), SynthesisError> {
     if a.len() > b.len() {
         b.resize(a.len(), GeneralUint::zero());
@@ -155,7 +155,7 @@ mod tests {
     use super::{polynomial_mul, polynomial_add, polynomial_square};
     use super::GeneralUint;
 
-    const BITS: u64 = 124;
+    const BITS: usize = 124;
     const ORDER: usize = 24;
 
     type Uint124 = GeneralUint<Fr>;

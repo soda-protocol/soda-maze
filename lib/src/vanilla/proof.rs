@@ -182,12 +182,12 @@ impl<F: PrimeField, FH: FieldHasher<F>> VanillaProof<F> for WithdrawVanillaProof
         friend_nodes_2[0] = leaf;
 
         let rabin_leaf_padding = if let Some(param) = &params.rabin_param {
-            let mut leaf_len = F::Params::MODULUS_BITS as u64 / param.bit_size;
-            if F::Params::MODULUS_BITS as u64 % param.bit_size != 0 {
+            let mut leaf_len = F::Params::MODULUS_BITS as usize / param.bit_size;
+            if F::Params::MODULUS_BITS as usize % param.bit_size != 0 {
                 leaf_len += 1;
             }
 
-            Some(vec![BigUint::from(0u64); param.modulus_len - leaf_len as usize])
+            Some(vec![BigUint::from(0u64); param.modulus_len - leaf_len])
         } else {
             None
         };

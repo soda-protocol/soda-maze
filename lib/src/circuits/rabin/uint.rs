@@ -15,7 +15,7 @@ pub struct GeneralUint<F: PrimeField> {
     variable: UintVar<F>,
     cs: ConstraintSystemRef<F>,
     value: BigUint,
-    bit_size: u64,
+    bit_size: usize,
 }
 
 impl<F: PrimeField> R1CSVar<F> for GeneralUint<F> {
@@ -48,7 +48,7 @@ impl<F: PrimeField> GeneralUint<F> {
     }
 
     pub fn new_constant(v: BigUint) -> Self {
-        let bit_size = v.bits();
+        let bit_size = v.bits() as usize;
         Self {
             variable: UintVar::Constant(F::from(v.clone())),
             cs: ConstraintSystemRef::None,
@@ -60,19 +60,19 @@ impl<F: PrimeField> GeneralUint<F> {
     pub fn new_witness(
         cs: impl Into<Namespace<F>>,
         f: impl FnOnce() -> Result<BigUint, SynthesisError>,
-        bit_size: u64,
+        bit_size: usize,
     ) -> Result<Self, SynthesisError> {
         let ns = cs.into();
         let cs = ns.cs();
         let v = f()?;
 
-        assert!(F::Params::MODULUS_BITS as u64 > bit_size);
+        assert!(F::Params::MODULUS_BITS as usize > bit_size);
         assert!(v < BigUint::from(1u64) << bit_size);
 
         let (_, lc) = (0..bit_size)
             .into_iter()
             .try_fold((F::one(), lc!()), |(coeff, lc), i| {
-                let bit = AllocatedBool::new_witness(cs.clone(), || Ok(v.bit(i)))?;
+                let bit = AllocatedBool::new_witness(cs.clone(), || Ok(v.bit(i as u64)))?;
                 Ok((coeff.double(), lc + (coeff, bit.variable())))
             })?;
 
@@ -183,7 +183,7 @@ impl<F: PrimeField> GeneralUint<F> {
                             variable: UintVar::Constant(constant + other_constant),
                             cs: ConstraintSystemRef::None,
                             value,
-                            bit_size: sum.bits(),
+                            bit_size: sum.bits() as usize,
                         }
                     }
                     UintVar::Variable(variable) => {
@@ -193,7 +193,7 @@ impl<F: PrimeField> GeneralUint<F> {
                             variable: UintVar::Variable(variable),
                             cs: other.cs.clone(),
                             value,
-                            bit_size: (a + max_b).bits(),
+                            bit_size: (a + max_b).bits() as usize,
                         }
                     }
                 }
@@ -207,7 +207,7 @@ impl<F: PrimeField> GeneralUint<F> {
                             variable: UintVar::Variable(variable),
                             cs: self.cs.clone(),
                             value,
-                            bit_size: (max_a + b).bits(),
+                            bit_size: (max_a + b).bits() as usize,
                         }
                     }
                     UintVar::Variable(other_variable) => {
@@ -216,7 +216,7 @@ impl<F: PrimeField> GeneralUint<F> {
                             variable: UintVar::Variable(variable),
                             cs: self.cs.clone(),
                             value,
-                            bit_size: a.bits().max(b.bits()) + 1,
+                            bit_size: a.bits().max(b.bits()) as usize + 1,
                         }
                     }
                 }
@@ -224,7 +224,7 @@ impl<F: PrimeField> GeneralUint<F> {
         })
     }
 
-    pub fn split(&self, bits: u64) -> Result<(Self, Self), SynthesisError> {
+    pub fn split(&self, bits: usize) -> Result<(Self, Self), SynthesisError> {
         if self.is_zero() {
             return Ok((Self::zero(), Self::zero()));
         }
@@ -235,6 +235,7 @@ impl<F: PrimeField> GeneralUint<F> {
         } else {
             let base = BigUint::from(1u64) << bits;
             let (hi, lo) = self.value.div_rem(&base);
+            let base_field = F::from(base);
     
             Ok(match self.variable {
                 UintVar::Constant(_) => (Self::new_constant(hi), Self::new_constant(lo)),
@@ -245,7 +246,7 @@ impl<F: PrimeField> GeneralUint<F> {
                     self.cs.enforce_constraint(
                         LinearCombination::from(variable),
                         LinearCombination::from(Variable::One),
-                        lo.lc() + (F::from(base), hi.variable()?),
+                        lo.lc() + (base_field, hi.variable()?),
                     )?;
     
                     (hi, lo)
@@ -302,7 +303,7 @@ mod tests {
 
     use super::GeneralUint;
 
-    const BITS: u64 = 124;
+    const BITS: usize = 124;
 
     type Uint124 = GeneralUint<Fr>;
 

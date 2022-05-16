@@ -5,6 +5,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError, LinearCombination
 use num_bigint::BigUint;
 use num_integer::Integer;
 
+use crate::vanilla::rabin::prime_field_partly_to_biguint_array;
 use super::uint::GeneralUint;
 use super::poly::*;
 
@@ -13,10 +14,10 @@ fn gen_preimage_var<F: PrimeField>(
     leaf_var: FpVar<F>,
     modulus: &[GeneralUint<F>],
     padding: Vec<GeneralUint<F>>,
-    bit_size: u64,
+    bit_size: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     let leaf_array = if let FpVar::Var(leaf_var) = leaf_var {
-        let modulus_bits = F::Params::MODULUS_BITS as u64;
+        let modulus_bits = F::Params::MODULUS_BITS as usize;
         let ref cs = leaf_var.cs;
         let base = BigUint::from(1u64) << bit_size;
         let base_field = F::from(base.clone());
@@ -81,30 +82,26 @@ fn gen_preimage_var<F: PrimeField>(
 
 fn gen_cypher_var<F: PrimeField>(
     cypher: Vec<(F, FpVar<F>)>,
-    bit_size: u64,
+    bit_size: usize,
     cypher_batch: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     let partly_split_fp_var = |fp: F, fp_var: FpVar<F>| -> Result<Vec<GeneralUint<F>>, SynthesisError> {
         if let FpVar::Var(fp_var) = fp_var {
             let ref cs = fp_var.cs;
             let base = BigUint::from(1u64) << bit_size;
-            let base_field = F::from(base.clone());
-            let mut rest: BigUint = fp.into();
-            let mut res = Vec::new();
-    
-            let (lc, _) = (0..cypher_batch)
+            let base_field = F::from(base);
+            let cypher_array = prime_field_partly_to_biguint_array::<F>(fp.into(), cypher_batch, bit_size);
+            
+            let mut res = Vec::with_capacity(cypher_batch);
+            let (lc, _) = cypher_array
                 .into_iter()
-                .try_fold((lc!(), F::one()), |(lc, coeff), _| {
-                    let (hi, lo) = rest.div_rem(&base);
-                    rest = hi;
-    
-                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+                .try_fold((lc!(), F::one()), |(lc, coeff), cypher| {
+                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(cypher), bit_size)?;
                     let lc = lc + (coeff, lo_var.variable()?);
                     res.push(lo_var);
     
                     Ok((lc, coeff * base_field))
                 })?;
-            assert_eq!(rest, BigUint::from(0u64));
     
             fp_var.cs.enforce_constraint(
                 LinearCombination::from(fp_var.variable),
@@ -117,45 +114,6 @@ fn gen_cypher_var<F: PrimeField>(
             unreachable!("fp var should not be constant");
         }
     };
-
-    // fn partly_split_fp_var<F: PrimeField>(
-    //     fp: F,
-    //     fp_var: FpVar<F>,
-    //     bit_size: u64,
-    //     cypher_batch: usize,
-    // ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
-    //     if let FpVar::Var(fp_var) = fp_var {
-    //         let ref cs = fp_var.cs;
-    //         let base = BigUint::from(1u64) << bit_size;
-    //         let base_field = F::from(base.clone());
-    //         let mut rest: BigUint = fp.into();
-    //         let mut res = Vec::new();
-    
-    //         let (lc, _) = (0..cypher_batch)
-    //             .into_iter()
-    //             .try_fold((lc!(), F::one()), |(lc, coeff), _| {
-    //                 let (hi, lo) = rest.div_rem(&base);
-    //                 rest = hi;
-    
-    //                 let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
-    //                 let lc = lc + (coeff, lo_var.variable()?);
-    //                 res.push(lo_var);
-    
-    //                 Ok((lc, coeff * base_field))
-    //             })?;
-    //         assert_eq!(rest, BigUint::from(0u64));
-    
-    //         fp_var.cs.enforce_constraint(
-    //             LinearCombination::from(fp_var.variable),
-    //             LinearCombination::from(Variable::One),
-    //             lc,
-    //         )?;
-    
-    //         Ok(res)
-    //     } else {
-    //         unreachable!("fp var should not be constant");
-    //     }
-    // }
 
     let cypher = cypher.into_iter()
         .map(|(fp, fp_var)| partly_split_fp_var(fp, fp_var))
@@ -172,7 +130,7 @@ fn rabin_encrypt<F: PrimeField>(
     preimage: &[GeneralUint<F>],
     quotient: &[GeneralUint<F>],
     cypher: Vec<GeneralUint<F>>,
-    bit_size: u64,
+    bit_size: usize,
 ) -> Result<(), SynthesisError> {
     // quotient * modulus + cypher = preimage^2
     let product = polynomial_mul(quotient, modulus, bit_size)?;
@@ -191,7 +149,7 @@ pub struct RabinEncryption<F: PrimeField> {
     padding: Vec<BigUint>,
     cypher: Vec<F>,
     leaf: F,
-    bit_size: u64,
+    bit_size: usize,
     cypher_batch: usize,
 }
 
@@ -202,23 +160,23 @@ impl<F: PrimeField> RabinEncryption<F> {
         padding: Vec<BigUint>,
         cypher: Vec<F>,
         leaf: F,
-        bit_size: u64,
+        bit_size: usize,
         cypher_batch: usize,
     ) -> Self {
         assert_eq!(modulus.len(), quotient.len());
         modulus.iter().zip(quotient.iter()).for_each(|(m, q)| {
-            assert!(m.bits() <= bit_size);
-            assert!(q.bits() <= bit_size);
+            assert!(m.bits() as usize <= bit_size);
+            assert!(q.bits() as usize <= bit_size);
         });
-        assert!(cypher_batch as u64 * bit_size < F::Params::MODULUS_BITS as u64);
-        assert_eq!(modulus.len() % cypher_batch as usize, 0);
+        assert!(cypher_batch * bit_size < F::Params::MODULUS_BITS as usize);
+        assert_eq!(modulus.len() % cypher_batch, 0);
         
-        padding.iter().for_each(|p| assert!(p.bits() <= bit_size));
-        let mut leaf_len = F::Params::MODULUS_BITS as u64 / bit_size;
-        if F::Params::MODULUS_BITS as u64 % bit_size != 0 {
+        padding.iter().for_each(|p| assert!(p.bits() as usize <= bit_size));
+        let mut leaf_len = F::Params::MODULUS_BITS as usize / bit_size;
+        if F::Params::MODULUS_BITS as usize % bit_size != 0 {
             leaf_len += 1;
         }
-        assert_eq!(leaf_len as usize + padding.len(), modulus.len());
+        assert_eq!(leaf_len + padding.len(), modulus.len());
 
         Self {
             modulus,
@@ -287,9 +245,11 @@ mod tests {
     use num_integer::Integer;
     use lazy_static::lazy_static;
 
+    use crate::vanilla::rabin::{prime_field_to_biguint_array, biguint_array_to_biguint, biguint_to_biguint_array};
+
     use super::{GeneralUint, rabin_encrypt, gen_preimage_var, gen_cypher_var, RabinEncryption};
     
-    const BIT_SIZE: u64 = 124;
+    const BIT_SIZE: usize = 124;
     const CYPHER_BATCH: usize = 2;
     const PRIME_LENGTH: usize = 12;
     const MODULUS_LEN: usize = PRIME_LENGTH * 2;
@@ -333,73 +293,31 @@ mod tests {
     }
 
     fn get_preimage_from_leaf(rng: &mut StdRng, leaf: Fr) -> (BigUint, Vec<BigUint>) {
-        let mut leaf_len = <Fr as PrimeField>::Params::MODULUS_BITS as u64 / BIT_SIZE;
-        if <Fr as PrimeField>::Params::MODULUS_BITS as u64 % BIT_SIZE != 0 {
+        let mut leaf_len = <Fr as PrimeField>::Params::MODULUS_BITS as usize / BIT_SIZE;
+        if <Fr as PrimeField>::Params::MODULUS_BITS as usize % BIT_SIZE != 0 {
             leaf_len += 1;
         }
         
-        let mut padding = Vec::with_capacity(MODULUS_LEN - leaf_len as usize);
-        for _ in 0..MODULUS_LEN - leaf_len as usize {
+        let mut padding = Vec::with_capacity(MODULUS_LEN - leaf_len);
+        for _ in 0..MODULUS_LEN - leaf_len {
             let mut v = u128::rand(rng);
             v &= (1u128 << 124) - 1;
 
             padding.push(BigUint::from(v));
         }
 
-        let base = BigUint::from(1u64) << BIT_SIZE;
-        let mut rest: BigUint = leaf.into();
-        let mut leaf = Vec::with_capacity(leaf_len as usize);
-        for _ in 0..leaf_len {
-            let (hi, lo) = rest.div_rem(&base);
-            rest = hi;
-            leaf.push(lo);
-        }
-        assert_eq!(rest, BigUint::from(0u64));
+        let leaf = prime_field_to_biguint_array(leaf, BIT_SIZE);
 
         let preimage = vec![&padding[..], &leaf[..]].concat();
-        let preimage = poly_array_to_biguint(&preimage);
+        let preimage = biguint_array_to_biguint(&preimage, BIT_SIZE);
 
         (preimage, padding)
     }
 
     pub fn gen_cypher_array(cypher: BigUint) -> Vec<Fr> {
-        let cypher_bits = CYPHER_BATCH * (BIT_SIZE as usize);
-        assert!(cypher_bits < <Fr as PrimeField>::Params::MODULUS_BITS as usize);
-        assert_eq!(MODULUS_LEN % CYPHER_BATCH, 0);
-
-        let base = BigUint::from(1u64) << cypher_bits;
-        let mut rest = cypher;
-    
-        let res = (0..MODULUS_LEN / CYPHER_BATCH).into_iter().map(|_| {
-            let (hi, lo) = rest.div_rem(&base);
-            rest = hi;
-            Fr::from(lo)
-        }).collect::<Vec<_>>();
-        assert_eq!(rest, BigUint::from(0u64));
-    
-        res
-    }
-
-    fn poly_array_to_biguint(poly: &[BigUint]) -> BigUint {
-        let mut base = BigUint::from(1u64);
-        let mut res = BigUint::from(0u64);
-        for p in poly.iter() {
-            res += &base * p;
-            base *= BigUint::from(1u128 << BIT_SIZE);
-        }
-        res
-    }
-
-    fn biguint_to_poly_array(x: &BigUint) -> Vec<BigUint> {
-        let base = BigUint::from(1u128 << BIT_SIZE);
-        let mut rest = x.clone();
-        let mut res = Vec::new();
-        for _ in 0..MODULUS_LEN {
-            let (hi, lo) = rest.div_rem(&base);
-            res.push(lo);
-            rest = hi;
-        }
-        res
+        const CYPHER_BITS: usize = CYPHER_BATCH * BIT_SIZE;
+        let res = biguint_to_biguint_array(cypher, MODULUS_LEN / CYPHER_BATCH, CYPHER_BITS);
+        res.into_iter().map(|c| c.into()).collect()
     }
 
     fn get_random_uint_array(rng: &mut StdRng) -> Vec<BigUint> {
@@ -422,8 +340,8 @@ mod tests {
 
         use num_bigint_dig::RandPrime;
 
-        let p = rng.gen_prime(BIT_SIZE as usize * PRIME_LENGTH);
-        let q = rng.gen_prime(BIT_SIZE as usize * PRIME_LENGTH);
+        let p = rng.gen_prime(BIT_SIZE * PRIME_LENGTH);
+        let q = rng.gen_prime(BIT_SIZE * PRIME_LENGTH);
         let ref n = p * q;
 
         println!("{:?}", n.to_bytes_le());
@@ -432,9 +350,9 @@ mod tests {
     #[test]
     fn test_gen_preimage_from_fp_var() {
         let rng = &mut test_rng();
-        let modulus = biguint_to_poly_array(&MODULUS);
-        let padding = get_random_uint_array(rng);
         let leaf = get_rand_fr(rng);
+        let (_, padding) = get_preimage_from_leaf(rng, leaf);
+        let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let modulus = modulus.into_iter().map(|m| {
@@ -472,13 +390,13 @@ mod tests {
         let rng = &mut test_rng();
         let preimage = get_random_uint_array(rng);
 
-        let raw_preimage = poly_array_to_biguint(&preimage);
+        let raw_preimage = biguint_array_to_biguint(&preimage, BIT_SIZE);
         let raw_preimage_square = &raw_preimage * &raw_preimage;
         let (quotient_raw, cypher_raw) = raw_preimage_square.div_rem(&MODULUS);
 
-        let quotient = biguint_to_poly_array(&quotient_raw);
-        let cypher = biguint_to_poly_array(&cypher_raw);
-        let modulus = biguint_to_poly_array(&MODULUS);
+        let quotient = biguint_to_biguint_array(quotient_raw, MODULUS_LEN, BIT_SIZE);
+        let cypher = biguint_to_biguint_array(cypher_raw, MODULUS_LEN, BIT_SIZE);
+        let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let modulus = modulus.into_iter().map(|m| {
@@ -507,9 +425,9 @@ mod tests {
         let (preimage, padding) = get_preimage_from_leaf(rng, leaf);
         let (quotient, cypher) = (&preimage * &preimage).div_rem(&MODULUS);
 
-        let quotient = biguint_to_poly_array(&quotient);
+        let quotient = biguint_to_biguint_array(quotient, MODULUS_LEN, BIT_SIZE);
         let cypher = gen_cypher_array(cypher);
-        let modulus = biguint_to_poly_array(&MODULUS);
+        let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let rabin_encryption = RabinEncryption::<Fr>::new(
             modulus,
@@ -526,7 +444,5 @@ mod tests {
         rabin_encryption.synthesize(cs.clone(), leaf_var).unwrap();
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
-        println!("instance: {}", cs.num_instance_variables());
-        println!("witness: {}", cs.num_witness_variables());
     }
 }
