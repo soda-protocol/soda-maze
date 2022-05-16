@@ -69,7 +69,7 @@ struct WithdrawProofData {
     new_leaf_index: u64,
     new_leaf: String,
     update_nodes: Vec<String>,
-    cypher: Option<String>,
+    cypher: Option<Vec<String>>,
     proof: String,
 }
 
@@ -102,7 +102,7 @@ fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
         .create(true)
         .open(path)
         .unwrap();
-    serde_json::to_writer(&mut file, data)
+    serde_json::to_writer_pretty(&mut file, data)
         .expect("failed to write to file");
 }
 
@@ -111,12 +111,12 @@ fn read_from_file<De: CanonicalDeserialize>(path: &PathBuf) -> De {
         .read(true)
         .open(path)
         .unwrap();
-    CanonicalDeserialize::deserialize(&file).expect("failed to parse friends")
+    CanonicalDeserialize::deserialize(&file).expect("failed to parse file")
 }
 
 fn from_hex<De: CanonicalDeserialize>(s: String) -> De {
     let buf = hex::decode(s).expect("failed to parse hex");
-    CanonicalDeserialize::deserialize(&buf[..]).expect("failed to parse friends")
+    CanonicalDeserialize::deserialize(&buf[..]).expect("deserialize failed")
 }
 
 fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
@@ -266,7 +266,7 @@ impl MerkleTree {
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
 enum Opt {
     ProveDeposit {
-        #[structopt(long, short = "h", default_value = "26")]
+        #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
@@ -282,7 +282,7 @@ enum Opt {
         amount: u64,
     },
     ProveWithdraw {
-        #[structopt(long, short = "h", default_value = "26")]
+        #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
@@ -348,8 +348,7 @@ fn main() {
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
             let mut rng = get_xorshift_rng(seed);
             let (pub_in, priv_in) =
-                DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
-                .expect("generate vanilla proof failed");
+                DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs).expect("generate vanilla proof failed");
 
             let proof = DepositInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
                 .expect("generate snark proof failed");
@@ -429,12 +428,12 @@ fn main() {
                 rabin_leaf_padding,
             };
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
-            let mut rng = get_xorshift_rng(seed);
-            let (pub_in, priv_in) = WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
-                .expect("generate vanilla proof failed");
+            let (pub_in, priv_in)
+                = WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs).expect("generate vanilla proof failed");
 
-            let proof = WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
-                .expect("generate snark proof failed");
+            let mut rng = get_xorshift_rng(seed);
+            let proof =
+                WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
             let proof_data = WithdrawProofData {
                 mint,
                 withdraw_amount,
@@ -483,13 +482,13 @@ fn main() {
             let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {
                 mint: ArrayPubkey::new(proof_data.mint.to_bytes()),
-                nullifier: from_hex(proof_data.nullifier),
                 withdraw_amount: proof_data.withdraw_amount,
+                nullifier: from_hex(proof_data.nullifier),
                 old_root: from_hex(proof_data.old_root),
                 new_leaf_index: proof_data.new_leaf_index,
                 new_leaf: from_hex(proof_data.new_leaf),
                 update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-                cypher: proof_data.cypher.into_iter().map(|n| from_hex(n)).collect(),
+                cypher: proof_data.cypher.map(|n| n.into_iter().map(|n| from_hex(n)).collect()),
             };
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)

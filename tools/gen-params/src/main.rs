@@ -262,7 +262,7 @@ enum Opt {
         param_path: PathBuf,
     },
     SetupDeposit {
-        #[structopt(long, short = "h", default_value = "26")]
+        #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long, short = "s")]
         seed: Option<String>,
@@ -274,7 +274,7 @@ enum Opt {
         pvk_path: PathBuf,
     },
     SetupWithdraw {
-        #[structopt(long, short = "h", default_value = "26")]
+        #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long, short = "s")]
         seed: Option<String>,
