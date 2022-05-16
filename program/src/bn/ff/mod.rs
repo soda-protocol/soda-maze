@@ -28,6 +28,7 @@ pub trait Field:
     + Copy
     + Clone
     + Eq
+    + Ord
     + Zero
     + One
     + Neg<Output = Self>

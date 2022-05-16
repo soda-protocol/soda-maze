@@ -94,7 +94,6 @@ impl<P: Fp2Parameters> QuadExtParameters for Fp2ParamsWrapper<P> {
 pub type Fp2<P> = QuadExtField<Fp2ParamsWrapper<P>>;
 
 impl<P: Fp2Parameters> Fp2<P> {
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_assign_by_fp(&mut self, other: &P::Fp) {
         self.c0 *= other;
         self.c1 *= other;

@@ -12,7 +12,6 @@ pub trait Fp6Parameters: 'static + Clone + Copy {
     const FROBENIUS_COEFF_FP6_C1: &'static [Fp2<Self::Fp2Params>];
     const FROBENIUS_COEFF_FP6_C2: &'static [Fp2<Self::Fp2Params>];
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     #[inline(always)]
     fn mul_fp2_by_nonresidue(fe: &Fp2<Self::Fp2Params>) -> Fp2<Self::Fp2Params> {
         Self::NONRESIDUE * fe
@@ -50,14 +49,12 @@ impl<P: Fp6Parameters> CubicExtParameters for Fp6ParamsWrapper<P> {
 pub type Fp6<P> = CubicExtField<Fp6ParamsWrapper<P>>;
 
 impl<P: Fp6Parameters> Fp6<P> {
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_assign_by_fp2(&mut self, other: Fp2<P::Fp2Params>) {
         self.c0 *= &other;
         self.c1 *= &other;
         self.c2 *= &other;
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_by_1(&mut self, c1: &Fp2<P::Fp2Params>) {
         let mut b_b = self.c1;
         b_b.mul_assign(c1);
@@ -86,7 +83,6 @@ impl<P: Fp6Parameters> Fp6<P> {
         self.c2 = b_b;
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_by_01(&mut self, c0: &Fp2<P::Fp2Params>, c1: &Fp2<P::Fp2Params>) {
         let mut a_a = self.c0;
         let mut b_b = self.c1;

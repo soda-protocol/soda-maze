@@ -57,6 +57,40 @@ macro_rules! impl_Fp {
         }
 
         impl<P: $FpParameters> $Fp<P> {
+            #[inline]
+            #[allow(clippy::modulo_one)]
+            pub fn into_repr(&self) -> $BigIntegerType {
+                let mut tmp = self.0;
+                let mut r = tmp.0;
+                // Montgomery Reduction
+                for i in 0..$limbs {
+                    let k = r[i].wrapping_mul(P::INV);
+                    let mut carry = 0;
+
+                    mac_with_carry!(r[i], k, P::MODULUS.0[0], &mut carry);
+                    for j in 1..$limbs {
+                        r[(j + i) % $limbs] =
+                            mac_with_carry!(r[(j + i) % $limbs], k, P::MODULUS.0[j], &mut carry);
+                    }
+                    r[i % $limbs] = carry;
+                }
+                tmp.0 = r;
+                tmp
+            }
+
+            #[inline]
+            pub fn from_repr(r: $BigIntegerType) -> Option<Self> {
+                let mut r = $Fp(r, std::marker::PhantomData);
+                if r.is_zero() {
+                    Some(r)
+                } else if r.is_valid() {
+                    r *= &$Fp(P::R2, std::marker::PhantomData);
+                    Some(r)
+                } else {
+                    None
+                }
+            }
+
             #[inline(always)]
             pub(crate) fn is_valid(&self) -> bool {
                 self.0 < P::MODULUS
@@ -87,6 +121,32 @@ macro_rules! impl_Fp {
         }
 
         impl<P> Eq for $Fp<P> {}
+
+        /// Note that this implementation of `Ord` compares field elements viewing
+        /// them as integers in the range 0, 1, ..., P::MODULUS - 1. However, other
+        /// implementations of `PrimeField` might choose a different ordering, and
+        /// as such, users should use this `Ord` for applications where
+        /// any ordering suffices (like in a BTreeMap), and not in applications
+        /// where a particular ordering is required.
+        impl<P: $FpParameters> Ord for $Fp<P> {
+            #[inline(always)]
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                self.into_repr().cmp(&other.into_repr())
+            }
+        }
+
+        /// Note that this implementation of `PartialOrd` compares field elements viewing
+        /// them as integers in the range 0, 1, ..., `P::MODULUS` - 1. However, other
+        /// implementations of `PrimeField` might choose a different ordering, and
+        /// as such, users should use this `PartialOrd` for applications where
+        /// any ordering suffices (like in a BTreeMap), and not in applications
+        /// where a particular ordering is required.
+        impl<P: $FpParameters> PartialOrd for $Fp<P> {
+            #[inline(always)]
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
 
         impl<P: $FpParameters> Zero for $Fp<P> {
             #[inline]

@@ -7,7 +7,6 @@ pub use arithmetic::*;
 pub use macros::*;
 
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_bigint::BigUint;
 
 bigint_impl!(BigInteger256, 4);
 
@@ -24,8 +23,6 @@ pub trait BigInteger:
     + AsMut<[u64]>
     + AsRef<[u64]>
     + From<u64>
-    + TryFrom<BigUint>
-    + Into<BigUint>
     + BorshSerialize
     + BorshDeserialize
 {

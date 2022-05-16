@@ -16,7 +16,6 @@ pub trait Fp12Parameters: 'static + Clone + Copy {
     /// Coefficients for the Frobenius automorphism.
     const FROBENIUS_COEFF_FP12_C1: &'static [Fp2<Fp2Params<Self>>];
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     /// Multiply by quadratic nonresidue v.
     #[inline(always)]
     fn mul_fp6_by_nonresidue(fe: &Fp6<Self::Fp6Params>) -> Fp6<Self::Fp6Params> {
@@ -27,7 +26,6 @@ pub trait Fp12Parameters: 'static + Clone + Copy {
         Fp6::new(new_c0, new_c1, new_c2)
     }
 }
-
 
 pub struct Fp12ParamsWrapper<P: Fp12Parameters>(PhantomData<P>);
 
@@ -41,13 +39,11 @@ impl<P: Fp12Parameters> QuadExtParameters for Fp12ParamsWrapper<P> {
 
     const FROBENIUS_COEFF_C1: &'static [Self::FrobCoeff] = P::FROBENIUS_COEFF_FP12_C1;
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     #[inline(always)]
     fn mul_base_field_by_nonresidue(fe: &Self::BaseField) -> Self::BaseField {
         P::mul_fp6_by_nonresidue(fe)
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     fn mul_base_field_by_frob_coeff(fe: &mut Self::BaseField, power: usize) {
         fe.mul_assign_by_fp2(Self::FROBENIUS_COEFF_C1[power % Self::DEGREE_OVER_BASE_PRIME_FIELD]);
     }
@@ -56,7 +52,6 @@ impl<P: Fp12Parameters> QuadExtParameters for Fp12ParamsWrapper<P> {
 pub type Fp12<P> = QuadExtField<Fp12ParamsWrapper<P>>;
 
 impl<P: Fp12Parameters> Fp12<P> {
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_by_034(
         &mut self,
         c0: &Fp2<Fp2Params<P>>,
@@ -78,7 +73,6 @@ impl<P: Fp12Parameters> Fp12<P> {
         self.c0 = a + &P::mul_fp6_by_nonresidue(&b);
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn mul_by_014(
         &mut self,
         c0: &Fp2<Fp2Params<P>>,
@@ -100,7 +94,6 @@ impl<P: Fp12Parameters> Fp12<P> {
         self.c0.add_assign(&aa);
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn cyclotomic_square_in_place(&mut self) {
         // Faster Squaring in the Cyclotomic Subgroup of Sixth Degree Extensions
         // - Robert Granger and Michael Scott
@@ -178,7 +171,6 @@ impl<P: Fp12Parameters> Fp12<P> {
         }
     }
 
-    ////////////////////////////////////// keep ////////////////////////////////////////
     pub fn cyclotomic_square(&self) -> Self {
         let mut result = *self;
         result.cyclotomic_square_in_place();
@@ -186,7 +178,6 @@ impl<P: Fp12Parameters> Fp12<P> {
     }
 }
 
-////////////////////////////////////// keep ////////////////////////////////////////
 pub const fn characteristic_square_mod_6_is_one(characteristic: &'static [u64]) -> bool {
     // characteristic mod 6 = (a_0 + 2**64 * a_1 + ...) mod 6
     //                      = a_0 mod 6 + (2**64 * a_1 mod 6) + (...) mod 6

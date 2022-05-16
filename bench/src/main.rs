@@ -44,12 +44,12 @@ type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
 struct RabinParameters {
     modulus: String,
     modulus_len: usize,
-    bit_size: u64,
+    bit_size: usize,
     cypher_batch: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct DepositVerifyData {
+struct DepositProofData {
     height: usize,
     mint: Pubkey,
     amount: u64,
@@ -61,7 +61,7 @@ struct DepositVerifyData {
 }
 
 #[derive(Serialize, Deserialize)]
-struct WithdrawVerifyData {
+struct WithdrawProofData {
     mint: Pubkey,
     withdraw_amount: u64,
     nullifier: String,
@@ -270,8 +270,8 @@ enum Opt {
         height: usize,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "verify-path", parse(from_os_str))]
-        verify_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
         #[structopt(long, short = "s")]
         seed: Option<String>,
         #[structopt(long = "leaf-index", default_value = "0")]
@@ -288,8 +288,8 @@ enum Opt {
         rabin_path: Option<PathBuf>,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "verify-path", parse(from_os_str))]
-        verify_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
         #[structopt(long)]
         seed: Option<String>,
         #[structopt(long = "index-1")]
@@ -306,14 +306,14 @@ enum Opt {
     VerifyDeposit {
         #[structopt(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "verify-path", parse(from_os_str))]
-        verify_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
     },
     VerifyWithdraw {
         #[structopt(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "verify-path", parse(from_os_str))]
-        verify_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
     },
 }
 
@@ -324,7 +324,7 @@ fn main() {
         Opt::ProveDeposit {
             height,
             pk_path,
-            verify_path,
+            proof_path,
             seed,
             leaf_index,
             mint,
@@ -353,7 +353,7 @@ fn main() {
 
             let proof = DepositInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
                 .expect("generate snark proof failed");
-            let verify_data = DepositVerifyData {
+            let proof_data = DepositProofData {
                 height,
                 mint,
                 amount,
@@ -363,12 +363,12 @@ fn main() {
                 update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
                 proof: to_hex(&proof),
             };
-            write_json_to_file(&verify_path, &verify_data);
+            write_json_to_file(&proof_path, &proof_data);
         },
         Opt::ProveWithdraw {
             height,
             pk_path,
-            verify_path,
+            proof_path,
             rabin_path,
             seed,
             leaf_index_1,
@@ -402,8 +402,8 @@ fn main() {
             merkle_tree.add_leaf(&const_params.inner_params, leaf_index_1, leaf);
 
             let rabin_leaf_padding = params.map(|param| {
-                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as u64 / param.bit_size;
-                if <FrParameters as FpParameters>::MODULUS_BITS as u64 % param.bit_size != 0 {
+                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / param.bit_size;
+                if <FrParameters as FpParameters>::MODULUS_BITS as usize % param.bit_size != 0 {
                     leaf_len += 1;
                 }
                 
@@ -435,7 +435,7 @@ fn main() {
 
             let proof = WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
                 .expect("generate snark proof failed");
-            let verify_data = WithdrawVerifyData {
+            let proof_data = WithdrawProofData {
                 mint,
                 withdraw_amount,
                 nullifier: to_hex(&pub_in.nullifier),
@@ -446,23 +446,23 @@ fn main() {
                 cypher: pub_in.cypher.map(|c| c.into_iter().map(|c| to_hex(&c)).collect()),
                 proof: to_hex(&proof),
             };
-            write_json_to_file(&verify_path, &verify_data);
+            write_json_to_file(&proof_path, &proof_data);
         },
         Opt::VerifyDeposit {
             vk_path,
-            verify_path,
+            proof_path,
         } => {
             let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
-            let verify_data = read_json_from_file::<DepositVerifyData>(&verify_path);
+            let proof_data = read_json_from_file::<DepositProofData>(&proof_path);
 
-            let proof = from_hex(verify_data.proof);
+            let proof = from_hex(proof_data.proof);
             let pub_in = DepositPublicInputs {
-                mint: ArrayPubkey::new(verify_data.mint.to_bytes()),
-                amount: verify_data.amount,
-                old_root: from_hex(verify_data.old_root),
-                new_leaf: from_hex(verify_data.new_leaf),
-                leaf_index: verify_data.leaf_index,
-                update_nodes: verify_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
+                mint: ArrayPubkey::new(proof_data.mint.to_bytes()),
+                amount: proof_data.amount,
+                old_root: from_hex(proof_data.old_root),
+                new_leaf: from_hex(proof_data.new_leaf),
+                leaf_index: proof_data.leaf_index,
+                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
             };
 
             let result = DepositInstant::verify_snark_proof(&pub_in, &proof, &vk)
@@ -475,21 +475,21 @@ fn main() {
         },
         Opt::VerifyWithdraw {
             vk_path,
-            verify_path,
+            proof_path,
         } => {
             let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
-            let verify_data = read_json_from_file::<WithdrawVerifyData>(&verify_path);
+            let proof_data = read_json_from_file::<WithdrawProofData>(&proof_path);
 
-            let proof = from_hex(verify_data.proof);
+            let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {
-                mint: ArrayPubkey::new(verify_data.mint.to_bytes()),
-                nullifier: from_hex(verify_data.nullifier),
-                withdraw_amount: verify_data.withdraw_amount,
-                old_root: from_hex(verify_data.old_root),
-                new_leaf_index: verify_data.new_leaf_index,
-                new_leaf: from_hex(verify_data.new_leaf),
-                update_nodes: verify_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-                cypher: verify_data.cypher.into_iter().map(|n| from_hex(n)).collect(),
+                mint: ArrayPubkey::new(proof_data.mint.to_bytes()),
+                nullifier: from_hex(proof_data.nullifier),
+                withdraw_amount: proof_data.withdraw_amount,
+                old_root: from_hex(proof_data.old_root),
+                new_leaf_index: proof_data.new_leaf_index,
+                new_leaf: from_hex(proof_data.new_leaf),
+                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
+                cypher: proof_data.cypher.into_iter().map(|n| from_hex(n)).collect(),
             };
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)

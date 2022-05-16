@@ -373,7 +373,7 @@ mod tests {
     use arkworks_utils::prelude::ark_ff::{BigInteger, PrimeField};
     use num_bigint::BigUint;
     use num_integer::Integer;
-    use soda_maze_lib::vanilla::rabin::{biguint_to_biguint_array, biguint_to_prime_field};
+    use soda_maze_lib::vanilla::rabin::{biguint_to_biguint_array};
     
     #[test]
     fn test() {
@@ -386,9 +386,8 @@ mod tests {
             let val: BigUint = &chunk[0] + (&chunk[1] * (BigUint::from(1u64) << 124));
 
             let val: Fr = val.into();
-            println!("{}", &val);
-
-            println!("Fr::new(BigInteger::new({:?}))", val.0.0);
+            let val = val.into_repr();
+            println!("BigInteger::new({:?}),", &val.0);
         });
     }
 }

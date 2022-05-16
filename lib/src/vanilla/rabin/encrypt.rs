@@ -32,11 +32,7 @@ impl RabinParam {
 
     // preimage = ... | random | ... | leaf0 | leaf1 | leaf2
     //                  lo -------------------> hi
-    pub fn gen_preimage_from_leaf<F: PrimeField>(
-        &self,
-        leaf: F,
-        padding: &[BigUint],
-    ) -> BigUint {
+    pub fn gen_preimage_from_leaf<F: PrimeField>(&self, leaf: F, padding: &[BigUint]) -> BigUint {
         let mut preimage_array = padding.iter().map(|p| {
             assert!(p.bits() as usize <= self.bit_size);
             p.clone()
@@ -49,17 +45,11 @@ impl RabinParam {
         biguint_array_to_biguint(&preimage_array, self.bit_size)
     }
 
-    pub fn gen_quotient_array(
-        &self,
-        quotient: BigUint,
-    ) -> Vec<BigUint> {
+    pub fn gen_quotient_array(&self, quotient: BigUint) -> Vec<BigUint> {
         biguint_to_biguint_array(quotient, self.modulus_len, self.bit_size)
     }
 
-    pub fn gen_cypher_array<F: PrimeField>(
-        &self,
-        cypher: BigUint,
-    ) -> Vec<F> {
+    pub fn gen_cypher_array<F: PrimeField>(&self, cypher: BigUint) -> Vec<F> {
         let cypher_bits = self.cypher_batch * self.bit_size;
         assert!(cypher_bits < F::Params::MODULUS_BITS as usize);
 

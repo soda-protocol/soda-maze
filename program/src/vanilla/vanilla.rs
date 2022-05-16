@@ -5,23 +5,25 @@ use solana_program::{pubkey::Pubkey, entrypoint::ProgramResult, program_pack::Is
 
 use crate::params::{Fr, G1Projective254};
 use crate::{HEIGHT, DEPOSIT_INPUTS, WITHDRAW_INPUTS};
-use crate::{error::MazeError, bn::BigInteger256, ProofType, Packer};
+use crate::{error::MazeError, bn::BigInteger256 as BigInteger, ProofType, Packer};
 use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM};
 use crate::context::{Context512, Context2048};
 use crate::state::VerifyState;
+
+use super::credential::is_credential_valid;
 
 #[inline]
 fn pubkey_to_fr(pubkey: Pubkey) -> Fr {
     let pubkey = &pubkey.to_bytes();
     let (d0, d1, d2, d3) = array_refs![pubkey, 8, 8, 8, 8];    
-    let fr_data = [
+    let repr = [
         u64::from_le_bytes(*d0),
         u64::from_le_bytes(*d1),
         u64::from_le_bytes(*d2),
         u64::from_le_bytes(*d3) & ((1u64 << 61) - 1),
     ];
 
-    Fr::new(BigInteger256::new(fr_data))
+    Fr::from_repr(BigInteger::new(repr)).unwrap()
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
@@ -59,9 +61,9 @@ impl DepositInfo {
         let mut inputs = Box::new(Vec::with_capacity(DEPOSIT_INPUTS));
 
         inputs.push(pubkey_to_fr(self.mint));
-        inputs.push(Fr::new(BigInteger256::from(self.deposit_amount)));
+        inputs.push(Fr::from_repr(BigInteger::from(self.deposit_amount)).unwrap());
         inputs.push(self.old_root);
-        inputs.push(Fr::new(BigInteger256::from(self.leaf_index as u64)));
+        inputs.push(Fr::from_repr(BigInteger::from(self.leaf_index as u64)).unwrap());
         inputs.push(self.leaf);
         inputs.extend(self.update_nodes);
 
@@ -91,10 +93,7 @@ impl WithdrawInfo {
         if !self.new_leaf.is_valid() {
             return Err(MazeError::DepositTooSmall.into());
         }
-        if self.credential.len() != WITHDRAW_INPUTS {
-            return Err(MazeError::DepositTooSmall.into());
-        }
-        if !self.credential.iter().all(|x| x.is_valid()) {
+        if !is_credential_valid(&self.credential) {
             return Err(MazeError::DepositTooSmall.into());
         }
         if self.update_nodes.len() != HEIGHT {
@@ -114,11 +113,11 @@ impl WithdrawInfo {
         let mut inputs = Box::new(Vec::with_capacity(WITHDRAW_INPUTS));
 
         inputs.push(pubkey_to_fr(self.mint));
-        inputs.push(Fr::new(BigInteger256::from(self.withdraw_amount)));
+        inputs.push(Fr::from_repr(BigInteger::from(self.withdraw_amount)).unwrap());
         inputs.push(self.nullifier);
-
+        inputs.extend(self.credential);
         inputs.push(self.old_root);
-        inputs.push(Fr::new(BigInteger256::from(self.new_leaf_index as u64)));
+        inputs.push(Fr::from_repr(BigInteger::from(self.new_leaf_index as u64)).unwrap());
         inputs.push(self.new_leaf);
         inputs.extend(self.update_nodes);
 
