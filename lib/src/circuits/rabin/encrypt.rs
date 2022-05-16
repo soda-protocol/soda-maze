@@ -15,10 +15,51 @@ fn gen_preimage_var<F: PrimeField>(
     padding: Vec<GeneralUint<F>>,
     bit_size: u64,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
-    fn poly_array_to_biguint<F: PrimeField>(
-        preimage: &[GeneralUint<F>],
-        bit_size: u64,
-    ) -> Result<BigUint, SynthesisError> {
+    let leaf_array = if let FpVar::Var(leaf_var) = leaf_var {
+        let modulus_bits = F::Params::MODULUS_BITS as u64;
+        let ref cs = leaf_var.cs;
+        let base = BigUint::from(1u64) << bit_size;
+        let base_field = F::from(base.clone());
+        let mut rest: BigUint = leaf.into();
+        let mut res = Vec::new();
+
+        let (mut lc, coeff) = (0..modulus_bits / bit_size)
+            .into_iter()
+            .try_fold((lc!(), F::one()), |(lc, coeff), _| {
+                let (hi, lo) = rest.div_rem(&base);
+                rest = hi;
+
+                let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+                let lc = lc + (coeff, lo_var.variable()?);
+                res.push(lo_var);
+
+                Ok((lc, coeff * base_field))
+            })?;
+
+        if modulus_bits % bit_size != 0 {
+            let bit_size = modulus_bits % bit_size;
+            let var = GeneralUint::new_witness(cs.clone(), || Ok(rest), bit_size)?;
+            lc += (coeff, var.variable()?);
+            res.push(var);
+        }
+
+        leaf_var.cs.enforce_constraint(
+            LinearCombination::from(leaf_var.variable),
+            LinearCombination::from(Variable::One),
+            lc,
+        )?;
+
+        res
+    } else {
+        unreachable!("fp var should not be constant");
+    };
+
+    // preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
+    let mut res = padding;
+    res.extend(leaf_array);
+    assert_eq!(res.len(), modulus.len());
+
+    let poly_array_to_biguint = |preimage: &[GeneralUint<F>]| -> Result<BigUint, SynthesisError> {
         let (res, _) = preimage.iter().try_fold(
             (BigUint::from(0u64), BigUint::from(1u64)),
             |(value, base), p| {
@@ -29,85 +70,29 @@ fn gen_preimage_var<F: PrimeField>(
             })?;
     
         Ok(res)
-    }
+    };
 
-    fn split_leaf_var<F: PrimeField>(
-        leaf: F,
-        leaf_var: FpVar<F>,
-        bit_size: u64,
-    ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
-        if let FpVar::Var(leaf_var) = leaf_var {
-            let modulus_bits = F::Params::MODULUS_BITS as u64;
-            let ref cs = leaf_var.cs;
-            let base = BigUint::from(1u64) << bit_size;
-            let base_field = F::from(base.clone());
-            let mut rest: BigUint = leaf.into();
-            let mut res = Vec::new();
-    
-            let (mut lc, coeff) = (0..modulus_bits / bit_size)
-                .into_iter()
-                .try_fold((lc!(), F::one()), |(lc, coeff), _| {
-                    let (hi, lo) = rest.div_rem(&base);
-                    rest = hi;
-    
-                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
-                    let lc = lc + (coeff, lo_var.variable()?);
-                    res.push(lo_var);
-    
-                    Ok((lc, coeff * base_field))
-                })?;
-    
-            if modulus_bits % bit_size != 0 {
-                let bit_size = modulus_bits % bit_size;
-                let var = GeneralUint::new_witness(cs.clone(), || Ok(rest), bit_size)?;
-                lc += (coeff, var.variable()?);
-                res.push(var);
-            }
-    
-            leaf_var.cs.enforce_constraint(
-                LinearCombination::from(leaf_var.variable),
-                LinearCombination::from(Variable::One),
-                lc,
-            )?;
-    
-            Ok(res)
-        } else {
-            unreachable!("fp var should not be constant");
-        }
-    }
-
-    // preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
-    let mut res = padding;
-    let leaf_array = split_leaf_var(leaf, leaf_var, bit_size)?;
-    res.extend(leaf_array);
-    assert_eq!(res.len(), modulus.len());
-
-    let preimage_uint = poly_array_to_biguint(&res, bit_size)?;
-    let modulus_uint = poly_array_to_biguint(modulus, bit_size)?;
+    let preimage_uint = poly_array_to_biguint(&res)?;
+    let modulus_uint = poly_array_to_biguint(modulus)?;
     assert!(preimage_uint < modulus_uint);
 
     Ok(res)
 }
 
 fn gen_cypher_var<F: PrimeField>(
-    cypher: Vec<FpVar<F>>,
+    cypher: Vec<(F, FpVar<F>)>,
     bit_size: u64,
     cypher_batch: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
-    fn partly_split_fp_var<F: PrimeField>(
-        fp_var: FpVar<F>,
-        bit_size: u64,
-        batch_size: usize,
-    ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    let partly_split_fp_var = |fp: F, fp_var: FpVar<F>| -> Result<Vec<GeneralUint<F>>, SynthesisError> {
         if let FpVar::Var(fp_var) = fp_var {
             let ref cs = fp_var.cs;
             let base = BigUint::from(1u64) << bit_size;
             let base_field = F::from(base.clone());
-            let fp = fp_var.value()?;
             let mut rest: BigUint = fp.into();
             let mut res = Vec::new();
     
-            let (lc, _) = (0..batch_size)
+            let (lc, _) = (0..cypher_batch)
                 .into_iter()
                 .try_fold((lc!(), F::one()), |(lc, coeff), _| {
                     let (hi, lo) = rest.div_rem(&base);
@@ -131,10 +116,49 @@ fn gen_cypher_var<F: PrimeField>(
         } else {
             unreachable!("fp var should not be constant");
         }
-    }
+    };
+
+    // fn partly_split_fp_var<F: PrimeField>(
+    //     fp: F,
+    //     fp_var: FpVar<F>,
+    //     bit_size: u64,
+    //     cypher_batch: usize,
+    // ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    //     if let FpVar::Var(fp_var) = fp_var {
+    //         let ref cs = fp_var.cs;
+    //         let base = BigUint::from(1u64) << bit_size;
+    //         let base_field = F::from(base.clone());
+    //         let mut rest: BigUint = fp.into();
+    //         let mut res = Vec::new();
+    
+    //         let (lc, _) = (0..cypher_batch)
+    //             .into_iter()
+    //             .try_fold((lc!(), F::one()), |(lc, coeff), _| {
+    //                 let (hi, lo) = rest.div_rem(&base);
+    //                 rest = hi;
+    
+    //                 let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+    //                 let lc = lc + (coeff, lo_var.variable()?);
+    //                 res.push(lo_var);
+    
+    //                 Ok((lc, coeff * base_field))
+    //             })?;
+    //         assert_eq!(rest, BigUint::from(0u64));
+    
+    //         fp_var.cs.enforce_constraint(
+    //             LinearCombination::from(fp_var.variable),
+    //             LinearCombination::from(Variable::One),
+    //             lc,
+    //         )?;
+    
+    //         Ok(res)
+    //     } else {
+    //         unreachable!("fp var should not be constant");
+    //     }
+    // }
 
     let cypher = cypher.into_iter()
-        .map(|c| partly_split_fp_var(c, bit_size, cypher_batch))
+        .map(|(fp, fp_var)| partly_split_fp_var(fp, fp_var))
         .collect::<Result<Vec<_>, SynthesisError>>()?
         .into_iter()
         .flatten()
@@ -220,7 +244,10 @@ impl<F: PrimeField> RabinEncryption<F> {
         // alloc input
         let fp_cypher = self.cypher
             .into_iter()
-            .map(|v| FpVar::new_input(cs.clone(), || Ok(v)))
+            .map(|v| {
+                let var = FpVar::new_input(cs.clone(), || Ok(v))?;
+                Ok((v, var))
+            })
             .collect::<Result<Vec<_>, SynthesisError>>()?;
         // alloc private
         let quotient = self.quotient
@@ -433,7 +460,7 @@ mod tests {
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let cypher = cypher.into_iter().map(|c| {
-            FpVar::new_input(cs.clone(), || Ok(c)).unwrap()
+            (c, FpVar::new_input(cs.clone(), || Ok(c)).unwrap())
         }).collect::<Vec<_>>();
 
         let _ = gen_cypher_var(cypher, BIT_SIZE, CYPHER_BATCH).unwrap();
