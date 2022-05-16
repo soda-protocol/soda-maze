@@ -48,7 +48,7 @@ fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
         .create(true)
         .open(path)
         .unwrap();
-    serde_json::to_writer(&mut file, data)
+    serde_json::to_writer_pretty(&mut file, data)
         .expect("failed to write to file");
 }
 
@@ -180,13 +180,13 @@ impl CryptoRng for XSRng {}
 
 #[derive(Serialize, Deserialize)]
 struct RabinPrimes {
-    prime_a: num_bigint_dig::BigUint,
-    prime_b: num_bigint_dig::BigUint,
+    prime_a: String,
+    prime_b: String,
 }
 
 #[derive(Serialize, Deserialize)]
 struct RabinParameters {
-    modulus: num_bigint_dig::BigUint,
+    modulus: String,
     modulus_len: usize,
     bit_size: u64,
     cypher_batch: usize,
@@ -224,8 +224,9 @@ fn get_withdraw_const_params(height: usize, params: Option<RabinParameters>) -> 
     let curve = Curve::Bls381;
 
     let rabin_param = params.map(|params| {
+        let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
         RabinParam::new::<Fr>(
-            BigUint::from_bytes_le(&params.modulus.to_bytes_le()),
+            BigUint::from_bytes_le(&modulus),
             params.modulus_len,
             params.bit_size,
             params.cypher_batch,
@@ -307,14 +308,14 @@ fn main() {
             let modulus = &a * &b;
 
             let primes = RabinPrimes {
-                prime_a: a,
-                prime_b: b,
+                prime_a: hex::encode(a.to_bytes_le()),
+                prime_b: hex::encode(b.to_bytes_le()),
             };
             write_json_to_file(&prime_path, &primes);
 
             let parameter = RabinParameters {
-                modulus,
-                modulus_len: prime_len,
+                modulus: hex::encode(modulus.to_bytes_le()),
+                modulus_len: prime_len * 2,
                 bit_size: bit_size as u64,
                 cypher_batch,
             };

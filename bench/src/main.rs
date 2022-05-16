@@ -42,7 +42,7 @@ type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
 
 #[derive(Serialize, Deserialize)]
 struct RabinParameters {
-    modulus: num_bigint_dig::BigUint,
+    modulus: String,
     modulus_len: usize,
     bit_size: u64,
     cypher_batch: usize,
@@ -149,8 +149,9 @@ fn get_withdraw_const_params(height: usize, params: &Option<RabinParameters>) ->
     let curve = Curve::Bls381;
 
     let rabin_param = params.as_ref().map(|params| {
+        let modulus = hex::decode(&params.modulus).expect("modulus is an invalid hex string");
         RabinParam::new::<Fr>(
-            BigUint::from_bytes_le(&params.modulus.to_bytes_le()),
+            BigUint::from_bytes_le(&modulus),
             params.modulus_len,
             params.bit_size,
             params.cypher_batch,

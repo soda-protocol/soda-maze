@@ -36,24 +36,41 @@ impl RabinParam {
         }
     }
 
-    pub fn gen_preimage<F: PrimeField>(
+    // preimage = ... | random | ... | leaf0 | leaf1 | leaf2
+    //                  lo -------------------> hi
+    pub fn gen_preimage_from_leaf<F: PrimeField>(
         &self,
         leaf: F,
+        padding: &[BigUint],
     ) -> BigUint {
-        let leaf_uint: BigUint = leaf.into();
-        let modulus_bits = F::Params::MODULUS_BITS as usize;
-        let mut batch_size = modulus_bits / (self.bit_size as usize);
-        if modulus_bits % (self.bit_size as usize) != 0 {
-            batch_size += 1;
+        let mut preimage_array = padding.iter().map(|p| {
+            assert!(p.bits() <= self.bit_size);
+            p.clone()
+        }).collect::<Vec<_>>();
+
+        let mut leaf_len = F::Params::MODULUS_BITS as u64 / self.bit_size;
+        if F::Params::MODULUS_BITS as u64 % self.bit_size != 0 {
+            leaf_len += 1;
         }
-    
-        let mut preimage = leaf_uint.clone();
-        for _ in 1..self.modulus_len / batch_size {
-            preimage <<= self.bit_size as usize * batch_size;
-            preimage += &leaf_uint;
+        let base = BigUint::from(1u64) << self.bit_size;
+        let mut rest: BigUint = leaf.into();
+        for _ in 0..leaf_len {
+            let (hi, lo) = rest.div_rem(&base);
+            rest = hi;
+            preimage_array.push(lo);
         }
-        assert!(&preimage < &self.modulus);
+        assert_eq!(rest, BigUint::from(0u64));
+        assert_eq!(preimage_array.len(), self.modulus_len);
+
+        let (preimage, _) = preimage_array.into_iter().fold(
+            (BigUint::from(0u64), BigUint::from(1u64)),
+            |(value, base), p| {
+                let value = value + &base * p;
+                let base = base << self.bit_size;
     
+                (value, base)
+            });
+
         preimage
     }
 

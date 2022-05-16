@@ -260,25 +260,14 @@ impl<F: PrimeField, FH: FieldHasher<F>> VanillaProof<F> for WithdrawVanillaProof
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_2, leaf_2.clone())
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
-        let (padding, quotient, cypher) = if let Some(param) = &params.rabin_param {
-            let preimage = param.gen_preimage(leaf_1);
+        let (padding, quotient, cypher) = if let Some(param) = &params.rabin_param {            
+            let leaf_padding = orig_in.rabin_leaf_padding.as_ref().unwrap();
+            let preimage = param.gen_preimage_from_leaf(leaf_1, leaf_padding);
             let (quotient, cypher) = (&preimage * &preimage).div_rem(&param.modulus);
             let quotient = param.gen_quotient_array(quotient);
             let cypher = param.gen_cypher_array(cypher);
-            
-            let leaf_padding = if let Some(padding) = &orig_in.rabin_leaf_padding {
-                let mut leaf_len = F::Params::MODULUS_BITS as u64 / param.bit_size;
-                if F::Params::MODULUS_BITS as u64 % param.bit_size != 0 {
-                    leaf_len += 1;
-                }
-                assert_eq!(leaf_len as usize + padding.len(), param.modulus_len);
 
-                padding.clone()
-            } else {
-                panic!("rabin leaf padding should not be none")
-            };
-
-            (Some(leaf_padding), Some(quotient), Some(cypher))
+            (Some(leaf_padding.clone()), Some(quotient), Some(cypher))
         } else {
             (None, None, None)
         };

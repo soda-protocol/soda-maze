@@ -99,6 +99,13 @@ impl<F: PrimeField> RabinEncryption<F> {
         });
         assert!(cypher_batch as u64 * bit_size < F::Params::MODULUS_BITS as u64);
         assert_eq!(modulus.len() % cypher_batch as usize, 0);
+        
+        padding.iter().for_each(|p| assert!(p.bits() <= bit_size));
+        let mut leaf_len = F::Params::MODULUS_BITS as u64 / bit_size;
+        if F::Params::MODULUS_BITS as u64 % bit_size != 0 {
+            leaf_len += 1;
+        }
+        assert_eq!(leaf_len as usize + padding.len(), modulus.len());
 
         Self {
             modulus,
@@ -207,22 +214,34 @@ mod tests {
         Fr::rand(rng)
     }
 
-    fn get_preimage_from_leaf(leaf: Fr) -> BigUint {
-        let leaf_uint: BigUint = leaf.into();
-        let modulus_bits = <Fr as PrimeField>::Params::MODULUS_BITS as usize;
-        let mut f_bits = modulus_bits / (BIT_SIZE as usize);
-        if modulus_bits % (BIT_SIZE as usize) != 0 {
-            f_bits += 1;
+    fn get_preimage_from_leaf(rng: &mut StdRng, leaf: Fr) -> (BigUint, Vec<BigUint>) {
+        let mut leaf_len = <Fr as PrimeField>::Params::MODULUS_BITS as u64 / BIT_SIZE;
+        if <Fr as PrimeField>::Params::MODULUS_BITS as u64 % BIT_SIZE != 0 {
+            leaf_len += 1;
         }
-    
-        let mut preimage = leaf_uint.clone();
-        for _ in 1..MODULUS_LEN / f_bits {
-            preimage <<= BIT_SIZE as usize * f_bits;
-            preimage += &leaf_uint;
+        
+        let mut padding = Vec::with_capacity(MODULUS_LEN - leaf_len as usize);
+        for _ in 0..MODULUS_LEN - leaf_len as usize {
+            let mut v = u128::rand(rng);
+            v &= (1u128 << 124) - 1;
+
+            padding.push(BigUint::from(v));
         }
-        assert!(&preimage < &MODULUS);
-    
-        preimage
+
+        let base = BigUint::from(1u64) << BIT_SIZE;
+        let mut rest: BigUint = leaf.into();
+        let mut leaf = Vec::with_capacity(leaf_len as usize);
+        for _ in 0..leaf_len {
+            let (hi, lo) = rest.div_rem(&base);
+            rest = hi;
+            leaf.push(lo);
+        }
+        assert_eq!(rest, BigUint::from(0u64));
+
+        let preimage = vec![&padding[..], &leaf[..]].concat();
+        let preimage = poly_array_to_biguint(&preimage);
+
+        (preimage, padding)
     }
 
     pub fn gen_cypher_array(cypher: BigUint) -> Vec<Fr> {
@@ -366,9 +385,8 @@ mod tests {
     fn test_rabin_encryption_synthesize() {
         let rng = &mut test_rng();
         let leaf = get_rand_fr(rng);
-        let padding = get_random_uint_array(rng);
 
-        let preimage = get_preimage_from_leaf(leaf);
+        let (preimage, padding) = get_preimage_from_leaf(rng, leaf);
         let (quotient, cypher) = (&preimage * &preimage).div_rem(&MODULUS);
 
         let quotient = biguint_to_poly_array(&quotient);
