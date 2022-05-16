@@ -283,8 +283,6 @@ mod tests {
 
         assert!(cs.is_satisfied().unwrap());
         println!("constraints: {}", cs.num_constraints());
-        println!("instance: {}", cs.num_instance_variables());
-        println!("witness: {}", cs.num_witness_variables());
     }
 
     fn test_withdraw_inner(rng: &mut StdRng, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {

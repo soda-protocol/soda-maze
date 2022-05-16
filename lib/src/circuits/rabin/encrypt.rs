@@ -1,36 +1,84 @@
 use ark_ff::{PrimeField, FpParameters};
 use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar, R1CSVar};
-use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
+use ark_relations::lc;
+use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError, LinearCombination, Variable};
 use num_bigint::BigUint;
+use num_integer::Integer;
 
 use super::uint::GeneralUint;
 use super::poly::*;
 
-fn poly_array_to_biguint<F: PrimeField>(
-    preimage: &[GeneralUint<F>],
-    bit_size: u64,
-) -> Result<BigUint, SynthesisError> {
-    let (res, _) = preimage.iter().try_fold(
-        (BigUint::from(0u64), BigUint::from(1u64)),
-        |(value, base), p| {
-            let value = value + &base * p.value()?;
-            let base = base << bit_size;
-
-            Ok((value, base))
-        })?;
-
-    Ok(res)
-}
-
-// preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
-fn gen_preimage_from_fp_var<F: PrimeField>(
-    leaf: FpVar<F>,
+fn gen_preimage_var<F: PrimeField>(
+    leaf: F,
+    leaf_var: FpVar<F>,
     modulus: &[GeneralUint<F>],
     padding: Vec<GeneralUint<F>>,
     bit_size: u64,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    fn poly_array_to_biguint<F: PrimeField>(
+        preimage: &[GeneralUint<F>],
+        bit_size: u64,
+    ) -> Result<BigUint, SynthesisError> {
+        let (res, _) = preimage.iter().try_fold(
+            (BigUint::from(0u64), BigUint::from(1u64)),
+            |(value, base), p| {
+                let value = value + &base * p.value()?;
+                let base = base << bit_size;
+    
+                Ok((value, base))
+            })?;
+    
+        Ok(res)
+    }
+
+    fn split_leaf_var<F: PrimeField>(
+        leaf: F,
+        leaf_var: FpVar<F>,
+        bit_size: u64,
+    ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+        if let FpVar::Var(leaf_var) = leaf_var {
+            let modulus_bits = F::Params::MODULUS_BITS as u64;
+            let ref cs = leaf_var.cs;
+            let base = BigUint::from(1u64) << bit_size;
+            let base_field = F::from(base.clone());
+            let mut rest: BigUint = leaf.into();
+            let mut res = Vec::new();
+    
+            let (mut lc, coeff) = (0..modulus_bits / bit_size)
+                .into_iter()
+                .try_fold((lc!(), F::one()), |(lc, coeff), _| {
+                    let (hi, lo) = rest.div_rem(&base);
+                    rest = hi;
+    
+                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+                    let lc = lc + (coeff, lo_var.variable()?);
+                    res.push(lo_var);
+    
+                    Ok((lc, coeff * base_field))
+                })?;
+    
+            if modulus_bits % bit_size != 0 {
+                let bit_size = modulus_bits % bit_size;
+                let var = GeneralUint::new_witness(cs.clone(), || Ok(rest), bit_size)?;
+                lc += (coeff, var.variable()?);
+                res.push(var);
+            }
+    
+            leaf_var.cs.enforce_constraint(
+                LinearCombination::from(leaf_var.variable),
+                LinearCombination::from(Variable::One),
+                lc,
+            )?;
+    
+            Ok(res)
+        } else {
+            unreachable!("fp var should not be constant");
+        }
+    }
+
+    // preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
     let mut res = padding;
-    let leaf_array = GeneralUint::split_fp_var(leaf, bit_size)?;
+    let leaf_array = split_leaf_var(leaf, leaf_var, bit_size)?;
     res.extend(leaf_array);
     assert_eq!(res.len(), modulus.len());
 
@@ -41,13 +89,52 @@ fn gen_preimage_from_fp_var<F: PrimeField>(
     Ok(res)
 }
 
-fn gen_cypher_from_fp_var<F: PrimeField>(
+fn gen_cypher_var<F: PrimeField>(
     cypher: Vec<FpVar<F>>,
     bit_size: u64,
     cypher_batch: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    fn partly_split_fp_var<F: PrimeField>(
+        fp_var: FpVar<F>,
+        bit_size: u64,
+        batch_size: usize,
+    ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+        if let FpVar::Var(fp_var) = fp_var {
+            let ref cs = fp_var.cs;
+            let base = BigUint::from(1u64) << bit_size;
+            let base_field = F::from(base.clone());
+            let fp = fp_var.value()?;
+            let mut rest: BigUint = fp.into();
+            let mut res = Vec::new();
+    
+            let (lc, _) = (0..batch_size)
+                .into_iter()
+                .try_fold((lc!(), F::one()), |(lc, coeff), _| {
+                    let (hi, lo) = rest.div_rem(&base);
+                    rest = hi;
+    
+                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(lo), bit_size)?;
+                    let lc = lc + (coeff, lo_var.variable()?);
+                    res.push(lo_var);
+    
+                    Ok((lc, coeff * base_field))
+                })?;
+            assert_eq!(rest, BigUint::from(0u64));
+    
+            fp_var.cs.enforce_constraint(
+                LinearCombination::from(fp_var.variable),
+                LinearCombination::from(Variable::One),
+                lc,
+            )?;
+    
+            Ok(res)
+        } else {
+            unreachable!("fp var should not be constant");
+        }
+    }
+
     let cypher = cypher.into_iter()
-        .map(|c| GeneralUint::partly_split_fp_var(c, bit_size, cypher_batch))
+        .map(|c| partly_split_fp_var(c, bit_size, cypher_batch))
         .collect::<Result<Vec<_>, SynthesisError>>()?
         .into_iter()
         .flatten()
@@ -79,6 +166,7 @@ pub struct RabinEncryption<F: PrimeField> {
     quotient: Vec<BigUint>,
     padding: Vec<BigUint>,
     cypher: Vec<F>,
+    leaf: F,
     bit_size: u64,
     cypher_batch: usize,
 }
@@ -89,6 +177,7 @@ impl<F: PrimeField> RabinEncryption<F> {
         quotient: Vec<BigUint>,
         padding: Vec<BigUint>,
         cypher: Vec<F>,
+        leaf: F,
         bit_size: u64,
         cypher_batch: usize,
     ) -> Self {
@@ -112,6 +201,7 @@ impl<F: PrimeField> RabinEncryption<F> {
             quotient,
             padding,
             cypher,
+            leaf,
             bit_size,
             cypher_batch,
         }
@@ -143,14 +233,15 @@ impl<F: PrimeField> RabinEncryption<F> {
             .collect::<Result<Vec<_>, SynthesisError>>()?;
 
         // transform fp leaf to preimage
-        let preimage = gen_preimage_from_fp_var(
+        let preimage = gen_preimage_var(
+            self.leaf,
             leaf_var,
             &modulus,
             padding,
             self.bit_size,
         )?;
         // transform fp cypher to general uint
-        let cypher = gen_cypher_from_fp_var(fp_cypher, self.bit_size, self.cypher_batch)?;
+        let cypher = gen_cypher_var(fp_cypher, self.bit_size, self.cypher_batch)?;
         // encryption
         rabin_encrypt(&modulus, &preimage, &quotient, cypher, self.bit_size)?;
 
@@ -169,7 +260,7 @@ mod tests {
     use num_integer::Integer;
     use lazy_static::lazy_static;
 
-    use super::{GeneralUint, rabin_encrypt, gen_preimage_from_fp_var, gen_cypher_from_fp_var, RabinEncryption};
+    use super::{GeneralUint, rabin_encrypt, gen_preimage_var, gen_cypher_var, RabinEncryption};
     
     const BIT_SIZE: u64 = 124;
     const CYPHER_BATCH: usize = 2;
@@ -325,9 +416,9 @@ mod tests {
         let padding = padding.into_iter().map(|m| {
             GeneralUint::new_witness(cs.clone(), || Ok(m), BIT_SIZE).unwrap()
         }).collect::<Vec<_>>();
-        let leaf = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
+        let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
 
-        let _ = gen_preimage_from_fp_var(leaf, &modulus, padding, BIT_SIZE).unwrap();
+        let _ = gen_preimage_var(leaf, leaf_var, &modulus, padding, BIT_SIZE).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
@@ -345,7 +436,7 @@ mod tests {
             FpVar::new_input(cs.clone(), || Ok(c)).unwrap()
         }).collect::<Vec<_>>();
 
-        let _ = gen_cypher_from_fp_var(cypher, BIT_SIZE, CYPHER_BATCH).unwrap();
+        let _ = gen_cypher_var(cypher, BIT_SIZE, CYPHER_BATCH).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
@@ -398,14 +489,17 @@ mod tests {
             quotient,
             padding,
             cypher,
+            leaf,
             BIT_SIZE,
             CYPHER_BATCH,
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();
-        let leaf_var = FpVar::new_input(cs.clone(), || Ok(leaf)).unwrap();
+        let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
         rabin_encryption.synthesize(cs.clone(), leaf_var).unwrap();
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
+        println!("instance: {}", cs.num_instance_variables());
+        println!("witness: {}", cs.num_witness_variables());
     }
 }

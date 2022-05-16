@@ -118,6 +118,7 @@ where
                 priv_in.quotient.clone().unwrap(),
                 priv_in.padding.clone().unwrap(),
                 pub_in.cypher.clone().unwrap(),
+                priv_in.old_leaf,
                 param.bit_size,
                 param.cypher_batch,
             ))

@@ -243,7 +243,7 @@ fn get_withdraw_const_params(height: usize, params: Option<RabinParameters>) -> 
 }
 
 #[derive(StructOpt)]
-#[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
+#[structopt(name = "Soda Maze Gen Parameters", about = "Soda Maze Gen Parameters Benchmark.")]
 enum Opt {
     GenRabinParam {
         #[structopt(long, short = "s")]

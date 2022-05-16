@@ -157,6 +157,7 @@ pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub secret_2: F,
     pub friend_nodes_1: Vec<(bool, F)>,
     pub friend_nodes_2: Vec<(bool, F)>,
+    pub old_leaf: F,
     pub quotient: Option<Vec<BigUint>>,
     pub padding: Option<Vec<BigUint>>,
 }
@@ -288,6 +289,7 @@ impl<F: PrimeField, FH: FieldHasher<F>> VanillaProof<F> for WithdrawVanillaProof
             secret_2: orig_in.secret_2,
             friend_nodes_1,
             friend_nodes_2,
+            old_leaf: leaf_1,
             quotient,
             padding,
         };
