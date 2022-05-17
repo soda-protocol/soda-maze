@@ -406,9 +406,9 @@ fn main() {
                     leaf_len += 1;
                 }
                 
-                (0..param.modulus_len - leaf_len as usize).into_iter().map(|_| {
+                (0..param.modulus_len - leaf_len).into_iter().map(|_| {
                     use num_bigint_dig::RandBigInt;
-                    let r = OsRng.gen_biguint(param.bit_size as usize);
+                    let r = OsRng.gen_biguint(param.bit_size);
                     BigUint::from_bytes_le(&r.to_bytes_le())
                 }).collect::<Vec<_>>()
             });

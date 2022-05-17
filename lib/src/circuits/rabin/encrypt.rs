@@ -52,7 +52,7 @@ fn gen_preimage_var<F: PrimeField>(
 
         res
     } else {
-        unreachable!("fp var should not be constant");
+        unreachable!("leaf var should not be constant");
     };
 
     // preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
@@ -240,7 +240,7 @@ mod tests {
     use ark_ff::{PrimeField, FpParameters};
     use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar};
     use ark_relations::r1cs::ConstraintSystem;
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_std::{test_rng, UniformRand, rand::{prelude::StdRng, Rng}};
     use num_bigint::BigUint;
     use num_integer::Integer;
     use lazy_static::lazy_static;
@@ -288,11 +288,11 @@ mod tests {
         ]);
     }
 
-    fn get_rand_fr(rng: &mut StdRng) -> Fr {
+    fn get_rand_fr<R: Rng + ?Sized>(rng: &mut R) -> Fr {
         Fr::rand(rng)
     }
 
-    fn get_preimage_from_leaf(rng: &mut StdRng, leaf: Fr) -> (BigUint, Vec<BigUint>) {
+    fn get_preimage_from_leaf<R: Rng + ?Sized>(rng: &mut R, leaf: Fr) -> (BigUint, Vec<BigUint>) {
         let mut leaf_len = <Fr as PrimeField>::Params::MODULUS_BITS as usize / BIT_SIZE;
         if <Fr as PrimeField>::Params::MODULUS_BITS as usize % BIT_SIZE != 0 {
             leaf_len += 1;

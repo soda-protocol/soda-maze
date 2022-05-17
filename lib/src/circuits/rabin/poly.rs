@@ -148,7 +148,8 @@ pub fn polynomial_force_equal<F: PrimeField>(
 #[cfg(test)]
 mod tests {
     use ark_bn254::Fr;
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_std::rand::Rng;
+    use ark_std::{test_rng, UniformRand};
     use ark_relations::r1cs::ConstraintSystem;
     use num_bigint::BigUint;
 
@@ -160,7 +161,7 @@ mod tests {
 
     type Uint124 = GeneralUint<Fr>;
 
-    fn get_rand_uint124_array(rng: &mut StdRng) -> Vec<BigUint> {
+    fn get_rand_uint124_array<R: Rng + ?Sized>(rng: &mut R) -> Vec<BigUint> {
         (0..ORDER)
             .into_iter()
             .map(|_| {
@@ -221,8 +222,9 @@ mod tests {
 
     #[test]
     fn test_polynomial_mul() {
-        let a = get_max_uint124_array();
-        let b = get_max_uint124_array();
+        let rng = &mut test_rng();
+        let a = get_rand_uint124_array(rng);
+        let b = get_rand_uint124_array(rng);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let poly_a = a.iter().map(|a| {

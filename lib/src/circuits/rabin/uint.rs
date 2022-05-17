@@ -216,7 +216,7 @@ impl<F: PrimeField> GeneralUint<F> {
                             variable: UintVar::Variable(variable),
                             cs: self.cs.clone(),
                             value,
-                            bit_size: a.bits().max(b.bits()) as usize + 1,
+                            bit_size: self.bit_size.max(other.bit_size) as usize + 1,
                         }
                     }
                 }
@@ -297,7 +297,7 @@ impl<F: PrimeField> GeneralUint<F> {
 #[cfg(test)]
 mod tests {
     use ark_bn254::Fr;
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_std::{test_rng, UniformRand, rand::Rng};
     use ark_relations::r1cs::ConstraintSystem;
     use num_bigint::BigUint;
 
@@ -307,7 +307,7 @@ mod tests {
 
     type Uint124 = GeneralUint<Fr>;
 
-    fn get_rand_uint124(rng: &mut StdRng) -> BigUint {
+    fn get_rand_uint124<R: Rng + ?Sized>(rng: &mut R) -> BigUint {
         let mut v = u128::rand(rng);
         v &= (1u128 << 124) - 1;
 
@@ -357,14 +357,16 @@ mod tests {
 
         let a_var = Uint124::new_witness(cs.clone(), || Ok(a.clone()), BITS).unwrap();
         let b_var = Uint124::new_constant(b.clone());
-        let _ = a_var.add(&b_var).unwrap();
+        let c_var = a_var.add(&b_var).unwrap();
+        assert_eq!(c_var.bit_size, BITS + 1);
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let a_var = Uint124::new_witness(cs.clone(), || Ok(a.clone()), BITS).unwrap();
         let b_var = Uint124::new_witness(cs.clone(), || Ok(b.clone()), BITS).unwrap();
-        let _ = a_var.add(&b_var).unwrap();
+        let c_var = a_var.add(&b_var).unwrap();
+        assert_eq!(c_var.bit_size, BITS + 1);
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
     }
