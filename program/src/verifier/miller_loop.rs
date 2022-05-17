@@ -80,7 +80,7 @@ impl MillerLoop {
         let mut r = r_ctx.borrow_mut()?;
         let mut f = f_ctx.borrow_mut()?;
 
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
@@ -188,7 +188,7 @@ impl MillerLoopFinalize {
         let mut r = r_ctx.borrow_mut()?;
         let mut f = f_ctx.borrow_mut()?;
 
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         let coeff = addition_step(&mut r, &q1);
         ell(&mut f, &coeff, &proof_ac.proof_a);

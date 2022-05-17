@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::ops::{Neg, Add, Sub, Mul, AddAssign, SubAssign, MulAssign};
 use borsh::{BorshSerialize, BorshDeserialize};
@@ -131,11 +130,6 @@ impl<P: QuadExtParameters> QuadExtField<P> {
     pub fn conjugate(&mut self) {
         self.c1 = -self.c1;
     }
-
-    pub fn mul_assign_by_basefield(&mut self, element: &P::BaseField) {
-        self.c0.mul_assign(element);
-        self.c1.mul_assign(element);
-    }
 }
 
 impl<P: QuadExtParameters> Zero for QuadExtField<P> {
@@ -262,25 +256,6 @@ impl<P: QuadExtParameters> PartialEq for QuadExtField<P> {
 }
 
 impl<P: QuadExtParameters> Eq for QuadExtField<P> {}
-
-/// `QuadExtField` elements are ordered lexicographically.
-impl<P: QuadExtParameters> Ord for QuadExtField<P> {
-    #[inline(always)]
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.c1.cmp(&other.c1) {
-            Ordering::Greater => Ordering::Greater,
-            Ordering::Less => Ordering::Less,
-            Ordering::Equal => self.c0.cmp(&other.c0),
-        }
-    }
-}
-
-impl<P: QuadExtParameters> PartialOrd for QuadExtField<P> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 impl<P: QuadExtParameters> Neg for QuadExtField<P> {
     type Output = Self;

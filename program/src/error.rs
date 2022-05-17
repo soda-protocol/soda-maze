@@ -19,8 +19,8 @@ pub enum MazeError {
     DepositTooSmall,
     #[error("Pool deposit is disabled")]
     PoolDepositDisabled,
-    #[error("NFT is end of sale")]
-    NFTEndOfSale,
+    #[error("Vanilla proof data is invalid")]
+    InvalidVanillaData,
     #[error("Pda pubkey is invalid")]
     InvalidPdaPubkey,
     #[error("Invalid program id")]

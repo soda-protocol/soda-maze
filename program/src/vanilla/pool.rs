@@ -3,8 +3,6 @@ use solana_program::pubkey::Pubkey;
 
 use crate::params::Fr;
 
-
-
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Pool {
     pub is_initialized: bool,

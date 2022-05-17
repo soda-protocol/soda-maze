@@ -3,7 +3,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::context::{Context512, Context2048};
+use crate::context::{Context512, Context1536};
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
 use crate::params::{*, Bn254Parameters as BnParameters};
 use crate::{ProofType, error::MazeError, verifier::ProofB};
@@ -27,7 +27,7 @@ impl PrepareInputs {
     pub fn process(
         mut self,
         proof_type: &ProofType,
-        public_inputs_ctx: &Context2048<Box<Vec<Fr>>>,
+        public_inputs_ctx: &Context1536<Box<Vec<Fr>>>,
         proof_b_ctx: &Context512<ProofB>,
         g_ic_ctx: &Context512<G1Projective254>,
         tmp_ctx: &Context512<G1Projective254>,
@@ -50,7 +50,7 @@ impl PrepareInputs {
 
         let public_input = public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         const MAX_LOOP: usize = 40;
         BitIteratorBE::new(public_input)

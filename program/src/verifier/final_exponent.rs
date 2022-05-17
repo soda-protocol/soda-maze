@@ -366,7 +366,7 @@ impl FinalExponentHardPart4 {
         y15.frobenius_map(3);
         let y16 = y15 * &y14;
 
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
         let res = &y16 == pvk.alpha_g1_beta_g2;
 
         // finished

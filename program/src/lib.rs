@@ -29,9 +29,9 @@ use solana_program::{
 use crate::error::MazeError;
 use crate::vk::PreparedVerifyingKey;
 
-pub const HEIGHT: usize = 24;
-pub const DEPOSIT_INPUTS: usize = 28;
-pub const WITHDRAW_INPUTS: usize = 28;
+pub const HEIGHT: usize = 26;
+pub const DEPOSIT_INPUTS: usize = 31;
+pub const WITHDRAW_INPUTS: usize = 44;
 pub const CREDENTIAL_LEN: usize = 12;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
@@ -48,7 +48,7 @@ impl ProofType {
         }
     }
 
-    pub const fn verifying_key(&self) -> &PreparedVerifyingKey {
+    pub const fn pvk(&self) -> &PreparedVerifyingKey {
         match self {
             ProofType::Deposit => &PreparedVerifyingKey {
                 g_ic_init: vk::deposit::G_IC_INIT,

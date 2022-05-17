@@ -28,7 +28,6 @@ pub trait Field:
     + Copy
     + Clone
     + Eq
-    + Ord
     + Zero
     + One
     + Neg<Output = Self>
@@ -133,9 +132,9 @@ impl<Slice: AsRef<[u64]>> BitIteratorBE<Slice> {
 
     // /// Construct an iterator that automatically skips any leading zeros.
     // /// That is, it skips all zeros before the most-significant one.
-    // pub fn without_leading_zeros(s: Slice) -> impl Iterator<Item = bool> {
-    //     Self::new(s).skip_while(|b| !b)
-    // }
+    pub fn without_leading_zeros(s: Slice) -> impl Iterator<Item = bool> {
+        Self::new(s).skip_while(|b| !b)
+    }
 }
 
 impl<Slice: AsRef<[u64]>> Iterator for BitIteratorBE<Slice> {

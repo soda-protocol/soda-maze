@@ -122,32 +122,6 @@ macro_rules! impl_Fp {
 
         impl<P> Eq for $Fp<P> {}
 
-        /// Note that this implementation of `Ord` compares field elements viewing
-        /// them as integers in the range 0, 1, ..., P::MODULUS - 1. However, other
-        /// implementations of `PrimeField` might choose a different ordering, and
-        /// as such, users should use this `Ord` for applications where
-        /// any ordering suffices (like in a BTreeMap), and not in applications
-        /// where a particular ordering is required.
-        impl<P: $FpParameters> Ord for $Fp<P> {
-            #[inline(always)]
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                self.into_repr().cmp(&other.into_repr())
-            }
-        }
-
-        /// Note that this implementation of `PartialOrd` compares field elements viewing
-        /// them as integers in the range 0, 1, ..., `P::MODULUS` - 1. However, other
-        /// implementations of `PrimeField` might choose a different ordering, and
-        /// as such, users should use this `PartialOrd` for applications where
-        /// any ordering suffices (like in a BTreeMap), and not in applications
-        /// where a particular ordering is required.
-        impl<P: $FpParameters> PartialOrd for $Fp<P> {
-            #[inline(always)]
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
         impl<P: $FpParameters> Zero for $Fp<P> {
             #[inline]
             fn zero() -> Self {

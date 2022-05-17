@@ -1,18 +1,16 @@
 use std::ops::AddAssign;
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::{Zero, One};
-use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
+use solana_program::program_error::ProgramError;
 
-use crate::context::Context;
-use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
-use crate::params::{*, Bn254Parameters as BnParameters, FrParameters};
-use crate::{ProofType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
+use crate::bn::{BitIteratorBE, FpParameters};
+use crate::params::*;
+use crate::ProofType;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
     pub input_index: u8,
     pub bit_index: u16,
-    pub public_inputs: Vec<Fr>, // Vec<Fr>
+    pub public_inputs: Box<Vec<Fr>>, // Vec<Fr>
     pub g_ic: G1Projective254, // G1Projective254
     pub tmp: G1Projective254, // G1Projective254
 }
@@ -24,7 +22,7 @@ impl PrepareInputs {
     ) -> Result<(), ProgramError> {
         let public_input = self.public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         const MAX_LOOP: usize = 40;
         BitIteratorBE::new(public_input)

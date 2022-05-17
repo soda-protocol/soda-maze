@@ -1,31 +1,73 @@
-use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::pubkey::Pubkey;
+use solana_program::{pubkey::Pubkey, account_info::{self, AccountInfo}, program_error::ProgramError};
 
-use crate::{params::Fr, bn::BigInteger256 as BigInteger, HEIGHT};
+use crate::{params::Fr, bn::BigInteger256 as BigInteger, HEIGHT, state::StateWrapper};
 
-const EMPTY_NODE_HASHES: &[Fr; 2] = &[
+/////////////////// Binary Merkle Tree //////////////////////////
+///                         O                 ---------- root
+///                  _____/   \_____       
+///                 /               \
+///                O                 O        ---------- Layer 2
+///             __/ \__            __/\__ 
+///            /       \          /      \
+///           O         O        O        O   ---------- Layer 1
+///          / \       / \      / \      / \
+///         O   O     O   O    O   O    O   O ---------- Layer 0
+///         0   1     2   3    4   5    6   7
+///         |------------  index -----------|
+/////////////////////////////////////////////////////////////////
+
+pub const DEFAULT_ROOT_HASH: Fr =
+    Fr::new(BigInteger::new([11572093210787006485, 13847734230781734007, 8603349130869577428, 196176879207041939]));
+
+const BLANK_NODE_HASH_MAP: &[Fr; HEIGHT] = &[
     Fr::new(BigInteger::new([0, 0, 0, 0])),
-    Fr::new(BigInteger::new([0, 0, 0, 0])),
+    Fr::new(BigInteger::new([12864020906594940065, 18433782073251972110, 4398694457934390805, 2272829034623875543])),
+    Fr::new(BigInteger::new([313895260032480423, 1501540359116628797, 17107014034382224966, 93613845238911970])),
+    Fr::new(BigInteger::new([11073870347039307980, 2811204787336964422, 3394861799788190320, 2274751621786983964])),
+    Fr::new(BigInteger::new([9760894842718720180, 2500355147724360027, 11855927614948357343, 3331512045115897910])),
+    Fr::new(BigInteger::new([9544287877670044001, 9794987895895984464, 13469003770472959670, 630219667752155356])),
+    Fr::new(BigInteger::new([8239663352998261652, 8473322514461449512, 5907661760012400142, 376127680447153273])),
+    Fr::new(BigInteger::new([5101313046512229805, 4098854904463881199, 8220668070837442619, 371819591227166608])),
+    Fr::new(BigInteger::new([3912295472823510228, 14073642141091620006, 5995928368338028334, 2057265338054679316])),
+    Fr::new(BigInteger::new([7757490083878599858, 6864623233549923145, 11251426002462854356, 2440679668489138308])),
+    Fr::new(BigInteger::new([3241460833321832361, 5504099044960182419, 15064287201851828897, 1883414520092375298])),
+    Fr::new(BigInteger::new([1960132424180714920, 15262281747210178772, 5198836874457083568, 2842833226055799826])),
+    Fr::new(BigInteger::new([9360133471634589292, 813426114436848391, 17344029873483878079, 1831397500197043471])),
+    Fr::new(BigInteger::new([9089926031154055637, 17804524543199648660, 6118469216003787462, 768407723275205016])),
+    Fr::new(BigInteger::new([12178631761374210909, 8698361694806332307, 16291375319035248040, 1037670681492445187])),
+    Fr::new(BigInteger::new([15178253229798034333, 17363662871099287584, 3879869435758720584, 1169168029138107349])),
+    Fr::new(BigInteger::new([9422871966166400884, 10190430394035512180, 193262683322156969, 494507811680045709])),
+    Fr::new(BigInteger::new([9891503273458892002, 16292779110512639865, 7685818040032828611, 1431043632719998969])),
+    Fr::new(BigInteger::new([13949234873843984687, 1649774826763475473, 12354847404752991058, 2442779669381106189])),
+    Fr::new(BigInteger::new([3117269677324633963, 13720953985690233357, 4349839201090902530, 2283202621104004883])),
+    Fr::new(BigInteger::new([14293045699810587295, 7255871982085434964, 15347074582111008159, 2876843879795351778])),
+    Fr::new(BigInteger::new([7293123154619217697, 17404853725365433433, 14000616616203308721, 3124525184048998669])),
+    Fr::new(BigInteger::new([4552947504241551083, 10212683054107733583, 8701928585948935319, 152483494430282247])),
+    Fr::new(BigInteger::new([16660903878752211038, 2376840601563126391, 11402920168963323761, 771233114138801950])),
+    Fr::new(BigInteger::new([13957412254044862336, 4832738297440331271, 9055453511275974046, 2862666499655830723])),
+    Fr::new(BigInteger::new([3784480273885848365, 17464887711746197403, 7295939035943333085, 2705338201222372291])),
 ];
 
 #[inline]
-pub fn get_empty_node_hash(layer: usize) -> Fr {
+pub fn blank_node_hash(layer: usize) -> Fr {
     assert!(layer < HEIGHT);
-    EMPTY_NODE_HASHES[layer]
+    BLANK_NODE_HASH_MAP[layer]
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct TreeNode {
-    pub is_initialized: bool,
-    pub hash: Fr,
+#[inline]
+pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
+    (0..HEIGHT).into_iter().map(|layer| (layer, index >> layer)).collect()
 }
+
+pub type TreeRoot = StateWrapper<Fr, 33>;
+pub type TreeNode = StateWrapper<Fr, 33>;
 
 pub fn get_tree_node_pda<'a>(
     pool: &'a Pubkey,
     layer: u8,
-    index: u32,
+    index: u64,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], [u8; 1], [u8; 4], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], [u8; 1], [u8; 8], [u8; 1])) {
     let pool_ref = pool.as_ref();
     let layer_bytes = layer.to_le_bytes();
     let index_bytes = index.to_le_bytes();

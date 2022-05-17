@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::ops::{Neg, Add, Sub, Mul, AddAssign, SubAssign, MulAssign};
 use borsh::{BorshSerialize, BorshDeserialize};
@@ -196,32 +195,6 @@ impl<P: CubicExtParameters> PartialEq for CubicExtField<P> {
 }
 
 impl<P: CubicExtParameters> Eq for CubicExtField<P> {}
-
-/// `CubicExtField` elements are ordered lexicographically.
-impl<P: CubicExtParameters> Ord for CubicExtField<P> {
-    #[inline(always)]
-    fn cmp(&self, other: &Self) -> Ordering {
-        let c2_cmp = self.c2.cmp(&other.c2);
-        let c1_cmp = self.c1.cmp(&other.c1);
-        let c0_cmp = self.c0.cmp(&other.c0);
-        if c2_cmp == Ordering::Equal {
-            if c1_cmp == Ordering::Equal {
-                c0_cmp
-            } else {
-                c1_cmp
-            }
-        } else {
-            c2_cmp
-        }
-    }
-}
-
-impl<P: CubicExtParameters> PartialOrd for CubicExtField<P> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 impl<P: CubicExtParameters> Neg for CubicExtField<P> {
     type Output = Self;

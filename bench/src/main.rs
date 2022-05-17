@@ -208,15 +208,19 @@ struct MerkleTree {
 impl MerkleTree {
     fn new(height: usize, params: &PoseidonParameters<Fr>) -> Self {
         let mut nodes = Vec::with_capacity(height);
-        let mut hash = PoseidonHasher::empty_hash();
+        let mut hash: Fr = PoseidonHasher::empty_hash();
 
         (0..height)
             .into_iter()
-            .for_each(|_| {
+            .for_each(|i| {
+                println!("layer {}, hash: Fr::new(BigInteger::new({:?})", i, &hash.0.0);
+
                 nodes.push(hash);
                 hash = PoseidonHasher::hash_two(params, hash, hash)
                     .expect("poseidon hash error");
             });
+
+        println!("root Fr::new(BigInteger::new({:?})", &hash.0.0);
 
         Self {
             height,

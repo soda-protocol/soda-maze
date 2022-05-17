@@ -1,13 +1,19 @@
 use arrayref::array_refs;
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::Zero;
-use solana_program::{pubkey::Pubkey, entrypoint::ProgramResult, program_pack::IsInitialized, program_error::ProgramError};
+use solana_program::{
+    msg,
+    pubkey::Pubkey,
+    entrypoint::ProgramResult,
+    program_pack::IsInitialized,
+    program_error::ProgramError,
+};
 
 use crate::params::{Fr, G1Projective254};
 use crate::{HEIGHT, DEPOSIT_INPUTS, WITHDRAW_INPUTS};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger, ProofType, Packer};
 use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM};
-use crate::context::{Context512, Context2048};
+use crate::context::{Context512, Context1536};
 use crate::state::VerifyState;
 
 use super::credential::is_credential_valid;
@@ -26,32 +32,41 @@ fn pubkey_to_fr(pubkey: Pubkey) -> Fr {
     Fr::from_repr(BigInteger::new(repr)).unwrap()
 }
 
+#[inline]
+fn is_updating_nodes_valid(nodes: &[Fr]) -> bool {
+    if nodes.len() != HEIGHT {
+        false
+    } else {
+        nodes.iter().all(|x| x.is_valid())
+    }
+}
+
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct DepositInfo {
     pub mint: Pubkey,
     pub deposit_amount: u64,
-    pub old_root: Fr,
+    pub root: Fr,
     pub leaf: Fr,
-    pub leaf_index: u32,
-    pub update_nodes: Vec<Fr>,
+    pub leaf_index: u64,
+    pub updating_nodes: Vec<Fr>,
 }
 
 impl DepositInfo {
     pub fn check_valid(&self) -> ProgramResult {
-        if !self.old_root.is_valid() {
-            return Err(MazeError::DepositTooSmall.into());
+        if !self.root.is_valid() {
+            msg!("root is invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
         if !self.leaf.is_valid() {
-            return Err(MazeError::DepositTooSmall.into());
+            msg!("leaf is invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
-        if !self.update_nodes.iter().all(|x| x.is_valid()) {
-            return Err(MazeError::DepositTooSmall.into());
-        }
-        if self.update_nodes.len() != HEIGHT {
-            return Err(MazeError::DepositTooSmall.into());
+        if !is_updating_nodes_valid(&self.updating_nodes) {
+            msg!("updating nodes are invalid");
         }
         if self.leaf_index >= 1 << HEIGHT {
-            return Err(MazeError::DepositTooSmall.into());
+            msg!("leaf index is too large");
+            return Err(MazeError::InvalidVanillaData.into());
         }
         
         Ok(())
@@ -62,10 +77,10 @@ impl DepositInfo {
 
         inputs.push(pubkey_to_fr(self.mint));
         inputs.push(Fr::from_repr(BigInteger::from(self.deposit_amount)).unwrap());
-        inputs.push(self.old_root);
-        inputs.push(Fr::from_repr(BigInteger::from(self.leaf_index as u64)).unwrap());
+        inputs.push(self.root);
+        inputs.push(Fr::from_repr(BigInteger::from(self.leaf_index)).unwrap());
         inputs.push(self.leaf);
-        inputs.extend(self.update_nodes);
+        inputs.extend(self.updating_nodes);
 
         assert_eq!(inputs.len(), DEPOSIT_INPUTS);
 
@@ -79,31 +94,33 @@ pub struct WithdrawInfo {
     pub withdraw_amount: u64,
     pub nullifier: Fr,
     pub credential: Vec<Fr>,
-    pub old_root: Fr,
+    pub root: Fr,
     pub new_leaf: Fr,
-    pub new_leaf_index: u32,
-    pub update_nodes: Vec<Fr>,
+    pub new_leaf_index: u64,
+    pub updating_nodes: Vec<Fr>,
 }
 
 impl WithdrawInfo {
     pub fn check_valid(&self) -> ProgramResult {
-        if !self.old_root.is_valid() {
-            return Err(MazeError::DepositTooSmall.into());
+        if !self.root.is_valid() {
+            msg!("root is invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
         if !self.new_leaf.is_valid() {
-            return Err(MazeError::DepositTooSmall.into());
+            msg!("new leaf is invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
         if !is_credential_valid(&self.credential) {
-            return Err(MazeError::DepositTooSmall.into());
+            msg!("credential is invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
-        if self.update_nodes.len() != HEIGHT {
-            return Err(MazeError::DepositTooSmall.into());
-        }
-        if !self.update_nodes.iter().all(|x| x.is_valid()) {
-            return Err(MazeError::DepositTooSmall.into());
+        if !is_updating_nodes_valid(&self.updating_nodes) {
+            msg!("updating nodes are invalid");
+            return Err(MazeError::InvalidVanillaData.into());
         }
         if self.new_leaf_index >= 1 << HEIGHT {
-            return Err(MazeError::DepositTooSmall.into());
+            msg!("leaf index is too large");
+            return Err(MazeError::InvalidVanillaData.into());
         }
 
         Ok(())
@@ -116,10 +133,10 @@ impl WithdrawInfo {
         inputs.push(Fr::from_repr(BigInteger::from(self.withdraw_amount)).unwrap());
         inputs.push(self.nullifier);
         inputs.extend(self.credential);
-        inputs.push(self.old_root);
-        inputs.push(Fr::from_repr(BigInteger::from(self.new_leaf_index as u64)).unwrap());
+        inputs.push(self.root);
+        inputs.push(Fr::from_repr(BigInteger::from(self.new_leaf_index)).unwrap());
         inputs.push(self.new_leaf);
-        inputs.extend(self.update_nodes);
+        inputs.extend(self.updating_nodes);
 
         assert_eq!(inputs.len(), WITHDRAW_INPUTS);
 
@@ -152,12 +169,12 @@ impl Operation {
         self,
         g_ic_ctx: &Context512<G1Projective254>,
         tmp_ctx: &Context512<G1Projective254>,
-        public_inputs_ctx: &Context2048<Box<Vec<Fr>>>,
+        public_inputs_ctx: &Context1536<Box<Vec<Fr>>>,
         proof_ac_pukey: Pubkey,
         proof_b_pukey: Pubkey,
     ) -> Result<VerifyState, ProgramError> {
         let proof_type = self.proof_type();
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
         let public_inputs = match self {
             Operation::Deposit(deposit) => deposit.to_public_inputs(),
             Operation::Withdarw(withdraw) => withdraw.to_public_inputs(),

@@ -42,7 +42,7 @@ impl MillerLoop {
         mut self,
         proof_type: &ProofType,
     ) -> Result<(), ProgramError> {
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
@@ -111,7 +111,7 @@ impl MillerLoopFinalize {
         mut self,
         proof_type: &ProofType,
     ) -> Result<(), ProgramError> {
-        let pvk = proof_type.verifying_key();
+        let pvk = proof_type.pvk();
 
         let coeff = addition_step(&mut self.r, &self.q1);
         ell(&mut self.f, &coeff, &self.proof_a);

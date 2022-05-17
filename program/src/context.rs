@@ -33,6 +33,7 @@ impl<'a, S: Clone + BorshSerialize + BorshDeserialize> DerefMut for RefMutWrappe
 
 pub type Context512<'a, 'b, S> = Context<'a, 'b, S, 512>;
 pub type Context1024<'a, 'b, S> = Context<'a, 'b, S, 1024>;
+pub type Context1536<'a, 'b, S> = Context<'a, 'b, S, 1536>;
 pub type Context2048<'a, 'b, S> = Context<'a, 'b, S, 2048>;
 
 pub struct Context<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> {
@@ -59,6 +60,10 @@ impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> Con
         };
 
         Ok(ctx)
+    }
+
+    pub fn pubkey(&self) -> &Pubkey {
+        self.state_info.key
     }
 
     pub fn take(&self) -> Result<S, ProgramError> {
@@ -110,10 +115,6 @@ impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> Con
 
             Ok(())
         }
-    }
-
-    pub fn pubkey(&self) -> &Pubkey {
-        self.state_info.key
     }
     
     pub fn finalize(
