@@ -12,9 +12,9 @@ use serde_json;
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
+use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use soda_maze_lib::vanilla::proof::{DepositConstParams, WithdrawConstParams};
+use soda_maze_lib::vanilla::proof::WithdrawConstParams;
 use soda_maze_lib::vanilla::rabin::RabinParam;
 
 #[cfg(feature = "bn254")]
@@ -25,10 +25,6 @@ use ark_bls12_381::{Bls12_381, Fr};
 #[cfg(feature = "groth16")]
 use ark_groth16::Groth16;
 
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
@@ -205,20 +201,6 @@ fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
 }
 
 #[cfg(feature = "poseidon")]
-fn get_deposit_const_params(height: usize) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
-    #[cfg(feature = "bn254")]
-    let curve = Curve::Bn254;
-    #[cfg(feature = "bls12-381")]
-    let curve = Curve::Bls381;
-
-    DepositConstParams {
-        leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x5_3::<Fr>(curve),
-        height,
-    }
-}
-
-#[cfg(feature = "poseidon")]
 fn get_withdraw_const_params(height: usize, params: Option<RabinParameters>) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     #[cfg(feature = "bn254")]
     let curve = Curve::Bn254;
@@ -236,9 +218,10 @@ fn get_withdraw_const_params(height: usize, params: Option<RabinParameters>) -> 
     });
 
     WithdrawConstParams {
-        nullifier_params: setup_params_x5_2::<Fr>(curve),
+        secret_params: setup_params_x5_2::<Fr>(curve),
+        nullifier_params: setup_params_x5_3::<Fr>(curve),
         leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x5_3::<Fr>(curve),
+        inner_params: setup_params_x3_3::<Fr>(curve),
         height,
         rabin_param,
     }
@@ -261,19 +244,7 @@ enum Opt {
         #[structopt(long = "param-path", parse(from_os_str))]
         param_path: PathBuf,
     },
-    SetupDeposit {
-        #[structopt(long, default_value = "26")]
-        height: usize,
-        #[structopt(long, short = "s")]
-        seed: Option<String>,
-        #[structopt(long = "pk-path", parse(from_os_str))]
-        pk_path: PathBuf,
-        #[structopt(long = "vk-path", parse(from_os_str))]
-        vk_path: PathBuf,
-        #[structopt(long = "pvk-path", parse(from_os_str))]
-        pvk_path: PathBuf,
-    },
-    SetupWithdraw {
+    SetupCircuit {
         #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long, short = "s")]
@@ -323,25 +294,7 @@ fn main() {
             };
             write_json_to_file(&param_path, &parameter);
         },
-        Opt::SetupDeposit {
-            height,
-            seed,
-            pk_path,
-            vk_path,
-            pvk_path,
-        } => {
-            let const_params = get_deposit_const_params(height);
-            let mut rng = XSRng(get_xorshift_rng(seed));
-            let (pk, vk) =
-                DepositInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
-
-            write_to_file(&pk_path, &pk);
-            write_to_file(&vk_path, &vk);
-
-            let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
-            write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
-        },
-        Opt::SetupWithdraw {
+        Opt::SetupCircuit {
             height,
             seed,
             rabin_path,

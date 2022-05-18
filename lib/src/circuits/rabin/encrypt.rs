@@ -9,13 +9,23 @@ use crate::vanilla::rabin::prime_field_partly_to_biguint_array;
 use super::uint::GeneralUint;
 use super::poly::*;
 
+#[allow(clippy::too_many_arguments)]
 fn gen_preimage_var<F: PrimeField>(
+    height: usize,
+    leaf_index: u64,
     leaf: F,
+    leaf_index_var: FpVar<F>,
     leaf_var: FpVar<F>,
     modulus: &[GeneralUint<F>],
     padding: Vec<GeneralUint<F>>,
     bit_size: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
+    let index_var = if let FpVar::Var(index_var) = leaf_index_var {
+        GeneralUint::new(index_var.cs, index_var.variable, leaf_index.into(), height)
+    } else {
+        unreachable!("leaf_index_var should be a variable");
+    };
+
     let leaf_array = if let FpVar::Var(leaf_var) = leaf_var {
         let modulus_bits = F::Params::MODULUS_BITS as usize;
         let ref cs = leaf_var.cs;
@@ -55,9 +65,10 @@ fn gen_preimage_var<F: PrimeField>(
         unreachable!("leaf var should not be constant");
     };
 
-    // preimage = ... | rand | ... | leaf0 | leaf1 | leaf2
+    // preimage = ... rand ... | leaf | index
     let mut res = padding;
     res.extend(leaf_array);
+    res.push(index_var);
     assert_eq!(res.len(), modulus.len());
 
     let poly_array_to_biguint = |preimage: &[GeneralUint<F>]| -> Result<BigUint, SynthesisError> {
@@ -80,23 +91,23 @@ fn gen_preimage_var<F: PrimeField>(
     Ok(res)
 }
 
-fn gen_cypher_var<F: PrimeField>(
-    cypher: Vec<(F, FpVar<F>)>,
+fn gen_cipher_var<F: PrimeField>(
+    cipher: Vec<(F, FpVar<F>)>,
     bit_size: usize,
-    cypher_batch: usize,
+    cipher_batch: usize,
 ) -> Result<Vec<GeneralUint<F>>, SynthesisError> {
     let partly_split_fp_var = |fp: F, fp_var: FpVar<F>| -> Result<Vec<GeneralUint<F>>, SynthesisError> {
         if let FpVar::Var(fp_var) = fp_var {
             let ref cs = fp_var.cs;
             let base = BigUint::from(1u64) << bit_size;
             let base_field = F::from(base);
-            let cypher_array = prime_field_partly_to_biguint_array::<F>(fp.into(), cypher_batch, bit_size);
+            let cipher_array = prime_field_partly_to_biguint_array::<F>(fp.into(), cipher_batch, bit_size);
             
-            let mut res = Vec::with_capacity(cypher_batch);
-            let (lc, _) = cypher_array
+            let mut res = Vec::with_capacity(cipher_batch);
+            let (lc, _) = cipher_array
                 .into_iter()
-                .try_fold((lc!(), F::one()), |(lc, coeff), cypher| {
-                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(cypher), bit_size)?;
+                .try_fold((lc!(), F::one()), |(lc, coeff), cipher| {
+                    let lo_var = GeneralUint::new_witness(cs.clone(), || Ok(cipher), bit_size)?;
                     let lc = lc + (coeff, lo_var.variable()?);
                     res.push(lo_var);
     
@@ -115,26 +126,26 @@ fn gen_cypher_var<F: PrimeField>(
         }
     };
 
-    let cypher = cypher.into_iter()
+    let cipher = cipher.into_iter()
         .map(|(fp, fp_var)| partly_split_fp_var(fp, fp_var))
         .collect::<Result<Vec<_>, SynthesisError>>()?
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
 
-    Ok(cypher)
+    Ok(cipher)
 }
 
 fn rabin_encrypt<F: PrimeField>(
     modulus: &[GeneralUint<F>],
     preimage: &[GeneralUint<F>],
     quotient: &[GeneralUint<F>],
-    cypher: Vec<GeneralUint<F>>,
+    cipher: Vec<GeneralUint<F>>,
     bit_size: usize,
 ) -> Result<(), SynthesisError> {
-    // quotient * modulus + cypher = preimage^2
+    // quotient * modulus + cipher = preimage^2
     let product = polynomial_mul(quotient, modulus, bit_size)?;
-    let (carry, sum) = polynomial_add(product, cypher, bit_size)?;
+    let (carry, sum) = polynomial_add(product, cipher, bit_size)?;
     carry.force_equal(&GeneralUint::zero())?;
 
     let preimage_square = polynomial_square(preimage, bit_size)?;
@@ -147,51 +158,60 @@ pub struct RabinEncryption<F: PrimeField> {
     modulus: Vec<BigUint>,
     quotient: Vec<BigUint>,
     padding: Vec<BigUint>,
-    cypher: Vec<F>,
+    cipher: Vec<F>,
     leaf: F,
+    leaf_index: u64,
+    height: usize,
     bit_size: usize,
-    cypher_batch: usize,
+    cipher_batch: usize,
 }
 
 impl<F: PrimeField> RabinEncryption<F> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         modulus: Vec<BigUint>,
         quotient: Vec<BigUint>,
         padding: Vec<BigUint>,
-        cypher: Vec<F>,
+        cipher: Vec<F>,
         leaf: F,
+        leaf_index: u64,
+        height: usize,
         bit_size: usize,
-        cypher_batch: usize,
+        cipher_batch: usize,
     ) -> Self {
+        assert!(leaf_index < 1 << height);
         assert_eq!(modulus.len(), quotient.len());
         modulus.iter().zip(quotient.iter()).for_each(|(m, q)| {
             assert!(m.bits() as usize <= bit_size);
             assert!(q.bits() as usize <= bit_size);
         });
-        assert!(cypher_batch * bit_size < F::Params::MODULUS_BITS as usize);
-        assert_eq!(modulus.len() % cypher_batch, 0);
+        assert!(cipher_batch * bit_size < F::Params::MODULUS_BITS as usize);
+        assert_eq!(modulus.len() % cipher_batch, 0);
         
         padding.iter().for_each(|p| assert!(p.bits() as usize <= bit_size));
         let mut leaf_len = F::Params::MODULUS_BITS as usize / bit_size;
         if F::Params::MODULUS_BITS as usize % bit_size != 0 {
             leaf_len += 1;
         }
-        assert_eq!(leaf_len + padding.len(), modulus.len());
+        assert_eq!(leaf_len + padding.len() + 1, modulus.len());
 
         Self {
             modulus,
             quotient,
             padding,
-            cypher,
+            cipher,
             leaf,
+            leaf_index,
+            height,
             bit_size,
-            cypher_batch,
+            cipher_batch,
         }
     }
 
     pub fn synthesize(
         self,
         cs: ConstraintSystemRef<F>,
+        leaf_index_var: FpVar<F>,
         leaf_var: FpVar<F>,
     ) -> Result<(), SynthesisError> {
         // alloc constant
@@ -200,7 +220,7 @@ impl<F: PrimeField> RabinEncryption<F> {
             .map(|m| GeneralUint::new_constant(m))
             .collect::<Vec<_>>();
         // alloc input
-        let fp_cypher = self.cypher
+        let fp_cipher = self.cipher
             .into_iter()
             .map(|v| {
                 let var = FpVar::new_input(cs.clone(), || Ok(v))?;
@@ -219,16 +239,19 @@ impl<F: PrimeField> RabinEncryption<F> {
 
         // transform fp leaf to preimage
         let preimage = gen_preimage_var(
+            self.height,
+            self.leaf_index,
             self.leaf,
+            leaf_index_var,
             leaf_var,
             &modulus,
             padding,
             self.bit_size,
         )?;
-        // transform fp cypher to general uint
-        let cypher = gen_cypher_var(fp_cypher, self.bit_size, self.cypher_batch)?;
+        // transform fp cipher to general uint
+        let cipher = gen_cipher_var(fp_cipher, self.bit_size, self.cipher_batch)?;
         // encryption
-        rabin_encrypt(&modulus, &preimage, &quotient, cypher, self.bit_size)?;
+        rabin_encrypt(&modulus, &preimage, &quotient, cipher, self.bit_size)?;
 
         Ok(())
     }
@@ -247,10 +270,11 @@ mod tests {
 
     use crate::vanilla::rabin::{prime_field_to_biguint_array, biguint_array_to_biguint, biguint_to_biguint_array};
 
-    use super::{GeneralUint, rabin_encrypt, gen_preimage_var, gen_cypher_var, RabinEncryption};
+    use super::{GeneralUint, rabin_encrypt, gen_preimage_var, gen_cipher_var, RabinEncryption};
     
+    const HEIGHT: usize = 24;
     const BIT_SIZE: usize = 124;
-    const CYPHER_BATCH: usize = 2;
+    const CIPHER_BATCH: usize = 2;
     const PRIME_LENGTH: usize = 12;
     const MODULUS_LEN: usize = PRIME_LENGTH * 2;
     
@@ -292,14 +316,14 @@ mod tests {
         Fr::rand(rng)
     }
 
-    fn get_preimage_from_leaf<R: Rng + ?Sized>(rng: &mut R, leaf: Fr) -> (BigUint, Vec<BigUint>) {
+    fn get_preimage_from_leaf<R: Rng + ?Sized>(rng: &mut R, leaf_index: u64, leaf: Fr) -> (BigUint, Vec<BigUint>) {
         let mut leaf_len = <Fr as PrimeField>::Params::MODULUS_BITS as usize / BIT_SIZE;
         if <Fr as PrimeField>::Params::MODULUS_BITS as usize % BIT_SIZE != 0 {
             leaf_len += 1;
         }
         
-        let mut padding = Vec::with_capacity(MODULUS_LEN - leaf_len);
-        for _ in 0..MODULUS_LEN - leaf_len {
+        let mut padding = Vec::with_capacity(MODULUS_LEN - leaf_len - 1);
+        for _ in 0..MODULUS_LEN - leaf_len - 1 {
             let mut v = u128::rand(rng);
             v &= (1u128 << 124) - 1;
 
@@ -308,15 +332,15 @@ mod tests {
 
         let leaf = prime_field_to_biguint_array(leaf, BIT_SIZE);
 
-        let preimage = vec![&padding[..], &leaf[..]].concat();
+        let preimage = vec![&padding[..], &leaf[..], &[BigUint::from(leaf_index)]].concat();
         let preimage = biguint_array_to_biguint(&preimage, BIT_SIZE);
 
         (preimage, padding)
     }
 
-    pub fn gen_cypher_array(cypher: BigUint) -> Vec<Fr> {
-        const CYPHER_BITS: usize = CYPHER_BATCH * BIT_SIZE;
-        let res = biguint_to_biguint_array(cypher, MODULUS_LEN / CYPHER_BATCH, CYPHER_BITS);
+    pub fn gen_cipher_array(cipher: BigUint) -> Vec<Fr> {
+        const CIPHER_BITS: usize = CIPHER_BATCH * BIT_SIZE;
+        let res = biguint_to_biguint_array(cipher, MODULUS_LEN / CIPHER_BATCH, CIPHER_BITS);
         res.into_iter().map(|c| c.into()).collect()
     }
 
@@ -350,8 +374,9 @@ mod tests {
     #[test]
     fn test_gen_preimage_from_fp_var() {
         let rng = &mut test_rng();
+        let leaf_index = 1;
         let leaf = get_rand_fr(rng);
-        let (_, padding) = get_preimage_from_leaf(rng, leaf);
+        let (_, padding) = get_preimage_from_leaf(rng, leaf_index, leaf);
         let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
@@ -362,26 +387,36 @@ mod tests {
             GeneralUint::new_witness(cs.clone(), || Ok(m), BIT_SIZE).unwrap()
         }).collect::<Vec<_>>();
         let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
+        let leaf_index_var = FpVar::new_witness(cs.clone(), || Ok(Fr::from(leaf_index))).unwrap();
 
-        let _ = gen_preimage_var(leaf, leaf_var, &modulus, padding, BIT_SIZE).unwrap();
+        let _ = gen_preimage_var(
+            HEIGHT,
+            leaf_index,
+            leaf,
+            leaf_index_var,
+            leaf_var,
+            &modulus,
+            padding,
+            BIT_SIZE,
+        ).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
     #[test]
-    fn test_gen_cypher_from_fp_var() {
+    fn test_gen_cipher_from_fp_var() {
         let rng = &mut test_rng();
-        let cypher = get_random_uint_array(rng);
-        let cypher = cypher.chunks_exact(2).map(|batch| {
+        let cipher = get_random_uint_array(rng);
+        let cipher = cipher.chunks_exact(2).map(|batch| {
             let res = &batch[0] + &batch[1] * BigUint::from(1u128 << BIT_SIZE);
             res.into()
         }).collect::<Vec<Fr>>();
 
         let cs = ConstraintSystem::<Fr>::new_ref();
-        let cypher = cypher.into_iter().map(|c| {
+        let cipher = cipher.into_iter().map(|c| {
             (c, FpVar::new_input(cs.clone(), || Ok(c)).unwrap())
         }).collect::<Vec<_>>();
 
-        let _ = gen_cypher_var(cypher, BIT_SIZE, CYPHER_BATCH).unwrap();
+        let _ = gen_cipher_var(cipher, BIT_SIZE, CIPHER_BATCH).unwrap();
         assert!(cs.is_satisfied().unwrap());
     }
 
@@ -392,10 +427,10 @@ mod tests {
 
         let raw_preimage = biguint_array_to_biguint(&preimage, BIT_SIZE);
         let raw_preimage_square = &raw_preimage * &raw_preimage;
-        let (quotient_raw, cypher_raw) = raw_preimage_square.div_rem(&MODULUS);
+        let (quotient_raw, cipher_raw) = raw_preimage_square.div_rem(&MODULUS);
 
         let quotient = biguint_to_biguint_array(quotient_raw, MODULUS_LEN, BIT_SIZE);
-        let cypher = biguint_to_biguint_array(cypher_raw, MODULUS_LEN, BIT_SIZE);
+        let cipher = biguint_to_biguint_array(cipher_raw, MODULUS_LEN, BIT_SIZE);
         let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let cs = ConstraintSystem::<Fr>::new_ref();
@@ -408,11 +443,11 @@ mod tests {
         let quotient = quotient.into_iter().map(|q| {
             GeneralUint::new_witness(cs.clone(), || Ok(q), BIT_SIZE).unwrap()
         }).collect::<Vec<_>>();
-        let cypher = cypher.into_iter().map(|c| {
+        let cipher = cipher.into_iter().map(|c| {
             GeneralUint::new_witness(cs.clone(), || Ok(c), BIT_SIZE).unwrap()
         }).collect::<Vec<_>>();
 
-        rabin_encrypt(&modulus, &preimage, &quotient, cypher, BIT_SIZE).unwrap();
+        rabin_encrypt(&modulus, &preimage, &quotient, cipher, BIT_SIZE).unwrap();
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
     }
@@ -421,27 +456,32 @@ mod tests {
     fn test_rabin_encryption_synthesize() {
         let rng = &mut test_rng();
         let leaf = get_rand_fr(rng);
+        let leaf_index = 0;
 
-        let (preimage, padding) = get_preimage_from_leaf(rng, leaf);
-        let (quotient, cypher) = (&preimage * &preimage).div_rem(&MODULUS);
+        let (preimage, padding) = get_preimage_from_leaf(rng, leaf_index, leaf);
+        let (quotient, cipher) = (&preimage * &preimage).div_rem(&MODULUS);
 
         let quotient = biguint_to_biguint_array(quotient, MODULUS_LEN, BIT_SIZE);
-        let cypher = gen_cypher_array(cypher);
+        let cipher = gen_cipher_array(cipher);
         let modulus = biguint_to_biguint_array(MODULUS.clone(), MODULUS_LEN, BIT_SIZE);
 
         let rabin_encryption = RabinEncryption::<Fr>::new(
             modulus,
             quotient,
             padding,
-            cypher,
+            cipher,
             leaf,
+            leaf_index,
+            HEIGHT,
             BIT_SIZE,
-            CYPHER_BATCH,
+            CIPHER_BATCH,
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();
         let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
-        rabin_encryption.synthesize(cs.clone(), leaf_var).unwrap();
+        let leaf_index_var = FpVar::new_witness(cs.clone(), || Ok(Fr::from(leaf_index))).unwrap();
+
+        rabin_encryption.synthesize(cs.clone(), leaf_index_var, leaf_var).unwrap();
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
     }

@@ -9,7 +9,7 @@ pub struct RabinParam {
     pub modulus_array: Vec<BigUint>,
     pub modulus_len: usize,
     pub bit_size: usize,
-    pub cypher_batch: usize,
+    pub cipher_batch: usize,
 }
 
 impl RabinParam {
@@ -17,22 +17,27 @@ impl RabinParam {
         modulus: BigUint,
         modulus_len: usize,
         bit_size: usize,
-        cypher_batch: usize,
+        cipher_batch: usize,
     ) -> Self {
-        assert_eq!(modulus_len % cypher_batch, 0);
+        assert_eq!(modulus_len % cipher_batch, 0);
         let modulus_array = biguint_to_biguint_array(modulus.clone(), modulus_len, bit_size);
         Self {
             modulus,
             modulus_array,
             modulus_len,
             bit_size,
-            cypher_batch,
+            cipher_batch,
         }
     }
 
-    // preimage = ... | random | ... | leaf0 | leaf1 | leaf2
-    //                  lo -------------------> hi
-    pub fn gen_preimage_from_leaf<F: PrimeField>(&self, leaf: F, padding: &[BigUint]) -> BigUint {
+    // preimage = ... padding ... | leaf | leaf_index
+    //              lo -------------------> hi
+    pub fn gen_preimage_from_leaf<F: PrimeField>(
+        &self,
+        leaf_index: u64,
+        leaf: F,
+        padding: &[BigUint],
+    ) -> BigUint {
         let mut preimage_array = padding.iter().map(|p| {
             assert!(p.bits() as usize <= self.bit_size);
             p.clone()
@@ -40,6 +45,7 @@ impl RabinParam {
         let leaf_array = prime_field_to_biguint_array(leaf, self.bit_size);
 
         preimage_array.extend(leaf_array);
+        preimage_array.push(leaf_index.into());
         assert_eq!(preimage_array.len(), self.modulus_len);
 
         biguint_array_to_biguint(&preimage_array, self.bit_size)
@@ -49,15 +55,15 @@ impl RabinParam {
         biguint_to_biguint_array(quotient, self.modulus_len, self.bit_size)
     }
 
-    pub fn gen_cypher_array<F: PrimeField>(&self, cypher: BigUint) -> Vec<F> {
-        let cypher_bits = self.cypher_batch * self.bit_size;
-        assert!(cypher_bits < F::Params::MODULUS_BITS as usize);
+    pub fn gen_cipher_array<F: PrimeField>(&self, cipher: BigUint) -> Vec<F> {
+        let cipher_bits = self.cipher_batch * self.bit_size;
+        assert!(cipher_bits < F::Params::MODULUS_BITS as usize);
 
-        let cypher = biguint_to_biguint_array(
-            cypher,
-            self.modulus_len / self.cypher_batch,
-            cypher_bits,
+        let cipher = biguint_to_biguint_array(
+            cipher,
+            self.modulus_len / self.cipher_batch,
+            cipher_bits,
         );
-        cypher.into_iter().map(|c| c.into()).collect()
+        cipher.into_iter().map(|c| c.into()).collect()
     }
 }

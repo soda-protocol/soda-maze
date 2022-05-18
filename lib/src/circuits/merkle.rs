@@ -1,6 +1,6 @@
 use ark_std::{rc::Rc, marker::PhantomData};
 use ark_ff::PrimeField;
-use ark_r1cs_std::{eq::EqGadget, boolean::Boolean, alloc::AllocVar, select::CondSelectGadget, fields::fp::FpVar, Assignment};
+use ark_r1cs_std::{eq::EqGadget, boolean::Boolean, alloc::AllocVar, select::CondSelectGadget, fields::fp::FpVar};
 use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
 
 use crate::vanilla::hasher::FieldHasher;
@@ -45,7 +45,6 @@ where
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    old_root: Option<F>,
     new_leaf: F,
     leaf_index: u64,
     friend_nodes: Vec<(bool, F)>,
@@ -61,7 +60,6 @@ where
     FHG: FieldHasherGadget<F, FH>, 
 {
     pub fn new(
-        old_root: Option<F>,
         new_leaf: F,
         leaf_index: u64,
         friend_nodes: Vec<(bool, F)>,
@@ -71,7 +69,6 @@ where
         assert_eq!(friend_nodes.len(), update_nodes.len(), "friend nodes length should equals to update nodes length");
 
         Self {
-            old_root,
             new_leaf,
             leaf_index,
             friend_nodes,
@@ -85,25 +82,19 @@ where
         self,
         cs: ConstraintSystemRef<F>,
         leaf_var: FpVar<F>,
-        root_var: Option<FpVar<F>>,
+        old_root_var: FpVar<F>,
     ) -> Result<Vec<FpVar<F>>, SynthesisError> {
         let cs = &cs;
         // alloc constants
         let inner_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
-        // alloc public inputs
-        let old_root_var = if let Some(root_var) = root_var {
-            root_var
-        } else {
-            FpVar::new_input(cs.clone(), || self.old_root.get())?
-        };
+        // alloc public var
         let leaf_index_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let new_leaf_var = FpVar::new_input(cs.clone(), || Ok(self.new_leaf))?;
         let new_nodes_vars = self.update_nodes
             .into_iter()
             .map(|node| FpVar::new_input(cs.clone(), || Ok(node)))
             .collect::<Result<Vec<_>, SynthesisError>>()?;
-
-        // alloc friends var
+        // alloc witness var
         let friends_var = self.friend_nodes
             .into_iter()
             .map(|(is_left, node)| {
@@ -179,14 +170,13 @@ where
         }
     }
 
-    pub fn synthesize(self, cs: ConstraintSystemRef<F>, leaf_var: FpVar<F>) -> Result<FpVar<F>, SynthesisError> {
+    pub fn synthesize(self, cs: ConstraintSystemRef<F>, leaf_var: FpVar<F>) -> Result<(FpVar<F>, FpVar<F>), SynthesisError> {
         let cs = &cs;
         // alloc constants
         let inner_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
         // alloc public inputs
         let root_var = FpVar::new_input(cs.clone(), || Ok(self.root))?;
-
-        // alloc friends var
+        // alloc witness var
         let friends_var = self.friend_nodes
             .into_iter()
             .map(|(is_left, node)| {
@@ -197,6 +187,13 @@ where
             })
             .collect::<Result<Vec<_>, SynthesisError>>()?;
 
+        // leaf index
+        let leaf_index = friends_var
+            .iter()
+            .map(|(is_left, _)| is_left.clone())
+            .collect::<Vec<_>>();
+        let leaf_index_var = Boolean::le_bits_to_fp_var(&leaf_index)?;
+
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(
             &inner_params_var,
             &friends_var,
@@ -205,7 +202,7 @@ where
         // old root should restrain to input
         merkle_paths.last().unwrap().enforce_equal(&root_var)?;
 
-        Ok(root_var)
+        Ok((leaf_index_var, root_var))
     }
 }
 
@@ -283,7 +280,6 @@ mod tests {
             new_leaf.clone(),
         ).unwrap();
         let add_new_leaf = AddNewLeaf::<_, _, PoseidonHasherGadget<Fr>>::new(
-            Some(old_root),
             new_leaf.clone(),
             index,
             friend_nodes,
@@ -292,8 +288,9 @@ mod tests {
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();
+        let old_root_var = FpVar::new_input(cs.clone(), || Ok(old_root)).unwrap();
         let leaf_var = FpVar::new_witness(cs.clone(), || Ok(new_leaf)).unwrap();
-        _ = add_new_leaf.synthesize(cs.clone(), leaf_var, None).unwrap();
+        _ = add_new_leaf.synthesize(cs.clone(), leaf_var, old_root_var).unwrap();
 
         assert!(cs.is_satisfied().unwrap());
         println!("constraints: {}", cs.num_constraints());

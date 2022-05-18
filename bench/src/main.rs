@@ -6,11 +6,11 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use arkworks_utils::poseidon::PoseidonParameters;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
+use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::hasher::FieldHasher;
 use soda_maze_lib::vanilla::proof::*;
 use soda_maze_lib::vanilla::{array::Pubkey as ArrayPubkey, hasher::poseidon::PoseidonHasher, VanillaProof};
-use soda_maze_lib::vanilla::proof::{DepositConstParams, WithdrawConstParams};
+use soda_maze_lib::vanilla::proof::WithdrawConstParams;
 use arkworks_utils::utils::common::*;
 use structopt::StructOpt;
 use num_bigint::BigUint;
@@ -27,16 +27,10 @@ use ark_bls12_381::{Bls12_381, Fr, FrParameters};
 use ark_groth16::Groth16;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
-#[cfg(all(feature = "poseidon"))]
-type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
 #[cfg(all(feature = "poseidon"))]
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
 
@@ -49,18 +43,6 @@ struct RabinParameters {
 }
 
 #[derive(Serialize, Deserialize)]
-struct DepositProofData {
-    height: usize,
-    mint: Pubkey,
-    amount: u64,
-    leaf_index: u64,
-    old_root: String,
-    new_leaf: String,
-    update_nodes: Vec<String>,
-    proof: String,
-}
-
-#[derive(Serialize, Deserialize)]
 struct WithdrawProofData {
     mint: Pubkey,
     withdraw_amount: u64,
@@ -69,7 +51,7 @@ struct WithdrawProofData {
     new_leaf_index: u64,
     new_leaf: String,
     update_nodes: Vec<String>,
-    cypher: Option<Vec<String>>,
+    cipher: Option<Vec<String>>,
     proof: String,
 }
 
@@ -126,20 +108,6 @@ fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
 }
 
 #[cfg(feature = "poseidon")]
-fn get_deposit_const_params(height: usize) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
-    #[cfg(feature = "bn254")]
-    let curve = Curve::Bn254;
-    #[cfg(feature = "bls12-381")]
-    let curve = Curve::Bls381;
-
-    DepositConstParams {
-        leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x5_3::<Fr>(curve),
-        height,
-    }
-}
-
-#[cfg(feature = "poseidon")]
 fn get_withdraw_const_params(height: usize, params: &Option<RabinParameters>) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     use soda_maze_lib::vanilla::rabin::RabinParam;
 
@@ -159,9 +127,10 @@ fn get_withdraw_const_params(height: usize, params: &Option<RabinParameters>) ->
     });
 
     WithdrawConstParams {
-        nullifier_params: setup_params_x5_2::<Fr>(curve),
+        secret_params: setup_params_x5_2::<Fr>(curve),
+        nullifier_params: setup_params_x5_3::<Fr>(curve),
         leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x5_3::<Fr>(curve),
+        inner_params: setup_params_x3_3::<Fr>(curve),
         height,
         rabin_param,
     }
@@ -269,23 +238,7 @@ impl MerkleTree {
 #[derive(StructOpt)]
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
 enum Opt {
-    ProveDeposit {
-        #[structopt(long, default_value = "26")]
-        height: usize,
-        #[structopt(long = "pk-path", parse(from_os_str))]
-        pk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
-        proof_path: PathBuf,
-        #[structopt(long, short = "s")]
-        seed: Option<String>,
-        #[structopt(long = "leaf-index", default_value = "0")]
-        leaf_index: u64,
-        #[structopt(long, short = "m")]
-        mint: Pubkey,
-        #[structopt(long, short = "a")]
-        amount: u64,
-    },
-    ProveWithdraw {
+    Prove {
         #[structopt(long, default_value = "26")]
         height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
@@ -307,13 +260,7 @@ enum Opt {
         #[structopt(long = "withdraw-amount", short = "w")]
         withdraw_amount: u64,
     },
-    VerifyDeposit {
-        #[structopt(long = "vk-path", parse(from_os_str))]
-        vk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
-        proof_path: PathBuf,
-    },
-    VerifyWithdraw {
+    Verify {
         #[structopt(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
@@ -325,50 +272,7 @@ fn main() {
     let opt = Opt::from_args();
 
     match opt {
-        Opt::ProveDeposit {
-            height,
-            pk_path,
-            proof_path,
-            seed,
-            leaf_index,
-            mint,
-            amount,
-        } => {
-            let const_params = get_deposit_const_params(height);
-            let friend_nodes = (0..height)
-                .into_iter()
-                .map(|_| Fr::rand(&mut OsRng))
-                .collect::<Vec<_>>();
-            let secret = Fr::rand(&mut OsRng);
-            println!("secret: {}", to_hex(&secret));
-
-            let origin_inputs = DepositOriginInputs {
-                friend_nodes,
-                leaf_index,
-                mint: ArrayPubkey::new(mint.to_bytes()),
-                amount,
-                secret,
-            };
-            let pk = read_from_file::<ProvingKey<_>>(&pk_path);
-            let mut rng = get_xorshift_rng(seed);
-            let (pub_in, priv_in) =
-                DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs).expect("generate vanilla proof failed");
-
-            let proof = DepositInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk)
-                .expect("generate snark proof failed");
-            let proof_data = DepositProofData {
-                height,
-                mint,
-                amount,
-                leaf_index,
-                old_root: to_hex(&pub_in.old_root),
-                new_leaf: to_hex(&pub_in.new_leaf),
-                update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
-                proof: to_hex(&proof),
-            };
-            write_json_to_file(&proof_path, &proof_data);
-        },
-        Opt::ProveWithdraw {
+        Opt::Prove {
             height,
             pk_path,
             proof_path,
@@ -388,23 +292,22 @@ fn main() {
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
             let friend_nodes_1 = merkle_tree.blank.clone();
             
-            let secret_1 = Fr::rand(&mut OsRng);
-            let secret_2 = Fr::rand(&mut OsRng);
-            println!("secret 1: {}", to_hex(&secret_1));
-            println!("secret 2: {}", to_hex(&secret_2));
-
-            let preimage = vec![
-                ArrayPubkey::new(mint.to_bytes()).to_field_element(),
-                Fr::from(deposit_amount),
-                secret_1,
-            ];
+            let secret = Fr::rand(&mut OsRng);
+            let secret_hash = PoseidonHasher::hash(
+                &const_params.secret_params,
+                &[secret],
+            ).expect("hash failed");
             let leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
-                &preimage[..],
+                &[
+                    ArrayPubkey::new(mint.to_bytes()).to_field_element(),
+                    Fr::from(deposit_amount),
+                    secret_hash,
+                ],
             ).expect("hash failed");
             merkle_tree.add_leaf(&const_params.inner_params, leaf_index_1, leaf);
 
-            let rabin_leaf_padding = params.map(|param| {
+            let random_padding = params.map(|param| {
                 let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / param.bit_size;
                 if <FrParameters as FpParameters>::MODULUS_BITS as usize % param.bit_size != 0 {
                     leaf_len += 1;
@@ -425,11 +328,10 @@ fn main() {
                 withdraw_amount,
                 leaf_index_1,
                 leaf_index_2,
-                secret_1,
-                secret_2,
+                secret,
                 friend_nodes_1,
                 friend_nodes_2,
-                rabin_leaf_padding,
+                random_padding,
             };
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
             let (pub_in, priv_in)
@@ -446,37 +348,12 @@ fn main() {
                 new_leaf_index: pub_in.new_leaf_index,
                 new_leaf: to_hex(&pub_in.new_leaf),
                 update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
-                cypher: pub_in.cypher.map(|c| c.into_iter().map(|c| to_hex(&c)).collect()),
+                cipher: pub_in.cipher.map(|c| c.into_iter().map(|c| to_hex(&c)).collect()),
                 proof: to_hex(&proof),
             };
             write_json_to_file(&proof_path, &proof_data);
         },
-        Opt::VerifyDeposit {
-            vk_path,
-            proof_path,
-        } => {
-            let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
-            let proof_data = read_json_from_file::<DepositProofData>(&proof_path);
-
-            let proof = from_hex(proof_data.proof);
-            let pub_in = DepositPublicInputs {
-                mint: ArrayPubkey::new(proof_data.mint.to_bytes()),
-                amount: proof_data.amount,
-                old_root: from_hex(proof_data.old_root),
-                new_leaf: from_hex(proof_data.new_leaf),
-                leaf_index: proof_data.leaf_index,
-                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-            };
-
-            let result = DepositInstant::verify_snark_proof(&pub_in, &proof, &vk)
-                .expect("verify snark proof failed");
-            if result {
-                println!("verify deposit proof success");
-            } else {
-                println!("verify deposit proof failed");
-            }
-        },
-        Opt::VerifyWithdraw {
+        Opt::Verify {
             vk_path,
             proof_path,
         } => {
@@ -492,7 +369,7 @@ fn main() {
                 new_leaf_index: proof_data.new_leaf_index,
                 new_leaf: from_hex(proof_data.new_leaf),
                 update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-                cypher: proof_data.cypher.map(|n| n.into_iter().map(|n| from_hex(n)).collect()),
+                cipher: proof_data.cipher.map(|n| n.into_iter().map(|n| from_hex(n)).collect()),
             };
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)

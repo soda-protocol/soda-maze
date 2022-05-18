@@ -12,11 +12,6 @@ pub struct PoseidonHasher<F>(PhantomData<F>);
 impl<F: PrimeField> FieldHasher<F> for PoseidonHasher<F> {
     type Parameters = PoseidonParameters<F>;
 
-    fn domain_type(width: u8) -> F {
-        // 2^32 + 2^arity - 1
-        F::from((1u64 << width - 1) + (1u64 << 32))
-    }
-
     fn empty_hash() -> F {
         F::zero()
     }
@@ -30,7 +25,7 @@ impl<F: PrimeField> FieldHasher<F> for PoseidonHasher<F> {
         );
 
         let mut buffer = Vec::with_capacity(params.width as usize);
-        buffer.push(Self::domain_type(params.width));
+        buffer.push(F::zero());
         buffer.extend_from_slice(inputs);
         buffer.resize(params.width as usize, F::zero());
 
