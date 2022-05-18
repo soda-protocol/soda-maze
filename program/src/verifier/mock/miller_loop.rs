@@ -1,10 +1,11 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::params::{*, Bn254Parameters as BnParameters};
+use crate::params::vk::get_prepared_verifying_key;
+use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
-use crate::{ProofType, error::MazeError, verifier::{ProofA, ProofB, ProofC}};
+use crate::{error::MazeError, verifier::{ProofA, ProofB, ProofC}};
 
 fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     let mut c0 = coeffs.0;
@@ -38,11 +39,8 @@ pub struct MillerLoop {
 }
 
 impl MillerLoop {
-    pub fn process(
-        mut self,
-        proof_type: &ProofType,
-    ) -> Result<(), ProgramError> {
-        let pvk = proof_type.pvk();
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let pvk = get_prepared_verifying_key();
 
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
@@ -107,11 +105,8 @@ pub struct MillerLoopFinalize {
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
-    pub fn process(
-        mut self,
-        proof_type: &ProofType,
-    ) -> Result<(), ProgramError> {
-        let pvk = proof_type.pvk();
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let pvk = get_prepared_verifying_key();
 
         let coeff = addition_step(&mut self.r, &self.q1);
         ell(&mut self.f, &coeff, &self.proof_a);

@@ -63,32 +63,35 @@ where
         )?;
 
         // hash leaf: hash(pubkey | deposit_amount | secret_hash)
-        let leaf_var = FHG::hash_gadget(
+        let leaf_1_var = FHG::hash_gadget(
             &leaf_params_var,
             &[mint_var.clone(), deposit_amount_var, secret_hash_var.clone()],
         )?;
         // gen existance proof
-        let (leaf_index_var, old_root_var) = self.proof_1.synthesize(cs.clone(), leaf_var.clone())?;
-
-        // rabin encrytion for leaf
-        if let Some(rabin_encrytion) = self.rabin_encrytion {
-            rabin_encrytion.synthesize(cs.clone(), leaf_index_var.clone(), leaf_var)?;
-        }
+        let (leaf_index_var, old_root_var) = self.proof_1.synthesize(
+            cs.clone(),
+            leaf_1_var.clone(),
+        )?;
 
         // gen nullifier
         let nullifier_var = FHG::hash_gadget(
             &nullifier_params_var,
-            &[leaf_index_var, secret_var],
+            &[leaf_index_var.clone(), secret_var],
         )?;
         nullifier_var.enforce_equal(&input_nullifier_var)?;
 
         // hash new back deposit data leaf: hash(pubkey | rest_amount | secret_hash)
-        let leaf_var = FHG::hash_gadget(
+        let leaf_2_var = FHG::hash_gadget(
             &leaf_params_var,
             &[mint_var, rest_amount_var, secret_hash_var],
         )?;
         // gen add new leaf proof
-        self.proof_2.synthesize(cs.clone(), leaf_var, old_root_var)?;
+        self.proof_2.synthesize(cs.clone(), leaf_2_var, old_root_var)?;
+
+        // rabin encrytion for leaf
+        if let Some(rabin_encrytion) = self.rabin_encrytion {
+            rabin_encrytion.synthesize(cs.clone(), leaf_index_var, leaf_1_var)?;
+        }
 
         Ok(())
     }
@@ -148,7 +151,8 @@ where
 #[cfg(test)]
 mod tests {
     use ark_bn254::Fr;
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_std::rand::Rng;
+    use ark_std::{test_rng, UniformRand};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, ConstraintSynthesizer};
 	use arkworks_utils::utils::common::{Curve, setup_params_x3_3, setup_params_x5_2, setup_params_x5_3, setup_params_x5_4};
     use bitvec::{prelude::BitVec, field::BitField};
@@ -160,7 +164,7 @@ mod tests {
 
     const HEIGHT: u8 = 24;
 
-    fn get_random_merkle_friends(rng: &mut StdRng) -> Vec<(bool, Fr)> {
+    fn get_random_merkle_friends<R: Rng + ?Sized>(rng: &mut R) -> Vec<(bool, Fr)> {
         let mut friend_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
         for _ in 0..(HEIGHT - 1) {
             friend_nodes.push((bool::rand(rng), Fr::rand(rng)));
@@ -169,7 +173,7 @@ mod tests {
         friend_nodes
     }
 
-    fn test_withdraw_inner(rng: &mut StdRng, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
+    fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
         let secret_params = setup_params_x5_2(Curve::Bn254);
         let nullifier_params = setup_params_x5_3(Curve::Bn254);
         let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);

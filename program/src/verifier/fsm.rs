@@ -1,7 +1,7 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_error::ProgramError, account_info::AccountInfo, pubkey::Pubkey, rent::Rent};
 
-use crate::{ProofType, context::Context};
+use crate::context::Context;
 
 use super::prepare_inputs::*;
 use super::miller_loop::*;
@@ -50,7 +50,6 @@ impl FSM {
     #[inline(never)]
     pub fn process(
         self,
-        proof_type: &ProofType,
         program_id: &Pubkey,
         rent: &Rent,
         receiver_info: &AccountInfo,
@@ -76,7 +75,6 @@ impl FSM {
                 let f_ctx = Context::new(buffer_7_info, program_id)?;
 
                 fsm = prepare_inputs.process(
-                    proof_type,
                     &public_inputs_ctx,
                     &proof_b_ctx,
                     &g_ic_ctx,
@@ -104,7 +102,6 @@ impl FSM {
                 let f_ctx = Context::new(buffer_7_info, program_id)?;
 
                 fsm = miller_loop.process(
-                    proof_type,
                     &prepared_input_ctx,
                     &proof_ac_ctx,
                     &proof_b_ctx,
@@ -131,7 +128,6 @@ impl FSM {
                 let f_ctx = Context::new(buffer_7_info, program_id)?;
 
                 fsm = miller_loop.process(
-                    proof_type,
                     &prepared_input_ctx,
                     &proof_ac_ctx,
                     &r_ctx,
@@ -232,7 +228,6 @@ impl FSM {
                 let r_ctx = Context::new(buffer_7_info, program_id)?;
 
                 fsm = final_exponent.process(
-                    proof_type,
                     &r_ctx,
                     &y1_ctx,
                     &y4_ctx,

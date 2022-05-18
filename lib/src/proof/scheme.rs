@@ -37,15 +37,14 @@ where
         inputs.push(pub_in.mint.to_field_element());
         inputs.push(F::from(pub_in.withdraw_amount));
         inputs.push(pub_in.nullifier);
-        
-        if let Some(cipher) = &pub_in.cipher {
-            inputs.extend_from_slice(cipher);
-        }
-
         inputs.push(pub_in.old_root);
         inputs.push(F::from(pub_in.new_leaf_index));
         inputs.push(pub_in.new_leaf);
         inputs.extend_from_slice(&pub_in.update_nodes);
+
+        if let Some(cipher) = &pub_in.cipher {
+            inputs.extend_from_slice(cipher);
+        }
 
         inputs
     }

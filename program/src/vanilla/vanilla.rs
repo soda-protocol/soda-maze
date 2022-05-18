@@ -9,9 +9,10 @@ use solana_program::{
     program_error::ProgramError,
 };
 
-use crate::params::{Fr, G1Projective254};
-use crate::{HEIGHT, DEPOSIT_INPUTS, WITHDRAW_INPUTS};
-use crate::{error::MazeError, bn::BigInteger256 as BigInteger, ProofType, Packer};
+use crate::params::bn::{Fr, G1Projective254};
+use crate::params::vk::get_prepared_verifying_key;
+use crate::{HEIGHT, PUBLIC_INPUTS};
+use crate::{error::MazeError, bn::BigInteger256 as BigInteger, Packer};
 use crate::verifier::{prepare_inputs::PrepareInputs, fsm::FSM};
 use crate::context::{Context512, Context1536};
 use crate::state::VerifyState;
@@ -38,53 +39,6 @@ fn is_updating_nodes_valid(nodes: &[Fr]) -> bool {
         false
     } else {
         nodes.iter().all(|x| x.is_valid())
-    }
-}
-
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct DepositInfo {
-    pub mint: Pubkey,
-    pub deposit_amount: u64,
-    pub root: Fr,
-    pub leaf: Fr,
-    pub leaf_index: u64,
-    pub updating_nodes: Vec<Fr>,
-}
-
-impl DepositInfo {
-    pub fn check_valid(&self) -> ProgramResult {
-        if !self.root.is_valid() {
-            msg!("root is invalid");
-            return Err(MazeError::InvalidVanillaData.into());
-        }
-        if !self.leaf.is_valid() {
-            msg!("leaf is invalid");
-            return Err(MazeError::InvalidVanillaData.into());
-        }
-        if !is_updating_nodes_valid(&self.updating_nodes) {
-            msg!("updating nodes are invalid");
-        }
-        if self.leaf_index >= 1 << HEIGHT {
-            msg!("leaf index is too large");
-            return Err(MazeError::InvalidVanillaData.into());
-        }
-        
-        Ok(())
-    }
-
-    pub fn to_public_inputs(self) -> Box<Vec<Fr>> {
-        let mut inputs = Box::new(Vec::with_capacity(DEPOSIT_INPUTS));
-
-        inputs.push(pubkey_to_fr(self.mint));
-        inputs.push(Fr::from_repr(BigInteger::from(self.deposit_amount)).unwrap());
-        inputs.push(self.root);
-        inputs.push(Fr::from_repr(BigInteger::from(self.leaf_index)).unwrap());
-        inputs.push(self.leaf);
-        inputs.extend(self.updating_nodes);
-
-        assert_eq!(inputs.len(), DEPOSIT_INPUTS);
-
-        inputs
     }
 }
 
@@ -127,7 +81,7 @@ impl WithdrawInfo {
     }
 
     pub fn to_public_inputs(self) -> Box<Vec<Fr>> {
-        let mut inputs = Box::new(Vec::with_capacity(WITHDRAW_INPUTS));
+        let mut inputs = Box::new(Vec::with_capacity(PUBLIC_INPUTS));
 
         inputs.push(pubkey_to_fr(self.mint));
         inputs.push(Fr::from_repr(BigInteger::from(self.withdraw_amount)).unwrap());
@@ -138,31 +92,9 @@ impl WithdrawInfo {
         inputs.push(self.new_leaf);
         inputs.extend(self.updating_nodes);
 
-        assert_eq!(inputs.len(), WITHDRAW_INPUTS);
+        assert_eq!(inputs.len(), PUBLIC_INPUTS);
 
         inputs
-    }
-}
-
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub enum Operation {
-    Deposit(DepositInfo),
-    Withdarw(WithdrawInfo),
-}
-
-impl Operation {
-    pub fn proof_type(&self) -> ProofType {
-        match self {
-            Operation::Deposit(_) => ProofType::Deposit,
-            Operation::Withdarw(_) => ProofType::Withdraw,
-        }
-    }
-
-    pub fn check_valid(&self) -> ProgramResult {
-        match self {
-            Operation::Deposit(deposit) => deposit.check_valid(),
-            Operation::Withdarw(withdraw) => withdraw.check_valid(),
-        }
     }
 
     pub fn to_verify_state(
@@ -173,12 +105,8 @@ impl Operation {
         proof_ac_pukey: Pubkey,
         proof_b_pukey: Pubkey,
     ) -> Result<VerifyState, ProgramError> {
-        let proof_type = self.proof_type();
-        let pvk = proof_type.pvk();
-        let public_inputs = match self {
-            Operation::Deposit(deposit) => deposit.to_public_inputs(),
-            Operation::Withdarw(withdraw) => withdraw.to_public_inputs(),
-        };
+        let pvk = get_prepared_verifying_key();
+        let public_inputs = self.to_public_inputs();
 
         g_ic_ctx.fill(*pvk.g_ic_init)?;
         tmp_ctx.fill(G1Projective254::zero())?;
@@ -194,27 +122,23 @@ impl Operation {
             proof_b: proof_b_pukey,
         });
 
-        Ok(VerifyState {
-            is_initialized: true,
-            proof_type,
-            fsm,
-        })
+        Ok(VerifyState::new(fsm))
     }
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct VanillaInfo {
     pub is_initialized: bool,
-    pub operation: Operation,
+    pub withdraw_info: WithdrawInfo,
     pub operator: Pubkey,
     pub verify_state: Pubkey,
 }
 
 impl VanillaInfo {
-    pub fn new(operation: Operation, operator: Pubkey, verify_state: Pubkey) -> Self {
+    pub fn new(withdraw_info: WithdrawInfo, operator: Pubkey, verify_state: Pubkey) -> Self {
         Self {
             is_initialized: true,
-            operation,
+            withdraw_info,
             operator,
             verify_state,
         }

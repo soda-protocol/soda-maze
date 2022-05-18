@@ -2,8 +2,8 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{Fr, G1Projective254}, ProofType, context::Context};
-use crate::params::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{bn::{Fr, G1Projective254}, hasher::get_params_bn254_x3_3}, context::Context, hasher::poseidon::poseidon_hash};
+use crate::params::bn::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
 const PROOF_A: ProofA = G1Affine254::new_const(
@@ -139,16 +139,14 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     input: &[u8],
 ) -> ProgramResult {
-    let proof_type = ProofType::Deposit;
-
-    let stage = PrepareInputs {
-        input_index: input[0],
-        bit_index: input[1] as u16,
-        public_inputs: PUBLIC_INPUTS.to_vec(),
-        g_ic: G1_PROJECTIVE_VALUE.clone(),
-        tmp: G1_PROJECTIVE_VALUE.clone(),
-    };
-    stage.process(&proof_type)
+    // let stage = PrepareInputs {
+    //     input_index: input[0],
+    //     bit_index: input[1] as u16,
+    //     public_inputs: PUBLIC_INPUTS.to_vec(),
+    //     g_ic: G1_PROJECTIVE_VALUE.clone(),
+    //     tmp: G1_PROJECTIVE_VALUE.clone(),
+    // };
+    // stage.process()
 
     // let stage = MillerLoop {
     //     index: input[0],
@@ -208,6 +206,17 @@ pub fn process_instruction(
     //     y8: Box::new(FQK254_VALUE.clone()),
     // });
     // stage.process()
+
+    let state = vec![
+        Fr::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+        Fr::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+        Fr::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900])),
+    ];
+
+    let params = get_params_bn254_x3_3();
+    let res = poseidon_hash(&params, state)?;
+    
+    Ok(())
 }
 
 #[cfg(test)]

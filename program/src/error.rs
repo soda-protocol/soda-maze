@@ -15,8 +15,8 @@ pub enum MazeError {
     AlreadyInitialized,
     #[error("Accounts are not matched")]
     UnmatchedAccounts,
-    #[error("Deposit amount is too small")]
-    DepositTooSmall,
+    #[error("Poseidon hash is failed")]
+    PoseidonHashFailed,
     #[error("Pool deposit is disabled")]
     PoolDepositDisabled,
     #[error("Vanilla proof data is invalid")]

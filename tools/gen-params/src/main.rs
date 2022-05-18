@@ -245,7 +245,7 @@ enum Opt {
         param_path: PathBuf,
     },
     SetupCircuit {
-        #[structopt(long, default_value = "26")]
+        #[structopt(long, default_value = "27")]
         height: usize,
         #[structopt(long, short = "s")]
         seed: Option<String>,

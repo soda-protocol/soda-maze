@@ -181,15 +181,11 @@ impl MerkleTree {
 
         (0..height)
             .into_iter()
-            .for_each(|i| {
-                println!("layer {}, hash: Fr::new(BigInteger::new({:?})", i, &hash.0.0);
-
+            .for_each(|_| {
                 nodes.push(hash);
                 hash = PoseidonHasher::hash_two(params, hash, hash)
                     .expect("poseidon hash error");
             });
-
-        println!("root Fr::new(BigInteger::new({:?})", &hash.0.0);
 
         Self {
             height,
@@ -239,7 +235,7 @@ impl MerkleTree {
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
 enum Opt {
     Prove {
-        #[structopt(long, default_value = "26")]
+        #[structopt(long, default_value = "27")]
         height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
@@ -284,6 +280,8 @@ fn main() {
             deposit_amount,
             withdraw_amount,
         } => {
+            let start_time = std::time::SystemTime::now();
+
             let params = rabin_path.map(|path| {
                 let param: RabinParameters = read_json_from_file(&path);
                 param
@@ -313,7 +311,7 @@ fn main() {
                     leaf_len += 1;
                 }
                 
-                (0..param.modulus_len - leaf_len).into_iter().map(|_| {
+                (0..param.modulus_len - leaf_len - 1).into_iter().map(|_| {
                     use num_bigint_dig::RandBigInt;
                     let r = OsRng.gen_biguint(param.bit_size);
                     BigUint::from_bytes_le(&r.to_bytes_le())
@@ -352,11 +350,16 @@ fn main() {
                 proof: to_hex(&proof),
             };
             write_json_to_file(&proof_path, &proof_data);
+
+            let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
+            println!("proof time: {:?}", duration);
         },
         Opt::Verify {
             vk_path,
             proof_path,
         } => {
+            let start_time = std::time::SystemTime::now();
+
             let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
             let proof_data = read_json_from_file::<WithdrawProofData>(&proof_path);
 
@@ -379,6 +382,9 @@ fn main() {
             } else {
                 println!("verify withdraw proof failed");
             }
+
+            let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
+            println!("proof time: {:?}", duration);
         },
     }
 }

@@ -3,7 +3,7 @@ use solana_program::{entrypoint::ProgramResult, rent::Rent, sysvar::Sysvar};
 
 use crate::{verifier::{ProofA, ProofB, ProofC, ProofAC}, state::{StateWrapper512, VerifyState}};
 use crate::{context::Context512, Packer};
-use crate::vanilla::vanilla::{VanillaInfo, Operation};
+use crate::vanilla::vanilla::VanillaInfo;
 
 // #[inline(never)]
 // pub fn process_create_vanilla_info(
@@ -87,10 +87,7 @@ pub fn process_verify_proof(
     let buffer_7_info = next_account_info(accounts_iter)?;
 
     let verify_state = VerifyState::unpack_from_account_info(verify_state_info, program_id)?;
-    let proof_type = verify_state.proof_type;
-
     let fsm = verify_state.fsm.process(
-        &proof_type,
         program_id,
         rent,
         receiver_info,
@@ -104,7 +101,7 @@ pub fn process_verify_proof(
         buffer_7_info,
     )?;
 
-    let verify_state = VerifyState::new(proof_type, fsm);
+    let verify_state = VerifyState::new(fsm);
     verify_state.pack_to_account_info(verify_state_info)?;
 
     Ok(())

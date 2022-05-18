@@ -88,7 +88,7 @@ where
         // alloc constants
         let inner_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
         // alloc public var
-        let leaf_index_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
+        let new_leaf_index_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let new_leaf_var = FpVar::new_input(cs.clone(), || Ok(self.new_leaf))?;
         let new_nodes_vars = self.update_nodes
             .into_iter()
@@ -112,7 +112,7 @@ where
             .map(|(is_left, _)| is_left.clone())
             .collect::<Vec<_>>();
         let position_var = Boolean::le_bits_to_fp_var(&position)?;
-        leaf_index_var.enforce_equal(&position_var)?;
+        new_leaf_index_var.enforce_equal(&position_var)?;
         
         // old root constrain
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(
@@ -212,7 +212,7 @@ mod tests {
     use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar};
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use ark_relations::r1cs::ConstraintSystem;
-	use arkworks_utils::utils::common::{setup_params_x3_3, Curve};
+	use arkworks_utils::utils::common::{setup_params_x3_3, Curve, setup_params_x5_3, setup_params_x5_4, setup_params_x5_5, setup_params_x5_2};
     use bitvec::field::BitField;
     use bitvec::prelude::BitVec;
 
@@ -296,5 +296,26 @@ mod tests {
         println!("constraints: {}", cs.num_constraints());
         println!("instance: {}", cs.num_instance_variables());
         println!("witness: {}", cs.num_witness_variables());
+    }
+
+    #[test]
+    fn test_params() {
+        let params = setup_params_x5_2::<Fr>(Curve::Bn254);
+        let round_keys = params.round_keys;
+        let mds_matrix = params.mds_matrix;
+
+        for key in round_keys {
+            println!("    Fr::new(BigInteger::new({:?})),", key.0.0);
+        }
+
+        println!("");
+
+        for matrix in mds_matrix {
+            println!("    &[");
+            for m in matrix {
+                println!("        Fr::new(BigInteger::new({:?})),", m.0.0);
+            }
+            println!("    ],");
+        }
     }
 }

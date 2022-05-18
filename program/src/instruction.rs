@@ -1,6 +1,6 @@
 use solana_program::pubkey::Pubkey;
 
-use crate::{vanilla::vanilla::Operation, verifier::{ProofA, ProofB, ProofC}};
+use crate::{verifier::{ProofA, ProofB, ProofC}};
 
 
 
@@ -9,7 +9,6 @@ use crate::{vanilla::vanilla::Operation, verifier::{ProofA, ProofB, ProofC}};
 
 pub enum Instruction {
     CreatePool,
-    CreateVanillaInfo(Pubkey, Operation),
+    CreateVanillaInfo(Pubkey),
     CreateProofAccounts(ProofA, ProofB, ProofC),
-    
 }

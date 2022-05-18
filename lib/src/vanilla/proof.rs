@@ -143,6 +143,7 @@ where
             &params.secret_params,
             &[orig_in.secret],
         ).map_err(|e| anyhow!("hash error: {}", e))?;
+        
         let nullifier = FH::hash(
             &params.nullifier_params,
             &[F::from(orig_in.leaf_index_1), orig_in.secret],
@@ -152,6 +153,7 @@ where
             &params.leaf_params,
             &[orig_in.mint.to_field_element(), F::from(orig_in.deposit_amount), secret_hash],
         ).unwrap();
+
         let old_root = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_1, leaf_1)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
@@ -159,10 +161,12 @@ where
             .clone();
 
         let rest_amount = orig_in.deposit_amount - orig_in.withdraw_amount;
+
         let leaf_2 = FH::hash(
             &params.leaf_params,
             &[orig_in.mint.to_field_element(), F::from(rest_amount), secret_hash],
         ).unwrap();
+        
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes_2, leaf_2.clone())
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 

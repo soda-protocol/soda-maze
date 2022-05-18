@@ -3,8 +3,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::One;
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::{bn::BnParameters as Bn, bn::Field, ProofType, error::MazeError};
-use crate::params::{*, Bn254Parameters as BnParameters};
+use crate::params::vk::get_prepared_verifying_key;
+use crate::{bn::BnParameters as Bn, bn::Field, error::MazeError};
+use crate::params::{bn::*, bn::Bn254Parameters as BnParameters};
 use crate::context::Context512;
 
 use super::fsm::FSM;
@@ -325,7 +326,6 @@ pub struct FinalExponentHardPart4 {
 impl FinalExponentHardPart4 {
     pub fn process(
         self,
-        proof_type: &ProofType,
         r_ctx: &Context512<Box<Fqk254>>,
         y1_ctx: &Context512<Box<Fqk254>>,
         y4_ctx: &Context512<Box<Fqk254>>,
@@ -366,7 +366,7 @@ impl FinalExponentHardPart4 {
         y15.frobenius_map(3);
         let y16 = y15 * &y14;
 
-        let pvk = proof_type.pvk();
+        let pvk = get_prepared_verifying_key();
         let res = &y16 == pvk.alpha_g1_beta_g2;
 
         // finished

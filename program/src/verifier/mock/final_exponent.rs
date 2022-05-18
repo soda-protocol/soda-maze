@@ -3,9 +3,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::{bn::BnParameters as Bn, ProofType, error::MazeError};
+use crate::{bn::BnParameters as Bn, error::MazeError};
 use crate::bn::{Field, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper};
-use crate::params::{*, Bn254Parameters as BnParameters};
+use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::context::Context;
 
 fn exp_by_neg_x(
@@ -47,9 +47,7 @@ pub struct FinalExponentInverse {
 }
 
 impl FinalExponentInverse {
-    pub fn process(
-        self,
-    ) -> Result<(), ProgramError> {
+    pub fn process(self) -> Result<(), ProgramError> {
         let mut f1 = self.f.clone();
         f1.conjugate();
 
@@ -176,7 +174,7 @@ pub struct FinalExponentMulStep4 {
 
 impl FinalExponentMulStep4 {
     #[inline(never)]
-    pub fn process(&mut self) -> Result<(), ProgramError> {
+    pub fn process(mut self) -> Result<(), ProgramError> {
         let y9 = self.y8.mul(self.y1.as_ref());
         let y10 = self.y8.mul(self.y4.as_ref());
         let y11 = y10.mul(self.r.as_ref());

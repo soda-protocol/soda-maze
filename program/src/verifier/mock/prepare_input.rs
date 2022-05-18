@@ -3,8 +3,8 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_error::ProgramError;
 
 use crate::bn::{BitIteratorBE, FpParameters};
-use crate::params::*;
-use crate::ProofType;
+use crate::params::bn::*;
+use crate::params::vk::get_prepared_verifying_key;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
@@ -16,13 +16,11 @@ pub struct PrepareInputs {
 }
 
 impl PrepareInputs {
-    pub fn process(
-        mut self,
-        proof_type: &ProofType,
-    ) -> Result<(), ProgramError> {
+    pub fn process(mut self) -> Result<(), ProgramError> {
+        let pvk = get_prepared_verifying_key();
+
         let public_input = self.public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
-        let pvk = proof_type.pvk();
 
         const MAX_LOOP: usize = 40;
         BitIteratorBE::new(public_input)

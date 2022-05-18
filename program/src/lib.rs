@@ -5,12 +5,12 @@ pub mod bn;
 pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
-pub mod processor;
-pub mod vk;
+pub mod processor1;
 pub mod vanilla;
 pub mod params;
 pub mod context;
 pub mod state;
+pub mod hasher;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
 
@@ -27,47 +27,10 @@ use solana_program::{
 };
 
 use crate::error::MazeError;
-use crate::vk::PreparedVerifyingKey;
 
-pub const HEIGHT: usize = 26;
-pub const DEPOSIT_INPUTS: usize = 31;
-pub const WITHDRAW_INPUTS: usize = 44;
+pub const HEIGHT: usize = 27;
+pub const PUBLIC_INPUTS: usize = 45;
 pub const CREDENTIAL_LEN: usize = 12;
-
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub enum ProofType {
-    Deposit,
-    Withdraw,
-}
-
-impl ProofType {
-    pub const fn inputs_len(&self) -> usize {
-        match self {
-            ProofType::Deposit => DEPOSIT_INPUTS,
-            ProofType::Withdraw => WITHDRAW_INPUTS,
-        }
-    }
-
-    pub const fn pvk(&self) -> &PreparedVerifyingKey {
-        match self {
-            ProofType::Deposit => &PreparedVerifyingKey {
-                g_ic_init: vk::deposit::G_IC_INIT,
-                gamma_abc_g1: vk::deposit::GAMMA_ABC_G1,
-                alpha_g1_beta_g2: vk::deposit::ALPHA_G1_BETA_G2,
-                gamma_g2_neg_pc: vk::deposit::GAMMA_G2_NEG_PC,
-                delta_g2_neg_pc: vk::deposit::DELTA_G2_NEG_PC,
-            },
-            // TODO: implement withdraw
-            ProofType::Withdraw => &PreparedVerifyingKey {
-                g_ic_init: vk::withdraw::G_IC_INIT,
-                gamma_abc_g1: vk::withdraw::GAMMA_ABC_G1,
-                alpha_g1_beta_g2: vk::withdraw::ALPHA_G1_BETA_G2,
-                gamma_g2_neg_pc: vk::withdraw::GAMMA_G2_NEG_PC,
-                delta_g2_neg_pc: vk::withdraw::DELTA_G2_NEG_PC,
-            }
-        }
-    }
-}
 
 pub trait Data: Sized {
     fn to_vec(self) -> Vec<u8>;

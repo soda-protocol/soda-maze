@@ -1,7 +1,6 @@
-pub mod deposit;
-pub mod withdraw;
+mod pvk;
 
-use crate::params::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
+use crate::params::bn::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
 
 pub struct PreparedVerifyingKey<'a> {
     /// 
@@ -14,4 +13,14 @@ pub struct PreparedVerifyingKey<'a> {
     pub gamma_g2_neg_pc: &'a [EllCoeffFq2],
     /// The element `- delta * H` in `E::G2`, prepared for use in pairings.
     pub delta_g2_neg_pc: &'a [EllCoeffFq2],
+}
+
+pub const fn get_prepared_verifying_key() -> PreparedVerifyingKey<'static> {
+    PreparedVerifyingKey {
+        g_ic_init: pvk::G_IC_INIT,
+        gamma_abc_g1: pvk::GAMMA_ABC_G1,
+        alpha_g1_beta_g2: pvk::ALPHA_G1_BETA_G2,
+        gamma_g2_neg_pc: pvk::GAMMA_G2_NEG_PC,
+        delta_g2_neg_pc: pvk::DELTA_G2_NEG_PC,
+    }
 }

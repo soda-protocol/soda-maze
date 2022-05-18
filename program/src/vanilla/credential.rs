@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::pubkey::Pubkey;
 
-use crate::{params::{Fr, RABIN_MODULUS, RABIN_FR_MODULUS_LEN}, bn::BigInteger};
+use crate::params::{bn::Fr, rabin::{RABIN_MODULUS, RABIN_FR_MODULUS_LEN}};
+use crate::bn::BigInteger;
 
 pub fn is_credential_valid(credential: &[Fr]) -> bool {
     if credential.len() != RABIN_FR_MODULUS_LEN {

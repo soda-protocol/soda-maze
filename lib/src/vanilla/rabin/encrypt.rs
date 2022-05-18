@@ -38,17 +38,17 @@ impl RabinParam {
         leaf: F,
         padding: &[BigUint],
     ) -> BigUint {
-        let mut preimage_array = padding.iter().map(|p| {
+        let mut preimage = padding.iter().map(|p| {
             assert!(p.bits() as usize <= self.bit_size);
             p.clone()
         }).collect::<Vec<_>>();
         let leaf_array = prime_field_to_biguint_array(leaf, self.bit_size);
 
-        preimage_array.extend(leaf_array);
-        preimage_array.push(leaf_index.into());
-        assert_eq!(preimage_array.len(), self.modulus_len);
+        preimage.extend(leaf_array);
+        preimage.push(leaf_index.into());
+        assert_eq!(preimage.len(), self.modulus_len);
 
-        biguint_array_to_biguint(&preimage_array, self.bit_size)
+        biguint_array_to_biguint(&preimage, self.bit_size)
     }
 
     pub fn gen_quotient_array(&self, quotient: BigUint) -> Vec<BigUint> {

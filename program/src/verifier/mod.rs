@@ -6,7 +6,7 @@ pub mod final_exponent;
 
 use borsh::{BorshSerialize, BorshDeserialize};
 
-use crate::params::{G1Affine254, G2Affine254};
+use crate::params::bn::{G1Affine254, G2Affine254};
 
 pub type ProofA = G1Affine254;
 pub type ProofB = G2Affine254;

@@ -1,7 +1,7 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::pubkey::Pubkey;
 
-use crate::params::Fr;
+use crate::params::bn::Fr;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Pool {
