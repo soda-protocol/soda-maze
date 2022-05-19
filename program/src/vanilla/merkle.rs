@@ -9,8 +9,8 @@ pub struct PoseidonMerkleHasher {
     pub is_finished: bool,
     pub friend_nodes: Box<Vec<(bool, Fr)>>,
     pub updating_nodes: Box<Vec<Fr>>,
-    pub layer: usize,
-    pub round: usize,
+    pub layer: u8,
+    pub round: u8,
     pub state: Vec<Fr>,
 }
 
@@ -41,13 +41,13 @@ impl PoseidonMerkleHasher {
         }
 
         let params = get_params_bn254_x3_3();
-        let nr = (params.full_rounds + params.partial_rounds) as usize;
+        let nr = params.full_rounds + params.partial_rounds;
 
         const MAX_LOOP: usize = 55;
         for _ in 0..MAX_LOOP {
             poseidon_hash_in_round(
                 &params,
-                self.round,
+                self.round as usize,
                 &mut self.state,
             )?;
 
@@ -57,12 +57,12 @@ impl PoseidonMerkleHasher {
                 self.layer += 1;
                 let node_hash = self.state[0];
                 self.updating_nodes.push(node_hash);
-                if self.layer >= HEIGHT {
+                if self.layer as usize >= HEIGHT {
                     assert_eq!(self.updating_nodes.len(), HEIGHT);
                     self.is_finished = true;
                     break;
                 } else {
-                    let (is_left, friend) = self.friend_nodes[self.layer];
+                    let (is_left, friend) = self.friend_nodes[self.layer as usize];
                     self.state = if is_left {
                         vec![friend, node_hash, Fr::zero()]
                     } else {

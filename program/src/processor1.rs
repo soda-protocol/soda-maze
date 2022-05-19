@@ -223,8 +223,8 @@ pub fn process_instruction(
         is_finished: false,
         friend_nodes,
         updating_nodes: Box::new(Vec::new()),
-        layer: 0,
-        round: 0,
+        layer: input[0],
+        round: input[1],
         state,
     };
 
