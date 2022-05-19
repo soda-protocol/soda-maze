@@ -235,7 +235,7 @@ pub fn process_instruction(
     ];
 
     let mut hasher = LeafHasher {
-        round: 0,
+        round: input[0],
         state,
         leaf: None,
     };

@@ -99,7 +99,7 @@ impl LeafHasher {
         let params = get_params_bn254_x5_4();
         let nr = params.full_rounds + params.partial_rounds;
 
-        const MAX_LOOP: usize = 40;
+        const MAX_LOOP: usize = 32;
         for _ in 0..MAX_LOOP {
             poseidon_hash_in_round(
                 &params,
