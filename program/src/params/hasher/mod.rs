@@ -1,7 +1,5 @@
 pub mod bn254_x3_3;
-pub mod bn254_x5_3;
 pub mod bn254_x5_4;
-pub mod bn254_x5_2;
 
 use super::bn::Fr;
 
@@ -38,6 +36,4 @@ macro_rules! impl_get_params {
 }
 
 impl_get_params!(get_params_bn254_x3_3, bn254_x3_3);
-impl_get_params!(get_params_bn254_x5_2, bn254_x5_2);
-impl_get_params!(get_params_bn254_x5_3, bn254_x5_3);
 impl_get_params!(get_params_bn254_x5_4, bn254_x5_4);

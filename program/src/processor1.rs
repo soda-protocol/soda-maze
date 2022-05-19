@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{bn::{Fr, G1Projective254}, hasher::get_params_bn254_x3_3}, context::Context, vanilla::merkle::PoseidonMerkleHasher, HEIGHT};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{bn::{Fr, G1Projective254}, hasher::get_params_bn254_x3_3}, context::Context, vanilla::merkle::{PoseidonMerkleHasher, LeafHasher}, HEIGHT};
 use crate::params::bn::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -207,25 +207,37 @@ pub fn process_instruction(
     // });
     // stage.process()
 
-    let mut friend_nodes = Box::new(Vec::with_capacity(HEIGHT));
-    (0..HEIGHT).for_each(|i| {
-        friend_nodes.push((false, PUBLIC_INPUTS[i]));
-    });
+    // let mut friend_nodes = Box::new(Vec::with_capacity(HEIGHT));
+    // (0..HEIGHT).for_each(|i| {
+    //     friend_nodes.push((false, PUBLIC_INPUTS[i]));
+    // });
     // let leaf = Fr::new(BigInteger::new([2204364260910044889, 4961323307537146896, 3192016866730518327, 1801533657434404900]));
 
+    // let state = vec![
+    //     Fr::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
+    //     Fr::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
+    //     Fr::zero(),
+    // ];
+
+    // let mut hasher = PoseidonMerkleHasher {
+    //     friend_nodes,
+    //     updating_nodes: Box::new(Vec::new()),
+    //     layer: input[0],
+    //     round: input[1],
+    //     state,
+    // };
+
     let state = vec![
+        Fr::zero(),
         Fr::new(BigInteger::new([14384816041077872766, 431448166635449345, 6321897284235301150, 2191027455511027545])),
         Fr::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
-        Fr::zero(),
+        Fr::new(BigInteger::new([4791893780199645830, 13020716387556337386, 12915032691238673322, 2866902253618994548])),
     ];
 
-    let mut hasher = PoseidonMerkleHasher {
-        is_finished: false,
-        friend_nodes,
-        updating_nodes: Box::new(Vec::new()),
-        layer: input[0],
-        round: input[1],
+    let mut hasher = LeafHasher {
+        round: 0,
         state,
+        leaf: None,
     };
 
     hasher.process()?;
@@ -257,7 +269,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![30, 40],
+                data: vec![25, 40],
             }],
             Some(&user.pubkey()),
             &[&user],
