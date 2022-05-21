@@ -82,15 +82,15 @@ where
         self,
         cs: ConstraintSystemRef<F>,
         leaf_var: FpVar<F>,
-        old_root_var: FpVar<F>,
-    ) -> Result<Vec<FpVar<F>>, SynthesisError> {
+        root_var: FpVar<F>,
+    ) -> Result<(), SynthesisError> {
         let cs = &cs;
         // alloc constants
         let inner_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
         // alloc public var
         let new_leaf_index_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let new_leaf_var = FpVar::new_input(cs.clone(), || Ok(self.new_leaf))?;
-        let new_nodes_vars = self.update_nodes
+        let update_nodes_vars = self.update_nodes
             .into_iter()
             .map(|node| FpVar::new_input(cs.clone(), || Ok(node)))
             .collect::<Result<Vec<_>, SynthesisError>>()?;
@@ -120,7 +120,7 @@ where
             &friends_var,
             FHG::empty_hash_var(),
         )?;
-        merkle_paths.last().unwrap().enforce_equal(&old_root_var)?;
+        merkle_paths.last().unwrap().enforce_equal(&root_var)?;
 
         // leaf change
         new_leaf_var.enforce_equal(&leaf_var)?;
@@ -130,12 +130,10 @@ where
             leaf_var,
         )?;
         // new paths should restrain to input
-        new_nodes_vars
-            .iter()
+        update_nodes_vars
+            .into_iter()
             .zip(merkle_paths)
-            .try_for_each(|(input_node, node)| input_node.enforce_equal(&node))?;
-
-        Ok(new_nodes_vars)
+            .try_for_each(|(input_node, node)| input_node.enforce_equal(&node))
     }
 }
 
@@ -212,7 +210,7 @@ mod tests {
     use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar};
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use ark_relations::r1cs::ConstraintSystem;
-	use arkworks_utils::utils::common::{setup_params_x3_3, Curve, setup_params_x5_3, setup_params_x5_4, setup_params_x5_5, setup_params_x5_2};
+	use arkworks_utils::utils::common::{setup_params_x3_3, Curve, setup_params_x5_2};
     use bitvec::field::BitField;
     use bitvec::prelude::BitVec;
 

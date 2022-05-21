@@ -3,8 +3,8 @@ use ark_ff::PrimeField;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::EqGadget, alloc::AllocVar};
 use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
-use crate::vanilla::{array::Pubkey, hasher::FieldHasher};
-use super::{FieldHasherGadget, RabinEncryption};
+use crate::vanilla::hasher::FieldHasher;
+use super::FieldHasherGadget;
 use super::merkle::{AddNewLeaf, LeafExistance};
 use super::uint64::Uint64;
 
@@ -14,17 +14,16 @@ where
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    mint: Pubkey,
     withdraw_amount: u64,
     deposit_amount: u64,
     nullifier: F,
-    secret: F,
-    secret_params: Rc<FH::Parameters>,
-    leaf_params: Rc<FH::Parameters>,
+    secret_1: F,
+    secret_2: F,
+    commitment_params: Rc<FH::Parameters>,
     nullifier_params: Rc<FH::Parameters>,
+    leaf_params: Rc<FH::Parameters>,
     proof_1: LeafExistance<F, FH, FHG>,
     proof_2: AddNewLeaf<F, FH, FHG>,
-    rabin_encrytion: Option<RabinEncryption<F>>,
 }
 
 impl<F, FH, FHG> ConstraintSynthesizer<F> for WithdrawCircuit<F, FH, FHG>
@@ -35,17 +34,19 @@ where
 {
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
         // alloc constant
-        let secret_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.secret_params)?;
-        let leaf_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
+        let commitment_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.commitment_params)?;
         let nullifier_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.nullifier_params)?;
+        let leaf_params_var = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
+        
         // alloc input
-        let mint_var = FpVar::new_input(cs.clone(), || Ok(self.mint.to_field_element::<F>()))?;
         // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
         let withdraw_amount_var = FpVar::new_input(cs.clone(), || Ok(F::from(self.withdraw_amount)))?;
         let input_nullifier_var = FpVar::new_input(cs.clone(), || Ok(self.nullifier))?;
+
         // alloc witness
         let deposit_amount_var = Uint64::new_witness(cs.clone(), || Ok(self.deposit_amount))?;
-        let secret_var = FpVar::new_witness(cs.clone(), || Ok(self.secret))?;
+        let secret_1_var = FpVar::new_witness(cs.clone(), || Ok(self.secret_1))?;
+        let secret_2_var = FpVar::new_witness(cs.clone(), || Ok(self.secret_2))?;
 
         // restrain withdraw amount is less and equal than deposit amount
         let deposit_amount_var = deposit_amount_var.fp_var().clone();
@@ -56,44 +57,43 @@ where
         )?;
         let rest_amount_var = &deposit_amount_var - withdraw_amount_var;
 
-        // hash secret
-        let secret_hash_var = FHG::hash_gadget(
-            &secret_params_var,
-            &[secret_var.clone()],
+        // hash secret to commitment: hash(secret)
+        let commitment_var = FHG::hash_gadget(
+            &commitment_params_var,
+            &[secret_1_var.clone()],
         )?;
 
-        // hash leaf: hash(pubkey | deposit_amount | secret_hash)
-        let leaf_1_var = FHG::hash_gadget(
+        // hash leaf: hash(deposit_amount | commitment)
+        let leaf_var = FHG::hash_gadget(
             &leaf_params_var,
-            &[mint_var.clone(), deposit_amount_var, secret_hash_var.clone()],
+            &[deposit_amount_var, commitment_var.clone()],
         )?;
         // gen existance proof
-        let (leaf_index_var, old_root_var) = self.proof_1.synthesize(
+        let (leaf_index_var, root_var) = self.proof_1.synthesize(
             cs.clone(),
-            leaf_1_var.clone(),
+            leaf_var,
         )?;
 
-        // gen nullifier
+        // gen nullifier: hash(leaf_index | secret)
         let nullifier_var = FHG::hash_gadget(
             &nullifier_params_var,
-            &[leaf_index_var.clone(), secret_var],
+            &[leaf_index_var.clone(), secret_1_var],
         )?;
         nullifier_var.enforce_equal(&input_nullifier_var)?;
 
-        // hash new back deposit data leaf: hash(pubkey | rest_amount | secret_hash)
-        let leaf_2_var = FHG::hash_gadget(
+        // hash new commitment
+        let commitment_var = FHG::hash_gadget(
+            &commitment_params_var,
+            &[secret_2_var],
+        )?;
+
+        // hash new back deposit data leaf: hash(rest_amount | secret_hash)
+        let leaf_var = FHG::hash_gadget(
             &leaf_params_var,
-            &[mint_var, rest_amount_var, secret_hash_var],
+            &[rest_amount_var, commitment_var],
         )?;
         // gen add new leaf proof
-        self.proof_2.synthesize(cs.clone(), leaf_2_var, old_root_var)?;
-
-        // rabin encrytion for leaf
-        if let Some(rabin_encrytion) = self.rabin_encrytion {
-            rabin_encrytion.synthesize(cs.clone(), leaf_index_var, leaf_1_var)?;
-        }
-
-        Ok(())
+        self.proof_2.synthesize(cs.clone(), leaf_var, root_var)
     }
 }
 
@@ -105,30 +105,29 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        mint: Pubkey,
-        withdraw_amount: u64,
-        deposit_amount: u64,
-        nullifier: F,
-        secret: F,
-        leaf_index_2: u64,
-        leaf_2: F,
-        old_root: F,
-        friend_nodes_1: Vec<(bool, F)>,
-        friend_nodes_2: Vec<(bool, F)>,
-        update_nodes: Vec<F>,
-        secret_params: FH::Parameters,
+        commitment_params: FH::Parameters,
         nullifier_params: FH::Parameters,
         leaf_params: FH::Parameters,
         inner_params: FH::Parameters,
-        rabin_encrytion: Option<RabinEncryption<F>>,
+        withdraw_amount: u64,
+        nullifier: F,
+        leaf_index_2: u64,
+        leaf_2: F,
+        old_root: F,
+        update_nodes: Vec<F>,
+        deposit_amount: u64,
+        secret_1: F,
+        secret_2: F,
+        friend_nodes_1: Vec<(bool, F)>,
+        friend_nodes_2: Vec<(bool, F)>,
     ) -> Self {
         Self {
-            mint,
             withdraw_amount,
             deposit_amount,
             nullifier,
-            secret,
-            secret_params: Rc::new(secret_params),
+            secret_1,
+            secret_2,
+            commitment_params: Rc::new(commitment_params),
             nullifier_params: Rc::new(nullifier_params),
             leaf_params: Rc::new(leaf_params),
             proof_1: LeafExistance::new(
@@ -143,7 +142,6 @@ where
                 update_nodes,
                 inner_params,
             ),
-            rabin_encrytion,
         }
     }
 }
@@ -158,7 +156,7 @@ mod tests {
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::poseidon::PoseidonHasherGadget;
-    use crate::vanilla::{array::Pubkey, merkle::gen_merkle_path};
+    use crate::vanilla::merkle::gen_merkle_path;
     use crate::vanilla::hasher::{poseidon::PoseidonHasher, FieldHasher};
     use super::WithdrawCircuit;
 
@@ -174,24 +172,24 @@ mod tests {
     }
 
     fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
-        let secret_params = setup_params_x5_2(Curve::Bn254);
+        let commitment_params = setup_params_x5_2(Curve::Bn254);
         let nullifier_params = setup_params_x5_3(Curve::Bn254);
         let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         let inner_params = setup_params_x3_3(Curve::Bn254);
         // deposit data
-        let mint = Pubkey::new(<[u8; 32]>::rand(rng));
-        let secret = Fr::rand(rng);
-        let secret_hash = PoseidonHasher::hash(&secret_params, &[secret]).unwrap();
+        let secret_1 = Fr::rand(rng);
+        let secret_2 = Fr::rand(rng);
+        let commitment_1 = PoseidonHasher::hash(&commitment_params, &[secret_1]).unwrap();
+        let commitment_2 = PoseidonHasher::hash(&commitment_params, &[secret_2]).unwrap();
         let rest_amount = deposit_amount.saturating_sub(withdraw_amount);
 
-        let mint_fp = mint.to_field_element::<Fr>();
         let leaf_1 = PoseidonHasher::hash(
             &leaf_params,
-            &[mint_fp, Fr::from(deposit_amount), secret_hash],
+            &[Fr::from(deposit_amount), commitment_1],
         ).unwrap();
         let leaf_2 = PoseidonHasher::hash(
             &leaf_params,
-            &[mint_fp, Fr::from(rest_amount), secret_hash],
+            &[Fr::from(rest_amount), commitment_2],
         ).unwrap();
 
         let mut friend_nodes_1 = get_random_merkle_friends(rng);
@@ -203,7 +201,7 @@ mod tests {
         let index_2 = index_1 + 1;
         let nullifier = PoseidonHasher::hash(
             &nullifier_params,
-            &[Fr::from(index_1), secret],
+            &[Fr::from(index_1), secret_1],
         ).unwrap();
 
         let old_root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
@@ -223,22 +221,21 @@ mod tests {
         ).unwrap();
 
         let withdrawal = WithdrawCircuit::<_, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>>::new(
-            mint,
             withdraw_amount,
             deposit_amount,
             nullifier,
-            secret,
+            secret_1,
+            secret_2,
             index_2,
             leaf_2,
             old_root,
             friend_nodes_1,
             friend_nodes_2,
             update_nodes,
-            secret_params,
+            commitment_params,
             nullifier_params,
             leaf_params,
             inner_params,
-            None,
         );
 
         let cs = ConstraintSystem::<_>::new_ref();

@@ -2,7 +2,6 @@ use std::fs::OpenOptions;
 use std::path::PathBuf;
 use ark_ec::AffineCurve;
 use ark_groth16::PreparedVerifyingKey;
-use arkworks_utils::utils::common::*;
 use ark_serialize::{CanonicalSerialize, Write};
 use ark_crypto_primitives::snark::*;
 use rand_core::{CryptoRng, RngCore, SeedableRng, OsRng};
@@ -12,10 +11,10 @@ use serde_json;
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
+use soda_maze_lib::proof::{ProofScheme, scheme::{EncryptionProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use soda_maze_lib::vanilla::proof::WithdrawConstParams;
-use soda_maze_lib::vanilla::rabin::RabinParam;
+use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
+use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
@@ -24,6 +23,11 @@ use ark_bls12_381::{Bls12_381, Fr};
 
 #[cfg(feature = "groth16")]
 use ark_groth16::Groth16;
+
+#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
+type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
+type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
@@ -187,7 +191,7 @@ struct RabinParameters {
     modulus: String,
     modulus_len: usize,
     bit_size: usize,
-    cypher_batch: usize,
+    cipher_batch: usize,
 }
 
 fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
@@ -200,30 +204,34 @@ fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
     }
 }
 
-#[cfg(feature = "poseidon")]
-fn get_withdraw_const_params(height: usize, params: Option<RabinParameters>) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
-    #[cfg(feature = "bn254")]
-    let curve = Curve::Bn254;
-    #[cfg(feature = "bls12-381")]
-    let curve = Curve::Bls381;
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::{params::poseidon::*, vanilla::biguint::biguint_to_biguint_array};
 
-    let rabin_param = params.map(|params| {
-        let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
-        RabinParam::new::<Fr>(
-            BigUint::from_bytes_le(&modulus),
-            params.modulus_len,
-            params.bit_size,
-            params.cypher_batch,
-        )
-    });
+    let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
+    let modulus = BigUint::from_bytes_le(&modulus);
+    let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
 
+    EncryptionConstParams {
+        commitment_params: get_poseidon_bn254_for_commitment(),
+        nullifier_params: get_poseidon_bn254_for_nullifier(),
+        modulus_array,
+        modulus_len: params.modulus_len,
+        bit_size: params.bit_size,
+        cipher_batch: params.cipher_batch,
+    }
+}
+
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::params::poseidon::*;
+    
     WithdrawConstParams {
-        secret_params: setup_params_x5_2::<Fr>(curve),
-        nullifier_params: setup_params_x5_3::<Fr>(curve),
-        leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x3_3::<Fr>(curve),
+        commitment_params: get_poseidon_bn254_for_commitment(),
+        nullifier_params: get_poseidon_bn254_for_nullifier(),
+        leaf_params: get_poseidon_bn254_for_leaf(),
+        inner_params: get_poseidon_bn254_for_merkle(),
         height,
-        rabin_param,
     }
 }
 
@@ -237,20 +245,30 @@ enum Opt {
         bit_size: usize,
         #[structopt(long = "prime-len", short = "p", default_value = "12")]
         prime_len: usize,
-        #[structopt(long = "cypher-batch", short = "c", default_value = "2")]
-        cypher_batch: usize,
+        #[structopt(long = "cipher-batch", short = "c", default_value = "2")]
+        cipher_batch: usize,
         #[structopt(long = "prime-path", parse(from_os_str))]
         prime_path: PathBuf,
         #[structopt(long = "param-path", parse(from_os_str))]
         param_path: PathBuf,
     },
-    SetupCircuit {
-        #[structopt(long, default_value = "27")]
-        height: usize,
+    SetupEncryption {
         #[structopt(long, short = "s")]
         seed: Option<String>,
         #[structopt(long = "rabin-path", parse(from_os_str))]
-        rabin_path: Option<PathBuf>,
+        rabin_path: PathBuf,
+        #[structopt(long = "pk-path", parse(from_os_str))]
+        pk_path: PathBuf,
+        #[structopt(long = "vk-path", parse(from_os_str))]
+        vk_path: PathBuf,
+        #[structopt(long = "pvk-path", parse(from_os_str))]
+        pvk_path: PathBuf,
+    },
+    SetupWithdraw {
+        #[structopt(long, short = "s")]
+        seed: Option<String>,
+        #[structopt(long, default_value = "27")]
+        height: usize,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[structopt(long = "vk-path", parse(from_os_str))]
@@ -268,7 +286,7 @@ fn main() {
             seed,
             bit_size,
             prime_len,
-            cypher_batch,
+            cipher_batch,
             prime_path,
             param_path,
         } => {
@@ -290,23 +308,37 @@ fn main() {
                 modulus: hex::encode(modulus.to_bytes_le()),
                 modulus_len: prime_len * 2,
                 bit_size,
-                cypher_batch,
+                cipher_batch,
             };
             write_json_to_file(&param_path, &parameter);
         },
-        Opt::SetupCircuit {
-            height,
+        Opt::SetupEncryption {
             seed,
             rabin_path,
             pk_path,
             vk_path,
             pvk_path,
         } => {
-            let params = rabin_path.map(|path| {
-                let param: RabinParameters = read_json_from_file(&path);
-                param
-            });
-            let const_params = get_withdraw_const_params(height, params);
+            let params: RabinParameters = read_json_from_file(&rabin_path);
+            let const_params = get_encryption_const_params(params);
+            let mut rng = XSRng(get_xorshift_rng(seed));
+            let (pk, vk) =
+                EncryptionInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
+
+            write_to_file(&pk_path, &pk);
+            write_to_file(&vk_path, &vk);
+
+            let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
+            write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
+        }
+        Opt::SetupWithdraw {
+            height,
+            seed,
+            pk_path,
+            vk_path,
+            pvk_path,
+        } => {
+            let const_params = get_withdraw_const_params(height);
             let mut rng = XSRng(get_xorshift_rng(seed));
             let (pk, vk) =
                 WithdrawInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");

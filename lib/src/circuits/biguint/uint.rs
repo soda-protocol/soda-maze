@@ -47,22 +47,6 @@ impl<F: PrimeField> GeneralUint<F> {
         }
     }
 
-    pub fn new(
-        cs: ConstraintSystemRef<F>,
-        variable: Variable,
-        value: BigUint,
-        bit_size: usize,
-    ) -> Self {
-        assert!(F::Params::MODULUS_BITS as usize > bit_size);
-        assert!(value.bits() as usize <= bit_size);
-        Self {
-            variable: UintVar::Variable(variable),
-            cs,
-            value,
-            bit_size,
-        }
-    }
-
     pub fn new_constant(v: BigUint) -> Self {
         let bit_size = v.bits() as usize;
         assert!(F::Params::MODULUS_BITS as usize > bit_size);

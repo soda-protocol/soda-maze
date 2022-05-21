@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use num_traits::{One, Zero};
 use solana_program::{pubkey::Pubkey, account_info::AccountInfo, entrypoint::ProgramResult};
 
-use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{bn::{Fr, G1Projective254}, hasher::get_params_bn254_x3_3}, context::Context, vanilla::merkle::{PoseidonMerkleHasher, LeafHasher}, HEIGHT};
+use crate::{verifier::{fsm::*, mock::{prepare_input::PrepareInputs, miller_loop::{MillerLoop, MillerLoopFinalize}, final_exponent::{FinalExponentInverse, FinalExponentMulStep4, FinalExponentMulStep3}}, ProofA, ProofB, ProofC}, params::{bn::{Fr, G1Projective254}, hasher::get_params_bn254_x3_3}, context::Context, HEIGHT};
 use crate::params::bn::{G1Affine254, G2Affine254, Fq, Fq2, G2HomProjective254, Fqk254, Fq6};
 use crate::bn::BigInteger256 as BigInteger;
 
@@ -269,7 +269,7 @@ mod tests {
             &[Instruction {
                 program_id: id(),
                 accounts: vec![],
-                data: vec![25, 40],
+                data: vec![0],
             }],
             Some(&user.pubkey()),
             &[&user],

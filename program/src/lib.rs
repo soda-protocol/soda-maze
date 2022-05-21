@@ -11,6 +11,7 @@ pub mod params;
 pub mod context;
 pub mod state;
 pub mod hasher;
+pub mod gadget;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
 

@@ -1,8 +1,8 @@
 pub mod merkle;
 pub mod hasher;
-pub mod array;
-pub mod proof;
-pub mod rabin;
+pub mod withdraw;
+pub mod biguint;
+pub mod encryption;
 
 use anyhow::Result;
 use ark_ff::PrimeField;

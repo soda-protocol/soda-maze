@@ -1,5 +1,5 @@
-pub mod poseidon;
 pub mod mimc;
+pub mod poseidon;
 
 use ark_crypto_primitives::Error;
 use ark_ff::PrimeField;

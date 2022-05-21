@@ -1,7 +1,3 @@
-mod encrypt;
-
-pub use encrypt::*;
-
 use ark_ff::{PrimeField, FpParameters};
 use num_bigint::BigUint;
 use num_integer::Integer;

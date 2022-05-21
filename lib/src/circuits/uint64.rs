@@ -1,4 +1,5 @@
-use ark_r1cs_std::{uint64::UInt64, boolean::Boolean, fields::fp::FpVar, alloc::AllocVar, ToBitsGadget};
+use ark_r1cs_std::{uint64::UInt64, boolean::Boolean};
+use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar, ToBitsGadget};
 use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
 use ark_ff::PrimeField;
 

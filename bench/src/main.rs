@@ -6,18 +6,16 @@ use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use arkworks_utils::poseidon::PoseidonParameters;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
+use soda_maze_lib::proof::{ProofScheme, scheme::{EncryptionProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::FieldHasher;
-use soda_maze_lib::vanilla::proof::*;
-use soda_maze_lib::vanilla::{array::Pubkey as ArrayPubkey, hasher::poseidon::PoseidonHasher, VanillaProof};
-use soda_maze_lib::vanilla::proof::WithdrawConstParams;
-use arkworks_utils::utils::common::*;
+use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
+use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionVanillaProof, EncryptionOriginInputs, EncryptionPublicInputs};
+use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use rand_core::{CryptoRng, RngCore, OsRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
-use solana_program::pubkey::Pubkey;
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr, FrParameters};
@@ -27,9 +25,17 @@ use ark_bls12_381::{Bls12_381, Fr, FrParameters};
 use ark_groth16::Groth16;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
+type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
+type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+
+#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+
+#[cfg(all(feature = "poseidon"))]
+type EncryptionVanillaInstant = EncryptionVanillaProof::<Fr, PoseidonHasher<Fr>>;
 
 #[cfg(all(feature = "poseidon"))]
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -39,34 +45,25 @@ struct RabinParameters {
     modulus: String,
     modulus_len: usize,
     bit_size: usize,
-    cypher_batch: usize,
+    cipher_batch: usize,
 }
 
 #[derive(Serialize, Deserialize)]
-struct WithdrawProofData {
-    mint: Pubkey,
-    withdraw_amount: u64,
-    nullifier: String,
-    old_root: String,
-    new_leaf_index: u64,
-    new_leaf: String,
-    update_nodes: Vec<String>,
-    cipher: Option<Vec<String>>,
+struct EncryptionProofData {
+    leaf_index: u64,
+    commitment: String,
+    cipher_array: Vec<String>,
     proof: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct WithdrawInputs {
-    height: usize,
-    mint: Pubkey,
-    deposit_amount: u64,
+struct WithdrawProofData {
     withdraw_amount: u64,
     nullifier: String,
     old_root: String,
     new_leaf_index: u64,
     new_leaf: String,
     update_nodes: Vec<String>,
-    cypher: Option<Vec<String>>,
     proof: String,
 }
 
@@ -107,32 +104,34 @@ fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
     hex::encode(buf)
 }
 
-#[cfg(feature = "poseidon")]
-fn get_withdraw_const_params(height: usize, params: &Option<RabinParameters>) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::vanilla::rabin::RabinParam;
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::{params::poseidon::*, vanilla::biguint::biguint_to_biguint_array};
 
-    #[cfg(feature = "bn254")]
-    let curve = Curve::Bn254;
-    #[cfg(feature = "bls12-381")]
-    let curve = Curve::Bls381;
+    let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
+    let modulus = BigUint::from_bytes_le(&modulus);
+    let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
 
-    let rabin_param = params.as_ref().map(|params| {
-        let modulus = hex::decode(&params.modulus).expect("modulus is an invalid hex string");
-        RabinParam::new::<Fr>(
-            BigUint::from_bytes_le(&modulus),
-            params.modulus_len,
-            params.bit_size,
-            params.cypher_batch,
-        )
-    });
+    EncryptionConstParams {
+        commitment_params: get_poseidon_bn254_for_commitment(),
+        nullifier_params: get_poseidon_bn254_for_nullifier(),
+        modulus_array,
+        modulus_len: params.modulus_len,
+        bit_size: params.bit_size,
+        cipher_batch: params.cipher_batch,
+    }
+}
 
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::params::poseidon::*;
+    
     WithdrawConstParams {
-        secret_params: setup_params_x5_2::<Fr>(curve),
-        nullifier_params: setup_params_x5_3::<Fr>(curve),
-        leaf_params: setup_params_x5_4::<Fr>(curve),
-        inner_params: setup_params_x3_3::<Fr>(curve),
+        commitment_params: get_poseidon_bn254_for_commitment(),
+        nullifier_params: get_poseidon_bn254_for_nullifier(),
+        leaf_params: get_poseidon_bn254_for_leaf(),
+        inner_params: get_poseidon_bn254_for_merkle(),
         height,
-        rabin_param,
     }
 }
 
@@ -234,102 +233,132 @@ impl MerkleTree {
 #[derive(StructOpt)]
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
 enum Opt {
-    Prove {
-        #[structopt(long, default_value = "27")]
-        height: usize,
+    ProveEncryption {
+        #[structopt(long, short = "s")]
+        seed: Option<String>,
         #[structopt(long = "rabin-path", parse(from_os_str))]
-        rabin_path: Option<PathBuf>,
+        rabin_path: PathBuf,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
-        #[structopt(long)]
-        seed: Option<String>,
-        #[structopt(long = "index-1")]
-        leaf_index_1: u64,
-        #[structopt(long = "index-2")]
-        leaf_index_2: u64,
-        #[structopt(long)]
-        mint: Pubkey,
-        #[structopt(long = "deposit-amount", short = "d")]
-        deposit_amount: u64,
-        #[structopt(long = "withdraw-amount", short = "w")]
-        withdraw_amount: u64,
     },
-    Verify {
+    ProveWithdraw {
+        #[structopt(long, short = "s")]
+        seed: Option<String>,
+        #[structopt(long, default_value = "27")]
+        height: usize,
+        #[structopt(long = "pk-path", parse(from_os_str))]
+        pk_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
+    },
+    VerifyEncryption {
         #[structopt(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
+    VerifyWithdraw {
+        #[structopt(long = "vk-path", parse(from_os_str))]
+        vk_path: PathBuf,
+        #[structopt(long = "proof-path", parse(from_os_str))]
+        proof_path: PathBuf,
+    }
 }
 
 fn main() {
     let opt = Opt::from_args();
 
     match opt {
-        Opt::Prove {
-            height,
+        Opt::ProveEncryption {
+            seed,
+            rabin_path,
             pk_path,
             proof_path,
-            rabin_path,
-            seed,
-            leaf_index_1,
-            leaf_index_2,
-            mint,
-            deposit_amount,
-            withdraw_amount,
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let params = rabin_path.map(|path| {
-                let param: RabinParameters = read_json_from_file(&path);
-                param
-            });
-            let const_params = get_withdraw_const_params(height, &params);
-            let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
-            let friend_nodes_1 = merkle_tree.blank.clone();
+            let params: RabinParameters = read_json_from_file(&rabin_path);
+            let const_params = get_encryption_const_params(params);
             
+            let leaf_index = u64::rand(&mut OsRng);
             let secret = Fr::rand(&mut OsRng);
-            let secret_hash = PoseidonHasher::hash(
-                &const_params.secret_params,
-                &[secret],
-            ).expect("hash failed");
-            let leaf = PoseidonHasher::hash(
-                &const_params.leaf_params,
-                &[
-                    ArrayPubkey::new(mint.to_bytes()).to_field_element(),
-                    Fr::from(deposit_amount),
-                    secret_hash,
-                ],
-            ).expect("hash failed");
-            merkle_tree.add_leaf(&const_params.inner_params, leaf_index_1, leaf);
-
-            let random_padding = params.map(|param| {
-                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / param.bit_size;
-                if <FrParameters as FpParameters>::MODULUS_BITS as usize % param.bit_size != 0 {
+            let padding_array = {
+                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / const_params.bit_size;
+                if <FrParameters as FpParameters>::MODULUS_BITS as usize % const_params.bit_size != 0 {
                     leaf_len += 1;
                 }
                 
-                (0..param.modulus_len - leaf_len - 1).into_iter().map(|_| {
+                (0..const_params.modulus_len - leaf_len).into_iter().map(|_| {
                     use num_bigint_dig::RandBigInt;
-                    let r = OsRng.gen_biguint(param.bit_size);
+                    let r = OsRng.gen_biguint(const_params.bit_size);
                     BigUint::from_bytes_le(&r.to_bytes_le())
                 }).collect::<Vec<_>>()
-            });
+            };
 
-            let friend_nodes_2 = merkle_tree.get_friends(leaf_index_2);
+            let origin_inputs = EncryptionOriginInputs {
+                leaf_index,
+                secret,
+                padding_array,
+            };
+            let pk = read_from_file::<ProvingKey<_>>(&pk_path);
+            let (pub_in, priv_in)
+                = EncryptionVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
+                    .expect("generate vanilla proof failed");
+
+            let mut rng = get_xorshift_rng(seed);
+            let proof =
+                EncryptionInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
+            let proof_data = EncryptionProofData {
+                leaf_index: pub_in.leaf_index,
+                commitment: to_hex(&pub_in.commitment),
+                cipher_array: pub_in.cipher_field_array.iter().map(|c| to_hex(c)).collect(),
+                proof: to_hex(&proof),
+            };
+            write_json_to_file(&proof_path, &proof_data);
+
+            let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
+            println!("proof time: {:?}", duration);
+        }
+        Opt::ProveWithdraw {
+            seed,
+            height,
+            pk_path,
+            proof_path,
+        } => {
+            let start_time = std::time::SystemTime::now();
+
+            let const_params = get_withdraw_const_params(height);
+            let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
+            let friend_nodes_1 = merkle_tree.blank.clone();
+            
+            let amount_1 = u64::rand(&mut OsRng);
+            let amount_2 = u64::rand(&mut OsRng);
+            let deposit_amount = amount_1.max(amount_2);
+            let withdraw_amount = amount_1.min(amount_2);
+            let secret_1 = Fr::rand(&mut OsRng);
+            let secret_2 = Fr::rand(&mut OsRng);
+            let commitment = PoseidonHasher::hash(
+                &const_params.commitment_params,
+                &[secret_1],
+            ).expect("hash failed");
+            let leaf = PoseidonHasher::hash(
+                &const_params.leaf_params,
+                &[Fr::from(deposit_amount), commitment],
+            ).expect("hash failed");
+            merkle_tree.add_leaf(&const_params.inner_params, 0, leaf);
+            let friend_nodes_2 = merkle_tree.get_friends(1);
 
             let origin_inputs = WithdrawOriginInputs {
-                mint: ArrayPubkey::new(mint.to_bytes()),
                 deposit_amount,
                 withdraw_amount,
-                leaf_index_1,
-                leaf_index_2,
-                secret,
+                leaf_index_1: 0,
+                leaf_index_2: 1,
+                secret_1,
+                secret_2,
                 friend_nodes_1,
                 friend_nodes_2,
-                random_padding,
             };
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
             let (pub_in, priv_in)
@@ -339,14 +368,12 @@ fn main() {
             let proof =
                 WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
             let proof_data = WithdrawProofData {
-                mint,
-                withdraw_amount,
+                withdraw_amount: pub_in.withdraw_amount,
                 nullifier: to_hex(&pub_in.nullifier),
                 old_root: to_hex(&pub_in.old_root),
                 new_leaf_index: pub_in.new_leaf_index,
                 new_leaf: to_hex(&pub_in.new_leaf),
                 update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
-                cipher: pub_in.cipher.map(|c| c.into_iter().map(|c| to_hex(&c)).collect()),
                 proof: to_hex(&proof),
             };
             write_json_to_file(&proof_path, &proof_data);
@@ -354,7 +381,34 @@ fn main() {
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);
         },
-        Opt::Verify {
+        Opt::VerifyEncryption {
+            vk_path,
+            proof_path,
+        } => {
+            let start_time = std::time::SystemTime::now();
+
+            let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
+            let proof_data = read_json_from_file::<EncryptionProofData>(&proof_path);
+
+            let proof = from_hex(proof_data.proof);
+            let pub_in = EncryptionPublicInputs {
+                leaf_index: proof_data.leaf_index,
+                commitment: from_hex(proof_data.commitment),
+                cipher_field_array: proof_data.cipher_array.iter().map(|c| from_hex(c.clone())).collect(),
+            };
+
+            let result = EncryptionInstant::verify_snark_proof(&pub_in, &proof, &vk)
+                .expect("verify snark proof failed");
+            if result {
+                println!("verify encryption proof success");
+            } else {
+                println!("verify encryption proof failed");
+            }
+
+            let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
+            println!("proof time: {:?}", duration);
+        },
+        Opt::VerifyWithdraw {
             vk_path,
             proof_path,
         } => {
@@ -365,14 +419,12 @@ fn main() {
 
             let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {
-                mint: ArrayPubkey::new(proof_data.mint.to_bytes()),
                 withdraw_amount: proof_data.withdraw_amount,
                 nullifier: from_hex(proof_data.nullifier),
                 old_root: from_hex(proof_data.old_root),
                 new_leaf_index: proof_data.new_leaf_index,
                 new_leaf: from_hex(proof_data.new_leaf),
                 update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-                cipher: proof_data.cipher.map(|n| n.into_iter().map(|n| from_hex(n)).collect()),
             };
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)

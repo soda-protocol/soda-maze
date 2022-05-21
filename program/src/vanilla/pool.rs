@@ -10,5 +10,7 @@ pub struct Pool {
     pub authority: Pubkey,
     pub signer_seed: [u8; 1],
     pub root: Fr,
-    pub index: u32,
+    pub index: u64,
 }
+
+
