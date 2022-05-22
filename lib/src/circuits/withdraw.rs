@@ -152,7 +152,7 @@ mod tests {
     use ark_std::rand::Rng;
     use ark_std::{test_rng, UniformRand};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, ConstraintSynthesizer};
-	use arkworks_utils::utils::common::{Curve, setup_params_x3_3, setup_params_x5_2, setup_params_x5_3, setup_params_x5_4};
+	   use arkworks_utils::utils::common::{Curve, setup_params_x3_3, setup_params_x5_2, setup_params_x5_3};
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::poseidon::PoseidonHasherGadget;
@@ -174,7 +174,7 @@ mod tests {
     fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
         let commitment_params = setup_params_x5_2(Curve::Bn254);
         let nullifier_params = setup_params_x5_3(Curve::Bn254);
-        let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
+        let leaf_params = setup_params_x5_3::<Fr>(Curve::Bn254);
         let inner_params = setup_params_x3_3(Curve::Bn254);
         // deposit data
         let secret_1 = Fr::rand(rng);
@@ -220,22 +220,22 @@ mod tests {
             leaf_2.clone(),
         ).unwrap();
 
-        let withdrawal = WithdrawCircuit::<_, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>>::new(
-            withdraw_amount,
-            deposit_amount,
-            nullifier,
-            secret_1,
-            secret_2,
-            index_2,
-            leaf_2,
-            old_root,
-            friend_nodes_1,
-            friend_nodes_2,
-            update_nodes,
+        let withdrawal = WithdrawCircuit::<_, _, PoseidonHasherGadget<_>>::new(
             commitment_params,
             nullifier_params,
             leaf_params,
             inner_params,
+            withdraw_amount,
+            nullifier,
+            index_2,
+            leaf_2,
+            old_root,
+            update_nodes,
+            deposit_amount,
+            secret_1,
+            secret_2,
+            friend_nodes_1,
+            friend_nodes_2,
         );
 
         let cs = ConstraintSystem::<_>::new_ref();
