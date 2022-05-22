@@ -10,7 +10,7 @@ use super::{hasher::FieldHasher, VanillaProof};
 #[derive(Default)]
 pub struct EncryptionVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
     _f: PhantomData<F>,
-    _fh1: PhantomData<FH>,
+    _fh: PhantomData<FH>,
 }
 
 pub struct EncryptionConstParams<F: PrimeField, FH: FieldHasher<F>> {

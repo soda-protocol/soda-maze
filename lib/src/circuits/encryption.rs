@@ -18,11 +18,11 @@ fn gen_preimage_array<F: PrimeField>(
     let base_field = F::from(base.clone());
 
     let (lc, _) = nullifier_array
-    .iter()
-    .try_fold((lc!(), F::one()), |(lc, coeff), var| {
-        let lc = lc + (coeff, var.variable()?);
-        Ok((lc, coeff * base_field))
-    })?;
+        .iter()
+        .try_fold((lc!(), F::one()), |(lc, coeff), var| {
+            let lc = lc + (coeff, var.variable()?);
+            Ok((lc, coeff * base_field))
+        })?;
     if let FpVar::Var(nullifier) = nullifier_field {
         nullifier.cs.enforce_constraint(
             LinearCombination::from(nullifier.variable),

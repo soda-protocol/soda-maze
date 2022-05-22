@@ -7,7 +7,7 @@ use super::{hasher::FieldHasher, VanillaProof, merkle::gen_merkle_path};
 #[derive(Default)]
 pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
     _f: PhantomData<F>,
-    _fh1: PhantomData<FH>,
+    _fh: PhantomData<FH>,
 }
 
 pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {

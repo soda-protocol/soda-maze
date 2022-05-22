@@ -1,4 +1,4 @@
-use ark_r1cs_std::{uint64::UInt64, boolean::Boolean};
+use ark_r1cs_std::{uint64::UInt64, eq::EqGadget, boolean::Boolean, R1CSVar};
 use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar, ToBitsGadget};
 use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
 use ark_ff::PrimeField;
@@ -9,6 +9,19 @@ pub struct Uint64<F: PrimeField> {
 }
 
 impl<F: PrimeField> Uint64<F> {
+    #[allow(dead_code)]
+    pub fn new_input(cs: ConstraintSystemRef<F>, f: impl FnOnce() -> Result<u64, SynthesisError>) -> Result<Self, SynthesisError> {
+        let uint = UInt64::new_witness(cs.clone(), f)?;
+        let var = Boolean::le_bits_to_fp_var(&uint.to_bits_le())?;
+        let variable = FpVar::new_input(cs.clone(), || var.value())?;
+        var.enforce_equal(&variable)?;
+
+        Ok(Self {
+            variable,
+            uint,
+        })
+    }
+
     pub fn new_witness(cs: ConstraintSystemRef<F>, f: impl FnOnce() -> Result<u64, SynthesisError>) -> Result<Self, SynthesisError> {
         let uint = UInt64::new_witness(cs.clone(), f)?;
         let variable = Boolean::le_bits_to_fp_var(&uint.to_bits_le())?;
