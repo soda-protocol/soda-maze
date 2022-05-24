@@ -1,15 +1,17 @@
 use std::collections::BTreeMap;
 use std::{path::PathBuf, fs::OpenOptions};
 use ark_ff::FpParameters;
-use ark_std::{UniformRand, rand::SeedableRng};
+use ark_std::rand::prelude::Distribution;
+use ark_std::{UniformRand, rand::{SeedableRng, distributions::Uniform}};
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use arkworks_utils::poseidon::PoseidonParameters;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{EncryptionProof, WithdrawProof}};
+use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::FieldHasher;
 use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
-use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionVanillaProof, EncryptionOriginInputs, EncryptionPublicInputs};
+use soda_maze_lib::vanilla::deposit::{DepositConstParams, DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
+use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublicInputs, EncryptionOriginInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 use structopt::StructOpt;
 use num_bigint::BigUint;
@@ -25,9 +27,9 @@ use ark_bls12_381::{Bls12_381, Fr, FrParameters};
 use ark_groth16::Groth16;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
@@ -35,7 +37,7 @@ type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGad
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
 #[cfg(all(feature = "poseidon"))]
-type EncryptionVanillaInstant = EncryptionVanillaProof::<Fr, PoseidonHasher<Fr>>;
+type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
 
 #[cfg(all(feature = "poseidon"))]
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -49,10 +51,13 @@ struct RabinParameters {
 }
 
 #[derive(Serialize, Deserialize)]
-struct EncryptionProofData {
+struct DepositProofData {
+    deposit_amount: u64,
+    prev_root: String,
     leaf_index: u64,
-    commitment: String,
-    cipher_array: Vec<String>,
+    leaf: String,
+    update_nodes: Vec<String>,
+    cipher_array: Option<Vec<String>>,
     proof: String,
 }
 
@@ -60,9 +65,9 @@ struct EncryptionProofData {
 struct WithdrawProofData {
     withdraw_amount: u64,
     nullifier: String,
-    old_root: String,
-    new_leaf_index: u64,
-    new_leaf: String,
+    prev_root: String,
+    dst_leaf_index: u64,
+    dst_leaf: String,
     update_nodes: Vec<String>,
     proof: String,
 }
@@ -106,14 +111,13 @@ fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
 
 #[cfg(all(feature = "poseidon", feature = "bn254"))]
 fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::{params::poseidon::*, vanilla::biguint::biguint_to_biguint_array};
+    use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
 
     let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
     let modulus = BigUint::from_bytes_le(&modulus);
     let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
 
     EncryptionConstParams {
-        commitment_params: get_poseidon_bn254_for_commitment(),
         nullifier_params: get_poseidon_bn254_for_nullifier(),
         modulus_array,
         modulus_len: params.modulus_len,
@@ -123,11 +127,25 @@ fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams
 }
 
 #[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_deposit_const_params(
+    height: usize,
+    encryption: Option<EncryptionConstParams<Fr, PoseidonHasher<Fr>>>,
+) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::params::poseidon::*;
+
+    DepositConstParams {
+        leaf_params: get_poseidon_bn254_for_leaf(),
+        inner_params: get_poseidon_bn254_for_merkle(),
+        height,
+        encryption,
+    }
+}
+
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
 fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     use soda_maze_lib::params::poseidon::*;
     
     WithdrawConstParams {
-        commitment_params: get_poseidon_bn254_for_commitment(),
         nullifier_params: get_poseidon_bn254_for_nullifier(),
         leaf_params: get_poseidon_bn254_for_leaf(),
         inner_params: get_poseidon_bn254_for_merkle(),
@@ -233,11 +251,13 @@ impl MerkleTree {
 #[derive(StructOpt)]
 #[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
 enum Opt {
-    ProveEncryption {
+    ProveDeposit {
         #[structopt(long, short = "s")]
         seed: Option<String>,
+        #[structopt(long, default_value = "27")]
+        height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
-        rabin_path: PathBuf,
+        rabin_path: Option<PathBuf>,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
@@ -253,7 +273,7 @@ enum Opt {
         #[structopt(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
-    VerifyEncryption {
+    VerifyDeposit {
         #[structopt(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
@@ -271,49 +291,72 @@ fn main() {
     let opt = Opt::from_args();
 
     match opt {
-        Opt::ProveEncryption {
+        Opt::ProveDeposit {
             seed,
+            height,
             rabin_path,
             pk_path,
             proof_path,
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let params: RabinParameters = read_json_from_file(&rabin_path);
-            let const_params = get_encryption_const_params(params);
-            
-            let leaf_index = u64::rand(&mut OsRng);
-            let secret = Fr::rand(&mut OsRng);
-            let padding_array = {
-                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / const_params.bit_size;
-                if <FrParameters as FpParameters>::MODULUS_BITS as usize % const_params.bit_size != 0 {
+            let const_params = rabin_path.as_ref().map(|rabin_path| {
+                let params: RabinParameters = read_json_from_file(rabin_path);
+                get_encryption_const_params(params)
+            });
+            let const_params = get_deposit_const_params(
+                height,
+                const_params,
+            );
+
+            let rabin_orig_in = rabin_path.map(|rabin_path| {
+                let params: RabinParameters = read_json_from_file(&rabin_path);
+                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / params.bit_size;
+                if <FrParameters as FpParameters>::MODULUS_BITS as usize % params.bit_size != 0 {
                     leaf_len += 1;
                 }
                 
-                (0..const_params.modulus_len - leaf_len).into_iter().map(|_| {
+                let padding_array = (0..params.modulus_len - leaf_len).into_iter().map(|_| {
                     use num_bigint_dig::RandBigInt;
-                    let r = OsRng.gen_biguint(const_params.bit_size);
+                    let r = OsRng.gen_biguint(params.bit_size);
                     BigUint::from_bytes_le(&r.to_bytes_le())
-                }).collect::<Vec<_>>()
-            };
+                }).collect::<Vec<_>>();
 
-            let origin_inputs = EncryptionOriginInputs {
+                EncryptionOriginInputs { padding_array }
+            });
+            
+            let leaf_index = Uniform::new(0, 1 << height).sample(&mut OsRng);
+            let deposit_amount = u64::rand(&mut OsRng);
+            let secret = Fr::rand(&mut OsRng);
+            let merkle_tree = MerkleTree::new(height, &const_params.inner_params);
+            let friend_nodes = merkle_tree.blank.clone();
+
+            let origin_inputs = DepositOriginInputs {
                 leaf_index,
+                deposit_amount,
                 secret,
-                padding_array,
+                friend_nodes,
+                encryption: rabin_orig_in,
             };
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
-            let (pub_in, priv_in)
-                = EncryptionVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
+            let (pub_in, priv_in) =
+                DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
                     .expect("generate vanilla proof failed");
 
             let mut rng = get_xorshift_rng(seed);
             let proof =
-                EncryptionInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
-            let proof_data = EncryptionProofData {
+                DepositInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
+            let cipher_array = pub_in.encryption
+                .map(|e| {
+                    e.cipher_field_array.iter().map(|c| to_hex(c)).collect::<Vec<_>>()
+                });
+            let proof_data = DepositProofData {
+                deposit_amount,
+                prev_root: to_hex(&pub_in.prev_root),
+                leaf: to_hex(&pub_in.leaf),
                 leaf_index: pub_in.leaf_index,
-                commitment: to_hex(&pub_in.commitment),
-                cipher_array: pub_in.cipher_field_array.iter().map(|c| to_hex(c)).collect(),
+                update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
+                cipher_array,
                 proof: to_hex(&proof),
             };
             write_json_to_file(&proof_path, &proof_data);
@@ -331,7 +374,6 @@ fn main() {
 
             let const_params = get_withdraw_const_params(height);
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
-            let friend_nodes_1 = merkle_tree.blank.clone();
 
             // const_params.commitment_params.round_keys.iter().for_each(|k| {
             //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
@@ -368,44 +410,43 @@ fn main() {
             //     println!("    ],");
             // });
 
-            println!("--------------------------------------------------------------------");
-            const_params.inner_params.round_keys.iter().for_each(|k| {
-                println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
-            });
-            const_params.inner_params.mds_matrix.iter().for_each(|ks| {
-                println!("    &[");
-                ks.iter().for_each(|k| {
-                    println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
-                });
-                println!("    ],");
-            });
+            // println!("--------------------------------------------------------------------");
+            // const_params.inner_params.round_keys.iter().for_each(|k| {
+            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
+            // });
+            // const_params.inner_params.mds_matrix.iter().for_each(|ks| {
+            //     println!("    &[");
+            //     ks.iter().for_each(|k| {
+            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
+            //     });
+            //     println!("    ],");
+            // });
 
             let amount_1 = u64::rand(&mut OsRng);
             let amount_2 = u64::rand(&mut OsRng);
             let deposit_amount = amount_1.max(amount_2);
             let withdraw_amount = amount_1.min(amount_2);
-            let secret_1 = Fr::rand(&mut OsRng);
-            let secret_2 = Fr::rand(&mut OsRng);
-            let commitment = PoseidonHasher::hash(
-                &const_params.commitment_params,
-                &[secret_1],
-            ).expect("hash failed");
-            let leaf = PoseidonHasher::hash(
+            let secret = Fr::rand(&mut OsRng);
+
+            let src_index = 0;
+            let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
-                &[Fr::from(deposit_amount), commitment],
+                &[Fr::from(src_index), Fr::from(deposit_amount), secret],
             ).expect("hash failed");
-            merkle_tree.add_leaf(&const_params.inner_params, 0, leaf);
-            let friend_nodes_2 = merkle_tree.get_friends(1);
+            merkle_tree.add_leaf(&const_params.inner_params, src_index, src_leaf);
+            let src_friend_nodes = merkle_tree.get_friends(src_index);
+
+            let dst_index = 1;
+            let dst_friend_nodes = merkle_tree.get_friends(dst_index);
 
             let origin_inputs = WithdrawOriginInputs {
                 deposit_amount,
                 withdraw_amount,
-                leaf_index_1: 0,
-                leaf_index_2: 1,
-                secret_1,
-                secret_2,
-                friend_nodes_1,
-                friend_nodes_2,
+                src_leaf_index: src_index,
+                dst_leaf_index: dst_index,
+                secret,
+                src_friend_nodes,
+                dst_friend_nodes,
             };
             let pk = read_from_file::<ProvingKey<_>>(&pk_path);
             let (pub_in, priv_in)
@@ -417,9 +458,9 @@ fn main() {
             let proof_data = WithdrawProofData {
                 withdraw_amount: pub_in.withdraw_amount,
                 nullifier: to_hex(&pub_in.nullifier),
-                old_root: to_hex(&pub_in.old_root),
-                new_leaf_index: pub_in.new_leaf_index,
-                new_leaf: to_hex(&pub_in.new_leaf),
+                prev_root: to_hex(&pub_in.prev_root),
+                dst_leaf_index: pub_in.dst_leaf_index,
+                dst_leaf: to_hex(&pub_in.dst_leaf),
                 update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
                 proof: to_hex(&proof),
             };
@@ -428,28 +469,38 @@ fn main() {
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);
         },
-        Opt::VerifyEncryption {
+        Opt::VerifyDeposit {
             vk_path,
             proof_path,
         } => {
             let start_time = std::time::SystemTime::now();
 
             let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
-            let proof_data = read_json_from_file::<EncryptionProofData>(&proof_path);
+            let proof_data = read_json_from_file::<DepositProofData>(&proof_path);
 
             let proof = from_hex(proof_data.proof);
-            let pub_in = EncryptionPublicInputs {
+            let cipher_field_array = proof_data.cipher_array
+                .map(|c| {
+                    c.into_iter().map(|s| from_hex(s)).collect::<Vec<_>>()
+                });
+            let encryption = cipher_field_array.map(|c| {
+                EncryptionPublicInputs { cipher_field_array: c }
+            });
+            let pub_in = DepositPublicInputs {
                 leaf_index: proof_data.leaf_index,
-                commitment: from_hex(proof_data.commitment),
-                cipher_field_array: proof_data.cipher_array.iter().map(|c| from_hex(c.clone())).collect(),
+                deposit_amount: proof_data.deposit_amount,
+                leaf: from_hex(proof_data.leaf),
+                prev_root: from_hex(proof_data.prev_root),
+                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
+                encryption,
             };
 
-            let result = EncryptionInstant::verify_snark_proof(&pub_in, &proof, &vk)
+            let result = DepositInstant::verify_snark_proof(&pub_in, &proof, &vk)
                 .expect("verify snark proof failed");
             if result {
-                println!("verify encryption proof success");
+                println!("verify deposit proof success");
             } else {
-                println!("verify encryption proof failed");
+                println!("verify deposit proof failed");
             }
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
@@ -468,9 +519,9 @@ fn main() {
             let pub_in = WithdrawPublicInputs {
                 withdraw_amount: proof_data.withdraw_amount,
                 nullifier: from_hex(proof_data.nullifier),
-                old_root: from_hex(proof_data.old_root),
-                new_leaf_index: proof_data.new_leaf_index,
-                new_leaf: from_hex(proof_data.new_leaf),
+                prev_root: from_hex(proof_data.prev_root),
+                dst_leaf_index: proof_data.dst_leaf_index,
+                dst_leaf: from_hex(proof_data.dst_leaf),
                 update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
             };
 

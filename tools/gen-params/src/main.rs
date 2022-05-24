@@ -11,8 +11,9 @@ use serde_json;
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{EncryptionProof, WithdrawProof}};
+use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
+use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
 
@@ -25,9 +26,9 @@ use ark_bls12_381::{Bls12_381, Fr};
 use ark_groth16::Groth16;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type EncryptionInstant = EncryptionProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
 #[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
@@ -206,14 +207,13 @@ fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
 
 #[cfg(all(feature = "poseidon", feature = "bn254"))]
 fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::{params::poseidon::*, vanilla::biguint::biguint_to_biguint_array};
+    use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
 
     let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
     let modulus = BigUint::from_bytes_le(&modulus);
     let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
 
     EncryptionConstParams {
-        commitment_params: get_poseidon_bn254_for_commitment(),
         nullifier_params: get_poseidon_bn254_for_nullifier(),
         modulus_array,
         modulus_len: params.modulus_len,
@@ -223,11 +223,25 @@ fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams
 }
 
 #[cfg(all(feature = "poseidon", feature = "bn254"))]
+fn get_deposit_const_params(
+    height: usize,
+    encryption: Option<EncryptionConstParams<Fr, PoseidonHasher<Fr>>>,
+) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
+    use soda_maze_lib::params::poseidon::*;
+
+    DepositConstParams {
+        leaf_params: get_poseidon_bn254_for_leaf(),
+        inner_params: get_poseidon_bn254_for_merkle(),
+        height,
+        encryption,
+    }
+}
+
+#[cfg(all(feature = "poseidon", feature = "bn254"))]
 fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
     use soda_maze_lib::params::poseidon::*;
     
     WithdrawConstParams {
-        commitment_params: get_poseidon_bn254_for_commitment(),
         nullifier_params: get_poseidon_bn254_for_nullifier(),
         leaf_params: get_poseidon_bn254_for_leaf(),
         inner_params: get_poseidon_bn254_for_merkle(),
@@ -252,11 +266,13 @@ enum Opt {
         #[structopt(long = "param-path", parse(from_os_str))]
         param_path: PathBuf,
     },
-    SetupEncryption {
+    SetupDeposit {
         #[structopt(long, short = "s")]
         seed: Option<String>,
+        #[structopt(long, default_value = "27")]
+        height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
-        rabin_path: PathBuf,
+        rabin_path: Option<PathBuf>,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[structopt(long = "vk-path", parse(from_os_str))]
@@ -312,18 +328,23 @@ fn main() {
             };
             write_json_to_file(&param_path, &parameter);
         },
-        Opt::SetupEncryption {
+        Opt::SetupDeposit {
             seed,
+            height,
             rabin_path,
             pk_path,
             vk_path,
             pvk_path,
         } => {
-            let params: RabinParameters = read_json_from_file(&rabin_path);
-            let const_params = get_encryption_const_params(params);
+            let const_params = rabin_path.map(|rabin_path| {
+                let params: RabinParameters = read_json_from_file(&rabin_path);
+                get_encryption_const_params(params)
+            });
+            let const_params = get_deposit_const_params(height, const_params);
+
             let mut rng = XSRng(get_xorshift_rng(seed));
             let (pk, vk) =
-                EncryptionInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
+                DepositInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
 
             write_to_file(&pk_path, &pk);
             write_to_file(&vk_path, &vk);
@@ -339,6 +360,7 @@ fn main() {
             pvk_path,
         } => {
             let const_params = get_withdraw_const_params(height);
+            
             let mut rng = XSRng(get_xorshift_rng(seed));
             let (pk, vk) =
                 WithdrawInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");

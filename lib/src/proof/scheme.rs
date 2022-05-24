@@ -36,6 +36,7 @@ where
         inputs.push(F::from(pub_in.leaf_index));
         inputs.push(F::from(pub_in.deposit_amount));
         inputs.push(pub_in.leaf);
+        inputs.push(pub_in.prev_root);
         inputs.extend_from_slice(&pub_in.update_nodes);
 
         if let Some(encryption) = &pub_in.encryption {
