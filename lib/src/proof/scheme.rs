@@ -2,11 +2,11 @@ use ark_crypto_primitives::snark::SNARK;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 
-use crate::vanilla::{hasher::FieldHasher, withdraw::*, encryption::*};
-use crate::circuits::{WithdrawCircuit, FieldHasherGadget, EncryptionCircuit};
+use crate::vanilla::{hasher::FieldHasher, withdraw::*, deposit::*};
+use crate::circuits::{DepositCircuit, RabinEncryption, WithdrawCircuit, FieldHasherGadget};
 use super::ProofScheme;
 
-pub struct EncryptionProof<F, FH, FHG, S>
+pub struct DepositProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -21,43 +21,63 @@ where
 
 impl<F, FH, FHG, S> ProofScheme<
     F,
-    EncryptionCircuit<F, FH, FHG>,
+    DepositCircuit<F, FH, FHG>,
     S,
-    EncryptionVanillaProof<F, FH>,
-> for EncryptionProof<F, FH, FHG, S>
+    DepositVanillaProof<F, FH>,
+> for DepositProof<F, FH, FHG, S>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
     S: SNARK<F>,
 {
-    fn generate_public_inputs(pub_in: &EncryptionPublicInputs<F>) -> Vec<F> {
+    fn generate_public_inputs(pub_in: &DepositPublicInputs<F>) -> Vec<F> {
         let mut inputs = Vec::new();
         inputs.push(F::from(pub_in.leaf_index));
-        inputs.push(pub_in.commitment);
-        inputs.extend_from_slice(&pub_in.cipher_field_array);
+        inputs.push(F::from(pub_in.deposit_amount));
+        inputs.push(pub_in.leaf);
+        inputs.extend_from_slice(&pub_in.update_nodes);
+
+        if let Some(encryption) = &pub_in.encryption {
+            inputs.extend_from_slice(&encryption.cipher_field_array);
+        }
 
         inputs
     }
 
     fn generate_circuit(
-        params: &EncryptionConstParams<F, FH>,
-        pub_in: &EncryptionPublicInputs<F>,
-        priv_in: &EncryptionPrivateInputs<F>,
-    ) -> EncryptionCircuit<F, FH, FHG> {
-        EncryptionCircuit::<F, FH, FHG>::new(
-            params.commitment_params.clone(),
-            params.nullifier_params.clone(),
-            params.modulus_array.clone(),
-            params.bit_size,
-            params.cipher_batch,
+        params: &DepositConstParams<F, FH>,
+        pub_in: &DepositPublicInputs<F>,
+        priv_in: &DepositPrivateInputs<F>,
+    ) -> DepositCircuit<F, FH, FHG> {
+        let encryption = params.encryption
+            .as_ref()
+            .zip(pub_in.encryption.as_ref())
+            .zip(priv_in.encryption.as_ref())
+            .map(|((params, pub_in), priv_in)| {
+                RabinEncryption::new(
+                    params.nullifier_params.clone(),
+                    params.modulus_array.clone(),
+                    params.bit_size,
+                    params.cipher_batch,
+                    pub_in.cipher_field_array.clone(),
+                    priv_in.quotient_array.clone(),
+                    priv_in.padding_array.clone(),
+                    priv_in.nullifier_array.clone(),
+                )
+            });
+
+        DepositCircuit::<F, FH, FHG>::new(
+            params.leaf_params.clone(),
+            params.inner_params.clone(),
             pub_in.leaf_index,
-            pub_in.commitment,
-            pub_in.cipher_field_array.clone(),
+            pub_in.deposit_amount,
+            pub_in.leaf,
+            pub_in.prev_root,
+            pub_in.update_nodes.clone(),
             priv_in.secret,
-            priv_in.quotient_array.clone(),
-            priv_in.padding_array.clone(),
-            priv_in.nullifier_array.clone(),
+            priv_in.friend_nodes.clone(),
+            encryption,
         )
     }
 }
@@ -91,9 +111,9 @@ where
         let mut inputs = Vec::new();
         inputs.push(F::from(pub_in.withdraw_amount));
         inputs.push(pub_in.nullifier);
-        inputs.push(pub_in.old_root);
-        inputs.push(F::from(pub_in.new_leaf_index));
-        inputs.push(pub_in.new_leaf);
+        inputs.push(F::from(pub_in.dst_leaf_index));
+        inputs.push(pub_in.dst_leaf);
+        inputs.push(pub_in.prev_root);
         inputs.extend_from_slice(&pub_in.update_nodes);
 
         inputs
@@ -105,21 +125,20 @@ where
         priv_in: &WithdrawPrivateInputs<F>,
     ) -> WithdrawCircuit<F, FH, FHG> {
         WithdrawCircuit::<F, FH, FHG>::new(
-            params.commitment_params.clone(),
             params.nullifier_params.clone(),
             params.leaf_params.clone(),
             params.inner_params.clone(),
+            priv_in.src_leaf_index,
+            pub_in.dst_leaf_index,
+            priv_in.deposit_amount,
             pub_in.withdraw_amount,
             pub_in.nullifier,
-            pub_in.new_leaf_index,
-            pub_in.new_leaf,
-            pub_in.old_root,
+            priv_in.secret,
+            pub_in.prev_root,
+            pub_in.dst_leaf,
             pub_in.update_nodes.clone(),
-            priv_in.deposit_amount,
-            priv_in.secret_1,
-            priv_in.secret_2,
-            priv_in.friend_nodes_1.clone(),
-            priv_in.friend_nodes_2.clone(),
+            priv_in.src_friend_nodes.clone(),
+            priv_in.dst_friend_nodes.clone(),
         )
     }
 }

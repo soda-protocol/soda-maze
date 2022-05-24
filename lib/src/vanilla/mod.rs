@@ -1,7 +1,7 @@
 pub mod merkle;
 pub mod hasher;
 pub mod withdraw;
-pub mod biguint;
+pub mod deposit;
 pub mod encryption;
 
 use anyhow::Result;

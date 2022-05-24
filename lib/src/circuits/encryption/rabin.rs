@@ -1,16 +1,16 @@
 use std::{marker::PhantomData, rc::Rc};
 use ark_ff::{PrimeField, FpParameters};
-use ark_r1cs_std::{fields::fp::{FpVar, AllocatedFp}, alloc::AllocVar, prelude::EqGadget};
-use ark_relations::{lc, r1cs::{ConstraintSystemRef, LinearCombination, Variable, ConstraintSynthesizer, Result}};
+use ark_r1cs_std::{fields::fp::{FpVar, AllocatedFp}, alloc::AllocVar};
+use ark_relations::{lc, r1cs::{ConstraintSystemRef, LinearCombination, Variable, Result}};
 use num_bigint::BigUint;
 
-use crate::vanilla::{hasher::FieldHasher, biguint::prime_field_partly_to_biguint_array};
-use super::FieldHasherGadget;
-use super::biguint::*;
+use crate::vanilla::{hasher::FieldHasher, encryption::prime_field_partly_to_biguint_array};
+use crate::circuits::FieldHasherGadget;
+use super::{uint::GeneralUint, poly::*};
 
 fn gen_preimage_array<F: PrimeField>(
     nullifier_array: Vec<GeneralUint<F>>,
-    nullifier_field: FpVar<F>,
+    nullifier: FpVar<F>,
     padding_array: Vec<GeneralUint<F>>,
     bit_size: usize,
 ) -> Result<Vec<GeneralUint<F>>> {
@@ -23,7 +23,7 @@ fn gen_preimage_array<F: PrimeField>(
             let lc = lc + (coeff, var.variable()?);
             Ok((lc, coeff * base_field))
         })?;
-    if let FpVar::Var(nullifier) = nullifier_field {
+    if let FpVar::Var(nullifier) = nullifier {
         nullifier.cs.enforce_constraint(
             LinearCombination::from(nullifier.variable),
             LinearCombination::from(Variable::One),
@@ -85,36 +85,55 @@ fn rabin_encrypt<F: PrimeField>(
     Ok(())
 }
 
-pub struct EncryptionCircuit<F, FH, FHG>
+pub struct RabinEncryption<F, FH, FHG>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    commitment_params: Rc<FH::Parameters>,
     nullifier_params: Rc<FH::Parameters>,
     modulus_array: Vec<BigUint>,
     quotient_array: Vec<BigUint>,
     padding_array: Vec<BigUint>,
     cipher_field_array: Vec<F>,
     nullifier_array: Vec<BigUint>,
-    leaf_index: u64,
-    secret: F,
-    commitment: F,
     bit_size: usize,
     cipher_batch: usize,
     _h: PhantomData<FHG>,
 }
 
-impl<F, FH, FHG> ConstraintSynthesizer<F> for EncryptionCircuit<F, FH, FHG>
+impl<F, FH, FHG> RabinEncryption<F, FH, FHG>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        nullifier_params: FH::Parameters,
+        modulus_array: Vec<BigUint>,
+        bit_size: usize,
+        cipher_batch: usize,
+        cipher_field_array: Vec<F>,
+        quotient_array: Vec<BigUint>,
+        padding_array: Vec<BigUint>,
+        nullifier_array: Vec<BigUint>,
+    ) -> Self {
+        Self {
+            nullifier_params: Rc::new(nullifier_params),
+            modulus_array,
+            quotient_array,
+            padding_array,
+            cipher_field_array,
+            nullifier_array,
+            bit_size,
+            cipher_batch,
+            _h: PhantomData,
+        }
+    }
+
+    pub fn synthesize(self, cs: ConstraintSystemRef<F>, leaf_index: FpVar<F>, secret: FpVar<F>) -> Result<()> {
         // alloc constant
-        let commitment_params = FHG::ParametersVar::new_constant(cs.clone(), self.commitment_params)?;
         let nullifier_params = FHG::ParametersVar::new_constant(cs.clone(), self.nullifier_params)?;
         let modulus_array = self.modulus_array
             .into_iter()
@@ -122,15 +141,12 @@ where
             .collect::<Vec<_>>();
         
         // alloc input
-        let index = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
-        let commitment_input = FpVar::new_input(cs.clone(), || Ok(self.commitment))?;
         let cipher_field_array = self.cipher_field_array
             .iter()
             .map(|v| AllocatedFp::new_input(cs.clone(), || Ok(*v)))
             .collect::<Result<Vec<_>>>()?;
         
         // alloc private
-        let secret = AllocatedFp::new_witness(cs.clone(), || Ok(self.secret))?;
         let quotient_array = self.quotient_array
             .into_iter()
             .map(|m| GeneralUint::new_witness(cs.clone(), || Ok(m), self.bit_size))
@@ -169,18 +185,8 @@ where
                 .collect::<Result<Vec<_>>>()?
         };
 
-        // hash for commitment
-        let commitment = FHG::hash_gadget(
-            &commitment_params,
-            &[secret.clone().into()],
-        )?;
-        commitment.enforce_equal(&commitment_input)?;
-
         // hash for nullifier
-        let nullifier = FHG::hash_gadget(
-            &nullifier_params,
-            &[index.clone(), secret.into()],
-        )?;
+        let nullifier = FHG::hash_gadget(&nullifier_params, &[leaf_index, secret])?;
 
         // gen preimage array
         let preimage_array = gen_preimage_array(
@@ -209,60 +215,21 @@ where
     }
 }
 
-impl<F, FH, FHG> EncryptionCircuit<F, FH, FHG>
-where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
-{
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        commitment_params: FH::Parameters,
-        nullifier_params: FH::Parameters,
-        modulus_array: Vec<BigUint>,
-        bit_size: usize,
-        cipher_batch: usize,
-        leaf_index: u64,
-        commitment: F,
-        cipher_field_array: Vec<F>,
-        secret: F,
-        quotient_array: Vec<BigUint>,
-        padding_array: Vec<BigUint>,
-        nullifier_array: Vec<BigUint>,
-    ) -> Self {
-        Self {
-            commitment_params: Rc::new(commitment_params),
-            nullifier_params: Rc::new(nullifier_params),
-            modulus_array,
-            quotient_array,
-            padding_array,
-            cipher_field_array,
-            nullifier_array,
-            leaf_index,
-            secret,
-            commitment,
-            bit_size,
-            cipher_batch,
-            _h: PhantomData,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use ark_bn254::Fr;
     use ark_ff::{PrimeField, FpParameters};
-    use ark_relations::r1cs::{ConstraintSystem, ConstraintSynthesizer};
+    use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar};
+    use ark_relations::r1cs::ConstraintSystem;
     use arkworks_utils::utils::common::{Curve, setup_params_x5_3};
     use ark_std::{test_rng, UniformRand, rand::{prelude::StdRng, Rng}};
-    use arkworks_utils::utils::common::setup_params_x5_2;
     use num_bigint::BigUint;
     use num_integer::Integer;
     use lazy_static::lazy_static;
 
-    use crate::vanilla::{biguint::*, hasher::{poseidon::PoseidonHasher, FieldHasher}};
+    use crate::vanilla::{encryption::*, hasher::{poseidon::PoseidonHasher, FieldHasher}};
     use crate::circuits::poseidon::PoseidonHasherGadget;
-    use super::{GeneralUint, rabin_encrypt, EncryptionCircuit};
+    use super::{GeneralUint, rabin_encrypt, RabinEncryption};
     
     const BIT_SIZE: usize = 124;
     const CIPHER_BATCH: usize = 2;
@@ -399,16 +366,11 @@ mod tests {
 
     #[test]
     fn test_rabin_encryption_synthesize() {
-        let commitment_params = setup_params_x5_2(Curve::Bn254);
         let nullifier_params = setup_params_x5_3(Curve::Bn254);
 
         let rng = &mut test_rng();
         let leaf_index = u64::rand(rng);
         let secret = get_rand_fr(rng);
-        let commitment = PoseidonHasher::hash(
-            &commitment_params,
-            &[secret],
-        ).unwrap();
         let nullifier = PoseidonHasher::hash(
             &nullifier_params,
             &[Fr::from(leaf_index), secret],
@@ -423,25 +385,23 @@ mod tests {
         let quotient_array = biguint_to_biguint_array(quotient, MODULUS_LEN, BIT_SIZE);
         let cipher_field_array = gen_cipher_field_array(cipher);
 
-        let rabin_encryption = EncryptionCircuit::<
+        let rabin_encryption = RabinEncryption::<
             Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>,
         >::new(
-            commitment_params,
             nullifier_params,
             modulus_array,
             BIT_SIZE,
             CIPHER_BATCH,
-            leaf_index,
-            commitment,
             cipher_field_array,
-            secret,
             quotient_array,
             padding_array,
             nullifier_array,
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();
-        rabin_encryption.generate_constraints(cs.clone()).unwrap();
+        let leaf_index = FpVar::new_input(cs.clone(), || Ok(Fr::from(leaf_index))).unwrap();
+        let secret = FpVar::new_witness(cs.clone(), || Ok(secret)).unwrap();
+        rabin_encryption.synthesize(cs.clone(), leaf_index, secret).unwrap();
         assert!(cs.is_satisfied().unwrap());
         println!("{}", cs.num_constraints());
     }

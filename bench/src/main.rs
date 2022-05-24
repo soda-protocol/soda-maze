@@ -332,7 +332,54 @@ fn main() {
             let const_params = get_withdraw_const_params(height);
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
             let friend_nodes_1 = merkle_tree.blank.clone();
-            
+
+            // const_params.commitment_params.round_keys.iter().for_each(|k| {
+            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
+            // });
+            // const_params.commitment_params.mds_matrix.iter().for_each(|ks| {
+            //     println!("    &[");
+            //     ks.iter().for_each(|k| {
+            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
+            //     });
+            //     println!("    ],");
+            // });
+
+            // println!("--------------------------------------------------------------------");
+            // const_params.nullifier_params.round_keys.iter().for_each(|k| {
+            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
+            // });
+            // const_params.nullifier_params.mds_matrix.iter().for_each(|ks| {
+            //     println!("    &[");
+            //     ks.iter().for_each(|k| {
+            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
+            //     });
+            //     println!("    ],");
+            // });
+
+            // println!("--------------------------------------------------------------------");
+            // const_params.leaf_params.round_keys.iter().for_each(|k| {
+            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
+            // });
+            // const_params.leaf_params.mds_matrix.iter().for_each(|ks| {
+            //     println!("    &[");
+            //     ks.iter().for_each(|k| {
+            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
+            //     });
+            //     println!("    ],");
+            // });
+
+            println!("--------------------------------------------------------------------");
+            const_params.inner_params.round_keys.iter().for_each(|k| {
+                println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
+            });
+            const_params.inner_params.mds_matrix.iter().for_each(|ks| {
+                println!("    &[");
+                ks.iter().for_each(|k| {
+                    println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
+                });
+                println!("    ],");
+            });
+
             let amount_1 = u64::rand(&mut OsRng);
             let amount_2 = u64::rand(&mut OsRng);
             let deposit_amount = amount_1.max(amount_2);

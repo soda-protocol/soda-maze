@@ -1,5 +1,8 @@
-pub mod bn254_x3_3;
-pub mod bn254_x5_4;
+pub mod blank;
+pub mod leaf;
+pub mod merkle;
+pub mod nullifier;
+pub mod commitment;
 
 use super::bn::Fr;
 
@@ -35,5 +38,7 @@ macro_rules! impl_get_params {
     };
 }
 
-impl_get_params!(get_params_bn254_x3_3, bn254_x3_3);
-impl_get_params!(get_params_bn254_x5_4, bn254_x5_4);
+impl_get_params!(get_params_bn254_nullifier, nullifier);
+impl_get_params!(get_params_bn254_leaf, leaf);
+impl_get_params!(get_params_bn254_merkle, merkle);
+impl_get_params!(get_params_bn254_commitment, commitment);
