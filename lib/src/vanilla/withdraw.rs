@@ -113,6 +113,11 @@ where
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let nullifier = FH::hash(
+            &params.nullifier_params,
+            &[F::from(orig_in.src_leaf_index), orig_in.secret],
+        ).unwrap();
+
         let src_leaf = FH::hash(
             &params.leaf_params,
             &[F::from(orig_in.src_leaf_index), F::from(orig_in.deposit_amount), orig_in.secret],
@@ -123,13 +128,16 @@ where
             .unwrap()
             .clone();
         let rest_amount = orig_in.deposit_amount - orig_in.withdraw_amount;
-        let dst_leaf = FH::hash(&params.leaf_params, &[F::from(rest_amount), orig_in.secret]).unwrap();
+        let dst_leaf = FH::hash(
+            &params.leaf_params,
+            &[F::from(orig_in.dst_leaf_index), F::from(rest_amount), orig_in.secret],
+        ).unwrap();
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &dst_friend_nodes, dst_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
         let pub_in = WithdrawPublicInputs {
             withdraw_amount: orig_in.withdraw_amount,
-            nullifier: orig_in.secret,
+            nullifier,
             prev_root,
             dst_leaf_index: orig_in.dst_leaf_index,
             dst_leaf,

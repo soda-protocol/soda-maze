@@ -1,7 +1,7 @@
 use ark_std::{rc::Rc, marker::PhantomData};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{eq::EqGadget, boolean::Boolean, alloc::AllocVar, select::CondSelectGadget, fields::fp::FpVar};
-use ark_relations::r1cs::{SynthesisError, ConstraintSystemRef};
+use ark_relations::r1cs::{ConstraintSystemRef, Result};
 
 use crate::vanilla::hasher::FieldHasher;
 use super::FieldHasherGadget;
@@ -10,7 +10,7 @@ fn gen_merkle_path_gadget<F, FH, FHG>(
     inner_params: &FHG::ParametersVar,
     friends: &[(Boolean<F>, FpVar<F>)],
     leaf_hash: FpVar<F>,
-) -> Result<Vec<FpVar<F>>, SynthesisError>
+) -> Result<Vec<FpVar<F>>>
 where
     F: PrimeField,
     FH: FieldHasher<F>,
@@ -78,7 +78,7 @@ where
         leaf_index_input: FpVar<F>,
         leaf: FpVar<F>,
         root: FpVar<F>,
-    ) -> Result<(), SynthesisError> {
+    ) -> Result<()> {
         let ref cs = cs;
         // alloc constants
         let inner_params = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
@@ -86,7 +86,7 @@ where
         let update_nodes = self.update_nodes
             .into_iter()
             .map(|node| FpVar::new_input(cs.clone(), || Ok(node)))
-            .collect::<Result<Vec<_>, SynthesisError>>()?;
+            .collect::<Result<Vec<_>>>()?;
         // alloc witness var
         let friends = self.friend_nodes
             .into_iter()
@@ -97,7 +97,7 @@ where
 
                 Ok((is_left, node))
             })
-            .collect::<Result<Vec<_>, SynthesisError>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         // leaf index constrain
         let index_array = friends
@@ -134,7 +134,6 @@ where
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    root: F,
     friend_nodes: Vec<(bool, F)>,
 	inner_params: Rc<FH::Parameters>,
     _h: PhantomData<FHG>,
@@ -147,12 +146,10 @@ where
     FHG: FieldHasherGadget<F, FH>,
 {
     pub fn new(
-        root: F,
         friend_nodes: Vec<(bool, F)>,
         inner_params: FH::Parameters,
     ) -> Self {
         Self {
-            root,
             friend_nodes,
             inner_params: Rc::new(inner_params),
             _h: Default::default(),
@@ -164,12 +161,11 @@ where
         cs: ConstraintSystemRef<F>,
         leaf_index: FpVar<F>,
         leaf: FpVar<F>,
-    ) -> Result<FpVar<F>, SynthesisError> {
+        root: FpVar<F>,
+    ) -> Result<()> {
         let ref cs = cs;
         // alloc constants
         let inner_params = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
-        // alloc public inputs
-        let root = FpVar::new_input(cs.clone(), || Ok(self.root))?;
         // alloc witness var
         let friends = self.friend_nodes
             .into_iter()
@@ -179,7 +175,7 @@ where
 
                 Ok((is_left, node))
             })
-            .collect::<Result<Vec<_>, SynthesisError>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         // leaf index
         let index_array = friends
@@ -194,9 +190,7 @@ where
             leaf,
         )?;
         // old root should restrain to input
-        merkle_paths.last().unwrap().enforce_equal(&root)?;
-
-        Ok(root)
+        merkle_paths.last().unwrap().enforce_equal(&root)
     }
 }
 
@@ -241,7 +235,6 @@ mod tests {
         ).unwrap();
         let root = merkle_path.last().unwrap().clone();
         let existance = LeafExistance::<_, _, PoseidonHasherGadget<Fr>>::new(
-            root,
             friend_nodes,
             inner_params,
         );
@@ -249,7 +242,8 @@ mod tests {
         let cs = ConstraintSystem::<Fr>::new_ref();
         let index_var = FpVar::<Fr>::new_witness(cs.clone(), || Ok(Fr::from(index))).unwrap();
         let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf)).unwrap();
-        _ = existance.synthesize(cs.clone(), index_var, leaf_var).unwrap();
+        let root_var = FpVar::new_input(cs.clone(), || Ok(root)).unwrap();
+        _ = existance.synthesize(cs.clone(), index_var, leaf_var, root_var).unwrap();
 
         assert!(cs.is_satisfied().unwrap());
         println!("constraints: {}", cs.num_constraints());

@@ -22,6 +22,7 @@ where
     withdraw_amount: u64,
     nullifier: F,
     secret: F,
+    prev_root: F,
     dst_leaf: F,
     src_proof: LeafExistance<F, FH, FHG>,
     dst_proof: AddNewLeaf<F, FH, FHG>,
@@ -44,6 +45,7 @@ where
         let nullifier_input = FpVar::new_input(cs.clone(), || Ok(self.nullifier))?;
         let dst_leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.dst_leaf_index)))?;
         let dst_leaf_input = FpVar::new_input(cs.clone(), || Ok(self.dst_leaf))?;
+        let prev_root = FpVar::new_input(cs.clone(), || Ok(self.prev_root))?;
 
         // alloc witness
         let src_leaf_index = FpVar::new_witness(cs.clone(), || Ok(F::from(self.src_leaf_index)))?;
@@ -72,10 +74,11 @@ where
             &[src_leaf_index.clone(), deposit_amount, secret.clone()],
         )?;
         // gen existance proof
-        let prev_root = self.src_proof.synthesize(
+        self.src_proof.synthesize(
             cs.clone(),
             src_leaf_index,
             src_leaf,
+            prev_root.clone(),
         )?;
 
         // hash new back deposit data leaf: hash(rest_amount | secret_hash)
@@ -121,9 +124,9 @@ where
             withdraw_amount,
             nullifier,
             secret,
+            prev_root,
             dst_leaf,
             src_proof: LeafExistance::new(
-                prev_root,
                 src_friend_nodes,
                 inner_params.clone(),
             ),

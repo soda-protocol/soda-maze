@@ -185,14 +185,15 @@ impl RngCore for XSRng {
 
 impl CryptoRng for XSRng {}
 
-struct MerkleTree {
+struct MerkleTree<'a> {
+    params: &'a PoseidonParameters<Fr>,
     height: usize,
     tree: BTreeMap<(usize, u64), Fr>,
     blank: Vec<Fr>,
 }
 
-impl MerkleTree {
-    fn new(height: usize, params: &PoseidonParameters<Fr>) -> Self {
+impl<'a> MerkleTree<'a> {
+    fn new(height: usize, params: &'a PoseidonParameters<Fr>) -> Self {
         let mut nodes = Vec::with_capacity(height);
         let mut hash: Fr = PoseidonHasher::empty_hash();
 
@@ -205,6 +206,7 @@ impl MerkleTree {
             });
 
         Self {
+            params,
             height,
             tree: BTreeMap::new(),
             blank: nodes,
@@ -215,34 +217,31 @@ impl MerkleTree {
         (0..self.height)
             .into_iter()
             .map(|layer| {
-                if ((index >> layer) & 1) == 1 {
-                    if let Some(v) = self.tree.get(&(layer, index - 1)) {
-                        *v
-                    } else {
-                        self.blank[layer as usize]
-                    }
+                let index = index >> layer;
+                let friend = if (index & 1) == 1 {
+                    self.tree.get(&(layer, index - 1)).unwrap_or_else(|| &self.blank[layer])
                 } else {
-                    if let Some(v) = self.tree.get(&(layer, index + 1)) {
-                        *v
-                    } else {
-                        self.blank[layer as usize]
-                    }
-                }
+                    self.tree.get(&(layer, index + 1)).unwrap_or_else(|| &self.blank[layer])
+                };
+
+                *friend
             })
             .collect()
     }
 
-    pub fn add_leaf(&mut self, params: &PoseidonParameters<Fr>, index: u64, mut hash: Fr) {
+    pub fn add_leaf(&mut self, index: u64, mut hash: Fr) {
         (0..self.height)
             .into_iter()
             .for_each(|layer| {
-                self.tree.insert((layer, index >> layer), hash);
+                let index = index >> layer;
+                self.tree.insert((layer, index), hash);
 
-                let friend = self.blank[layer as usize];
-                if ((index >> layer) & 1) == 1 {
-                    hash = PoseidonHasher::hash_two(params, friend, hash).expect("poseidon hash error");
+                if (index & 1) == 1 {
+                    let friend = self.tree.get(&(layer, index - 1)).unwrap_or_else(|| &self.blank[layer]);
+                    hash = PoseidonHasher::hash_two(self.params, *friend, hash).expect("poseidon hash error");
                 } else {
-                    hash = PoseidonHasher::hash_two(params, hash, friend).expect("poseidon hash error");
+                    let friend = self.tree.get(&(layer, index + 1)).unwrap_or_else(|| &self.blank[layer]);
+                    hash = PoseidonHasher::hash_two(self.params, hash, *friend).expect("poseidon hash error");
                 }
             });
     }
@@ -433,7 +432,7 @@ fn main() {
                 &const_params.leaf_params,
                 &[Fr::from(src_index), Fr::from(deposit_amount), secret],
             ).expect("hash failed");
-            merkle_tree.add_leaf(&const_params.inner_params, src_index, src_leaf);
+            merkle_tree.add_leaf(src_index, src_leaf);
             let src_friend_nodes = merkle_tree.get_friends(src_index);
 
             let dst_index = 1;
