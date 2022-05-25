@@ -25,7 +25,7 @@ pub enum MazeError {
     InvalidPdaPubkey,
     #[error("Input account owner is not the program address")]
     InvalidAccountOwner,
-    #[error("Authority is invalid")]
+    #[error("Authority is an invalid signer")]
     InvalidAuthority,
     #[error("Invalid context status")]
     InvalidContextStatus,

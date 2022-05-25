@@ -1,14 +1,42 @@
-use solana_program::pubkey::Pubkey;
+use borsh::{BorshSerialize, BorshDeserialize};
 
-use crate::{verifier::{ProofA, ProofB, ProofC}};
+use crate::{verifier::{ProofA, ProofB, ProofC}, params::bn::Fr};
 
-
-
-
-
-
-pub enum Instruction {
-    CreatePool,
-    CreateVanillaData(Pubkey),
-    CreateProofAccounts(ProofA, ProofB, ProofC),
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum MazeInstruction {
+    CreateDepositCredential {
+        deposit_amount: u64,
+        leaf_index: u64,
+        leaf: Fr,
+        prev_root: Fr,
+        updating_nodes: Box<Vec<Fr>>,
+    },
+    CreateDepositVerifier {
+        commitment: Box<Vec<Fr>>,
+        proof_a: ProofA,
+        proof_b: ProofB,
+        proof_c: ProofC,
+    },
+    CreateWithdrawCredential {
+        withdraw_amount: u64,
+        nullifier: Fr,
+        leaf_index: u64,
+        leaf: Fr,
+        prev_root: Fr,
+        updating_nodes: Box<Vec<Fr>>,
+    },
+    CreateWithdrawVerifier {
+        proof_a: ProofA,
+        proof_b: ProofB,
+        proof_c: ProofC,
+    },
+    VerifyProof,
+    FinalizeDeposit,
+    FinalizeWithdraw,
+    ResetDepositAccounts,
+    ResetWithdrawAccounts,
+    // 128 ~
+    CreateVault,
+    ControlVault(bool),
 }
+
