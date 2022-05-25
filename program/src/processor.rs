@@ -14,7 +14,6 @@ use crate::verifier::{ProofA, ProofB, ProofC, Verifier, get_verifier_pda};
 use crate::invoke::{process_token_transfer, process_rent_refund};
 use crate::invoke::{process_optimal_create_account, process_create_associated_token_account};
 
-#[inline(never)]
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -330,8 +329,7 @@ fn process_finalize_deposit(
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let signer_info = next_account_info(accounts_iter)?;
 
-    let vault = Vault::_unpack_from_account_info(vault_info, program_id)?;
-    let mut vault = Box::new(vault);
+    let mut vault = Vault::_unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
         msg!("Token account in vault is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
@@ -339,18 +337,15 @@ fn process_finalize_deposit(
     vault.check_valid()?;
 
     let verifier = Verifier::_unpack_from_account_info(verifier_info, program_id)?;
-    let verifier = Box::new(verifier);
     if &verifier.credential != credential_info.key {
         msg!("Credential in verifier is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
     verifier.program.check_verified()?;
     // clear verifier
-    drop(verifier);
     process_rent_refund(verifier_info, signer_info);
 
     let credential = DepositCredential::_unpack_from_account_info(credential_info, program_id)?;
-    let credential = Box::new(credential);
     if &credential.vault != vault_info.key {
         msg!("Vault in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
@@ -394,7 +389,7 @@ fn process_finalize_deposit(
     merkle_nodes.insert(0, credential.vanilla_data.leaf);
     // check and update merkle nodes
     merkle_nodes
-        .into_iter()
+        .iter()
         .zip(merkle_path)
         .try_for_each(|(node, (layer, index))| -> ProgramResult {
             let node_info = next_account_info(accounts_iter)?;
@@ -420,7 +415,7 @@ fn process_finalize_deposit(
                 &[seed_1, &seed_2, &seed_3, &seed_4],
             )?;
 
-            TreeNode::new(node)._pack_to_account_info(node_info)
+            TreeNode::new(*node)._pack_to_account_info(node_info)
         })?;
 
     vault.update(new_root, credential.vanilla_data.leaf_index);
