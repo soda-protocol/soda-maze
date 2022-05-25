@@ -5,12 +5,12 @@ pub mod bn;
 pub mod verifier;
 pub mod entrypoint;
 pub mod instruction;
-pub mod processor1;
-pub mod vanilla;
+pub mod processor;
+pub mod core;
 pub mod params;
 pub mod context;
 pub mod state;
-pub mod gadget;
+pub mod invoke;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
 
@@ -28,10 +28,6 @@ use solana_program::{
 
 use crate::error::MazeError;
 
-pub trait Data: Sized {
-    fn to_vec(self) -> Vec<u8>;
-}
-
 pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
     const LEN: usize;
 
@@ -41,6 +37,9 @@ pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
     ) -> Result<Self, ProgramError> {
         if account_info.owner != program_id {
             return Err(MazeError::InvalidAccountOwner.into());
+        }
+        if account_info.data_len() != Self::LEN {
+            return Err(ProgramError::InvalidAccountData);
         }
         Self::unpack(&account_info.try_borrow_data()?)
     }
@@ -74,6 +73,7 @@ pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
         self.initialize(&mut account_info.try_borrow_mut_data()?)
     }
 
+    // abandon
     fn unchecked_initialize_to_account_info(
         &self,
         rent: &Rent,
@@ -92,10 +92,6 @@ pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
 
     #[doc(hidden)]
     fn unpack(data: &[u8]) -> Result<Self, ProgramError> {
-        if data.len() != Self::LEN {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
         let account: Self = BorshDeserialize::deserialize(&mut data.as_ref())?;
         if account.is_initialized() {
             Ok(account)
@@ -123,10 +119,6 @@ pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
 
     #[doc(hidden)]
     fn initialize(&self, data: &mut [u8]) -> ProgramResult {
-        if data.len() != Self::LEN {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
         let account: Self = BorshDeserialize::deserialize(&mut data.as_ref())?;
         if account.is_initialized() {
             Err(MazeError::AlreadyInitialized.into())
@@ -134,10 +126,37 @@ pub trait Packer: IsInitialized + BorshSerialize + BorshDeserialize {
             self.pack(data)
         }
     }
+
+    fn _initialize_to_account_info(
+        &self,
+        account_info: &AccountInfo,
+    ) -> ProgramResult {
+        self.initialize(&mut account_info.try_borrow_mut_data()?)
+    }
+
+    fn _unpack_from_account_info(
+        account_info: &AccountInfo,
+        program_id: &Pubkey,
+    ) -> Result<Self, ProgramError> {
+        if account_info.owner != program_id {
+            return Err(MazeError::InvalidAccountOwner.into());
+        }
+        if account_info.data_len() != Self::LEN {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Self::unpack(&account_info.try_borrow_data()?)
+    }
+
+    fn _pack_to_account_info(
+        &self,
+        account_info: &AccountInfo,
+    ) -> ProgramResult {
+        self.pack(&mut account_info.try_borrow_mut_data()?)
+    }
 }
 
 #[inline]
-fn assert_rent_exempt(rent: &Rent, account_info: &AccountInfo) -> ProgramResult {
+pub fn assert_rent_exempt(rent: &Rent, account_info: &AccountInfo) -> ProgramResult {
     if !rent.is_exempt(account_info.lamports(), account_info.data_len()) {
         msg!("minimum rent: {}", &rent.minimum_balance(account_info.data_len()));
         Err(MazeError::NotRentExempt.into())

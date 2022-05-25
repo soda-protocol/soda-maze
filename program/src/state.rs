@@ -1,7 +1,7 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_pack::IsInitialized;
 
-use crate::{Packer, params::ProofType};
+use crate::{Packer, params::proof::ProofType};
 use crate::verifier::fsm::FSM;
 
 #[derive(BorshSerialize, BorshDeserialize)]

@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-
 use solana_program::pubkey::Pubkey;
 
 use crate::{params::{bn::Fr, rabin::{RABIN_MODULUS, RABIN_MODULUS_LEN}}, state::StateWrapper, bn::BigInteger};
@@ -8,7 +7,6 @@ pub fn is_commitment_valid(commitment: &[Fr]) -> bool {
     if commitment.len() != RABIN_MODULUS_LEN {
         return false;
     }
-
     let is_valid = commitment.iter().all(|c| c.is_valid());
     if is_valid {
         for (c, m) in commitment.iter().rev().zip(RABIN_MODULUS.iter().rev()) {
@@ -28,17 +26,17 @@ const COMMITMENT_LEN: usize = 32 * RABIN_MODULUS_LEN;
 pub type Commitment = StateWrapper<Box<Vec<Fr>>, COMMITMENT_LEN>;
 
 pub fn get_commitment_pda<'a>(
-    pool: &'a Pubkey,
+    vault: &'a Pubkey,
     leaf: &Fr,
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], Vec<u8>, [u8; 1])) {
-    let pool_ref = pool.as_ref();
+    let vault_ref = vault.as_ref();
     let leaf_ref = leaf.0.to_bytes_le();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[pool_ref, &leaf_ref],
+        &[vault_ref, &leaf_ref],
         program_id,
     );
 
-    (key, (pool_ref, leaf_ref, [seed]))
+    (key, (vault_ref, leaf_ref, [seed]))
 }

@@ -8,9 +8,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_pack::IsInitialized;
 use solana_program::pubkey::Pubkey;
 
-use crate::{Packer, params::ProofType};
+use crate::{Packer, params::proof::ProofType};
 use crate::params::bn::{G1Affine254, G2Affine254};
-use mock::fsm::FSM;
+use mock::program::Program;
 
 pub type ProofA = G1Affine254;
 
@@ -24,12 +24,28 @@ pub struct ProofAC {
     pub proof_c: ProofC,
 }
 
+pub fn get_verifier_pda<'a>(
+    credential: &'a Pubkey,
+    signer: &'a Pubkey,
+    program_id: &Pubkey,
+) -> (Pubkey, (&'a [u8], &'a [u8], [u8; 1])) {
+    let credential_ref = credential.as_ref();
+    let signer_ref = signer.as_ref();
+
+    let (key, seed) = Pubkey::find_program_address(
+        &[credential_ref, &signer_ref],
+        program_id,
+    );
+
+    (key, (credential_ref, signer_ref, [seed]))
+}
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Verifier {
     pub is_initialized: bool,
     pub proof_type: ProofType,
     pub credential: Pubkey,
-    pub fsm: FSM,
+    pub program: Program,
 }
 
 impl IsInitialized for Verifier {
@@ -43,12 +59,24 @@ impl Packer for Verifier {
 }
 
 impl Verifier {
-    pub fn new(proof_type: ProofType, credential: Pubkey, fsm: FSM) -> Self {
+    pub fn new(proof_type: ProofType, credential: Pubkey, program: Program) -> Self {
         Self {
             is_initialized: true,
             proof_type,
             credential,
-            fsm,
+            program,
+        }
+    }
+
+    pub fn process(self) -> Self {
+        let pvk = self.proof_type.pvk();
+        let program = self.program.process(pvk);
+
+        Self {
+            is_initialized: self.is_initialized,
+            proof_type: self.proof_type,
+            credential: self.credential,
+            program,
         }
     }
 }

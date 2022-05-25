@@ -141,7 +141,7 @@ impl<'a, 'b, S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> Con
                 **receiver_info.lamports.borrow_mut() = receiver_info
                     .lamports()
                     .checked_add(state_info.lamports())
-                    .ok_or(MazeError::MathOverflow)?;
+                    .unwrap();
                 **state_info.lamports.borrow_mut() = 0;
             }
             _ => {}

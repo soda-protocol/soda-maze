@@ -1,9 +1,9 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 
-use crate::params::{bn::{*, Bn254Parameters as BnParameters}, vk::{PreparedVerifyingKey}};
+use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::{PreparedVerifyingKey}};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
 use crate::verifier::{ProofA, ProofB, ProofC};
-use super::fsm::FSM;
+use super::program::Program;
 use super::final_exponent::FinalExponentEasyPart;
 
 fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
@@ -38,7 +38,7 @@ pub struct MillerLoop {
 }
 
 impl MillerLoop {
-    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
             self.f.square_in_place();
@@ -67,7 +67,7 @@ impl MillerLoop {
                         q2.y = -q2.y;
         
                         // in Finalize
-                        return FSM::MillerLoopFinalize(MillerLoopFinalize {
+                        return Program::MillerLoopFinalize(MillerLoopFinalize {
                             coeff_index: self.coeff_index,
                             prepared_input: self.prepared_input,
                             proof_a: self.proof_a,
@@ -93,7 +93,7 @@ impl MillerLoop {
         }
 
         // next loop
-        FSM::MillerLoop(self)
+        Program::MillerLoop(self)
     }
 }
 
@@ -111,7 +111,7 @@ pub struct MillerLoopFinalize {
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
-    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let coeff = addition_step(&mut self.r, &self.q1);
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
@@ -123,7 +123,7 @@ impl MillerLoopFinalize {
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
-        FSM::FinalExponentEasyPart(FinalExponentEasyPart {
+        Program::FinalExponentEasyPart(FinalExponentEasyPart {
             r: self.f,
         })
     }

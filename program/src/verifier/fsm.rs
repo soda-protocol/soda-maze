@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{program_error::ProgramError, account_info::AccountInfo, pubkey::Pubkey, rent::Rent};
 
 use crate::context::Context;
-use crate::params::vk::PreparedVerifyingKey;
+use crate::params::proof::PreparedVerifyingKey;
 
 use super::prepare_inputs::*;
 use super::miller_loop::*;

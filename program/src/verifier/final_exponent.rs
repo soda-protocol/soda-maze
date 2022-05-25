@@ -3,7 +3,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::One;
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::params::vk::PreparedVerifyingKey;
+use crate::params::proof::PreparedVerifyingKey;
 use crate::{bn::BnParameters as Bn, bn::Field, error::MazeError};
 use crate::params::{bn::*, bn::Bn254Parameters as BnParameters};
 use crate::context::Context512;

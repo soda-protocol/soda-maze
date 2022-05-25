@@ -4,8 +4,8 @@ use num_traits::One;
 
 use crate::bn::{Field, BnParameters as Bn};
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
-use crate::params::vk::PreparedVerifyingKey;
-use super::fsm::FSM;
+use crate::params::proof::PreparedVerifyingKey;
+use super::program::Program;
 
 fn exp_by_neg_x(
     index: &mut u8,
@@ -46,7 +46,7 @@ pub struct FinalExponentEasyPart {
 }
 
 impl FinalExponentEasyPart {
-    pub fn process(mut self) -> FSM {
+    pub fn process(mut self) -> Program {
         if let Some(mut f2) = self.r.inverse() {
             self.r.conjugate();
 
@@ -66,7 +66,7 @@ impl FinalExponentEasyPart {
             let mut r_inv = self.r;
             r_inv.conjugate();
 
-            FSM::FinalExponentHardPart1(FinalExponentHardPart1 {
+            Program::FinalExponentHardPart1(FinalExponentHardPart1 {
                 index: 0,
                 r: self.r,
                 r_inv,
@@ -74,7 +74,7 @@ impl FinalExponentEasyPart {
             })
         } else {
             // proof failed
-            FSM::Finished(false)
+            Program::Finish(false)
         }
     }
 }
@@ -88,7 +88,7 @@ pub struct FinalExponentHardPart1 {
 }
 
 impl FinalExponentHardPart1 {
-    pub fn process(mut self) -> FSM {
+    pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y0,
@@ -104,7 +104,7 @@ impl FinalExponentHardPart1 {
             y3_inv.conjugate();
 
             // goto hard part 2
-            FSM::FinalExponentHardPart2(FinalExponentHardPart2 {
+            Program::FinalExponentHardPart2(FinalExponentHardPart2 {
                 index: 0,
                 r: Box::new(self.r),
                 y1,
@@ -114,7 +114,7 @@ impl FinalExponentHardPart1 {
             })
         } else {
             // next loop
-            FSM::FinalExponentHardPart1(self)
+            Program::FinalExponentHardPart1(self)
         }
     }
 }
@@ -130,7 +130,7 @@ pub struct FinalExponentHardPart2 {
 }
 
 impl FinalExponentHardPart2 {
-    pub fn process(mut self) -> FSM {
+    pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y4,
@@ -143,7 +143,7 @@ impl FinalExponentHardPart2 {
             y5_inv.conjugate();
 
             // goto hard part 3
-            FSM::FinalExponentHardPart3(FinalExponentHardPart3 {
+            Program::FinalExponentHardPart3(FinalExponentHardPart3 {
                 index: 0,
                 r: self.r,
                 y1: self.y1,
@@ -154,7 +154,7 @@ impl FinalExponentHardPart2 {
                 y6: Box::new(Fqk254::one()),
             })
         } else {
-            FSM::FinalExponentHardPart2(self)
+            Program::FinalExponentHardPart2(self)
         }
     }
 }
@@ -172,7 +172,7 @@ pub struct FinalExponentHardPart3 {
 }
 
 impl FinalExponentHardPart3 {
-    pub fn process(mut self) -> FSM {
+    pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y6,
@@ -187,14 +187,14 @@ impl FinalExponentHardPart3 {
             let y8 = Box::new(y7.mul(self.y3.as_ref()));
 
             // goto hard part 4
-            FSM::FinalExponentHardPart4(FinalExponentHardPart4 {
+            Program::FinalExponentHardPart4(FinalExponentHardPart4 {
                 r: self.r,
                 y1: self.y1,
                 y4: self.y4,
                 y8,
             })
         } else {
-            FSM::FinalExponentHardPart3(self)
+            Program::FinalExponentHardPart3(self)
         }
     }
 }
@@ -209,7 +209,7 @@ pub struct FinalExponentHardPart4 {
 
 impl FinalExponentHardPart4 {
     #[inline(never)]
-    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let y9 = self.y8.mul(self.y1.as_ref());
         let y10 = self.y8.mul(self.y4.as_ref());
         let y11 = y10.mul(self.r.as_ref());
@@ -223,6 +223,6 @@ impl FinalExponentHardPart4 {
         y15.frobenius_map(3);
         let y16 = y15 * &y14;
 
-        FSM::Finished(&y16 == pvk.alpha_g1_beta_g2)
+        Program::Finish(&y16 == pvk.alpha_g1_beta_g2)
     }
 }

@@ -5,7 +5,7 @@ use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::context::{Context512, Context1536};
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
-use crate::params::vk::PreparedVerifyingKey;
+use crate::params::proof::PreparedVerifyingKey;
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::{error::MazeError, verifier::ProofB};
 

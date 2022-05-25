@@ -17,6 +17,15 @@ use crate::{params::{HEIGHT, bn::Fr}, state::StateWrapper};
 /////////////////////////////////////////////////////////////////
 
 #[inline]
+pub fn is_updating_nodes_valid(nodes: &[Fr]) -> bool {
+    if nodes.len() != HEIGHT {
+        false
+    } else {
+        nodes.iter().all(|x| x.is_valid())
+    }
+}
+
+#[inline]
 pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
     (0..HEIGHT).into_iter().map(|layer| (layer, index >> layer)).collect()
 }
@@ -24,19 +33,19 @@ pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
 pub type TreeNode = StateWrapper<Fr, 32>;
 
 pub fn get_tree_node_pda<'a>(
-    pool: &'a Pubkey,
+    vault: &'a Pubkey,
     layer: u8,
     index: u64,
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], [u8; 1], [u8; 8], [u8; 1])) {
-    let pool_ref = pool.as_ref();
+    let vault_ref = vault.as_ref();
     let layer_bytes = layer.to_le_bytes();
     let index_bytes = index.to_le_bytes();
     
     let (key, seed) = Pubkey::find_program_address(
-        &[pool_ref, &layer_bytes, &index_bytes],
+        &[vault_ref, &layer_bytes, &index_bytes],
         program_id,
     );
 
-    (key, (pool_ref, layer_bytes, index_bytes, [seed]))
+    (key, (vault_ref, layer_bytes, index_bytes, [seed]))
 }

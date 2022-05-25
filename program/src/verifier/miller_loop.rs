@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::context::Context512;
-use crate::params::vk::PreparedVerifyingKey;
+use crate::params::proof::PreparedVerifyingKey;
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::error::MazeError;
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};

@@ -3,9 +3,9 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
-use crate::params::{bn::{*, Bn254Parameters as BnParameters}, vk::PreparedVerifyingKey};
+use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::PreparedVerifyingKey};
 use crate::verifier::{ProofA, ProofB, ProofC};
-use super::fsm::FSM;
+use super::program::Program;
 use super::miller_loop::MillerLoop;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
@@ -21,7 +21,7 @@ pub struct PrepareInputs {
 }
 
 impl PrepareInputs {
-    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let public_input = self.public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
 
@@ -46,7 +46,7 @@ impl PrepareInputs {
                 self.bit_index = 0;
                 self.tmp = G1Projective254::zero();
 
-                FSM::PrepareInputs(self)
+                Program::PrepareInputs(self)
             } else {
                 let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
                 let r = G2HomProjective254 {
@@ -57,7 +57,7 @@ impl PrepareInputs {
                 let f = Fqk254::one();
                 let prepared_input = G1Affine254::from(self.g_ic);
 
-                FSM::MillerLoop(MillerLoop {
+                Program::MillerLoop(MillerLoop {
                     index,
                     coeff_index: 0,
                     f,
@@ -69,7 +69,7 @@ impl PrepareInputs {
                 })
             }
         } else {
-            FSM::PrepareInputs(self)
+            Program::PrepareInputs(self)
         }
     }
 }

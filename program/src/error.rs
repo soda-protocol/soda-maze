@@ -13,18 +13,16 @@ use thiserror::Error;
 pub enum MazeError {
     #[error("Account is already initialized")]
     AlreadyInitialized,
+    #[error("Vault is disabled")]
+    DisbaledVault,
     #[error("Accounts are not matched")]
     UnmatchedAccounts,
-    #[error("Poseidon hash is failed")]
-    PoseidonHashFailed,
-    #[error("Pool deposit is disabled")]
-    PoolDepositDisabled,
     #[error("Vanilla proof data is invalid")]
     InvalidVanillaData,
+    #[error("Proof is not verified")]
+    ProofNotVerified,
     #[error("Pda pubkey is invalid")]
     InvalidPdaPubkey,
-    #[error("Invalid program id")]
-    InvalidProgramId,
     #[error("Input account owner is not the program address")]
     InvalidAccountOwner,
     #[error("Authority is invalid")]
@@ -33,8 +31,6 @@ pub enum MazeError {
     InvalidContextStatus,
     #[error("Failed to unpack instruction data")]
     InstructionUnpackError,
-    #[error("Math operation overflow")]
-    MathOverflow,
     #[error("Lamport balance below rent-exempt threshold")]
     NotRentExempt,
     #[error("Account is not initialized")]
