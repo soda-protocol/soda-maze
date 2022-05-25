@@ -330,7 +330,8 @@ fn process_finalize_deposit(
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let signer_info = next_account_info(accounts_iter)?;
 
-    let mut vault = Vault::_unpack_from_account_info(vault_info, program_id)?;
+    let vault = Vault::_unpack_from_account_info(vault_info, program_id)?;
+    let mut vault = Box::new(vault);
     if &vault.token_account != vault_token_account_info.key {
         msg!("Token account in vault is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
@@ -338,15 +339,18 @@ fn process_finalize_deposit(
     vault.check_valid()?;
 
     let verifier = Verifier::_unpack_from_account_info(verifier_info, program_id)?;
+    let verifier = Box::new(verifier);
     if &verifier.credential != credential_info.key {
         msg!("Credential in verifier is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
     verifier.program.check_verified()?;
     // clear verifier
+    drop(verifier);
     process_rent_refund(verifier_info, signer_info);
 
     let credential = DepositCredential::_unpack_from_account_info(credential_info, program_id)?;
+    let credential = Box::new(credential);
     if &credential.vault != vault_info.key {
         msg!("Vault in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
