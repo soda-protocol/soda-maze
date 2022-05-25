@@ -3,10 +3,10 @@ use solana_program::{entrypoint::ProgramResult, rent::Rent, sysvar::Sysvar};
 
 use crate::{verifier::{ProofA, ProofB, ProofC, ProofAC}, state::{StateWrapper512, VerifyState}};
 use crate::{context::Context512, Packer};
-use crate::vanilla::vanilla::VanillaInfo;
+use crate::vanilla::vanilla::VanillaData;
 
 // #[inline(never)]
-// pub fn process_create_vanilla_info(
+// pub fn process_create_vanilla_data(
 //     program_id: &Pubkey,
 //     accounts: &[AccountInfo],
 //     operator: Pubkey,
@@ -15,15 +15,15 @@ use crate::vanilla::vanilla::VanillaInfo;
 //     let accounts_iter = &mut accounts.iter();
 
 //     let rent = &Rent::from_account_info(next_account_info(accounts_iter)?)?;
-//     let vanilla_info = next_account_info(accounts_iter)?;
+//     let vanilla_data = next_account_info(accounts_iter)?;
 //     let verify_state_info = next_account_info(accounts_iter)?;
 //     let public_inputs_info = next_account_info(accounts_iter)?;
 //     let g_ic_info = next_account_info(accounts_iter)?;
 //     let tmp_info = next_account_info(accounts_iter)?;
 
 //     // create vanilla info
-//     let vanilla = VanillaInfo::new(operation, operator, *verify_state_info.key);
-//     vanilla.initialize_to_account_info(&rent, vanilla_info, program_id)?;
+//     let vanilla = VanillaData::new(operation, operator, *verify_state_info.key);
+//     vanilla.initialize_to_account_info(&rent, vanilla_data, program_id)?;
 
 //     // create verify stage
 //     let public_inputs_ctx = Context::new(public_inputs_info, program_id)?;

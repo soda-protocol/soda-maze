@@ -1,11 +1,10 @@
 use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
-use crate::params::vk::get_prepared_verifying_key;
-use crate::params::bn::{*, Bn254Parameters as BnParameters};
-use crate::context::Context;
+use crate::params::{bn::{*, Bn254Parameters as BnParameters}, vk::{PreparedVerifyingKey}};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
-use crate::{error::MazeError, verifier::{ProofA, ProofB, ProofC}};
+use crate::verifier::{ProofA, ProofB, ProofC};
+use super::fsm::FSM;
+use super::final_exponent::FinalExponentEasyPart;
 
 fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
     let mut c0 = coeffs.0;
@@ -39,9 +38,7 @@ pub struct MillerLoop {
 }
 
 impl MillerLoop {
-    pub fn process(mut self) -> Result<(), ProgramError> {
-        let pvk = get_prepared_verifying_key();
-
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
             self.f.square_in_place();
@@ -70,7 +67,16 @@ impl MillerLoop {
                         q2.y = -q2.y;
         
                         // in Finalize
-                        return Ok(());
+                        return FSM::MillerLoopFinalize(MillerLoopFinalize {
+                            coeff_index: self.coeff_index,
+                            prepared_input: self.prepared_input,
+                            proof_a: self.proof_a,
+                            proof_c: self.proof_c,
+                            q1,
+                            q2,
+                            r: self.r,
+                            f: self.f,
+                        });
                     } else {
                         continue;
                     }
@@ -87,7 +93,7 @@ impl MillerLoop {
         }
 
         // next loop
-        Ok(())
+        FSM::MillerLoop(self)
     }
 }
 
@@ -105,9 +111,7 @@ pub struct MillerLoopFinalize {
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
-    pub fn process(mut self) -> Result<(), ProgramError> {
-        let pvk = get_prepared_verifying_key();
-
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
         let coeff = addition_step(&mut self.r, &self.q1);
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
@@ -119,6 +123,8 @@ impl MillerLoopFinalize {
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
-        Ok(())
+        FSM::FinalExponentEasyPart(FinalExponentEasyPart {
+            r: self.f,
+        })
     }
 }

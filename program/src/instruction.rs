@@ -9,6 +9,6 @@ use crate::{verifier::{ProofA, ProofB, ProofC}};
 
 pub enum Instruction {
     CreatePool,
-    CreateVanillaInfo(Pubkey),
+    CreateVanillaData(Pubkey),
     CreateProofAccounts(ProofA, ProofB, ProofC),
 }

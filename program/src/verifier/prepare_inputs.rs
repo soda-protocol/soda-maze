@@ -5,7 +5,7 @@ use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::context::{Context512, Context1536};
 use crate::bn::{BnParameters as Bn, BitIteratorBE, FpParameters};
-use crate::params::vk::get_prepared_verifying_key;
+use crate::params::vk::PreparedVerifyingKey;
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::{error::MazeError, verifier::ProofB};
 
@@ -27,6 +27,7 @@ impl PrepareInputs {
     #[allow(clippy::too_many_arguments)]
     pub fn process(
         mut self,
+        pvk: &PreparedVerifyingKey,
         public_inputs_ctx: &Context1536<Box<Vec<Fr>>>,
         proof_b_ctx: &Context512<ProofB>,
         g_ic_ctx: &Context512<G1Projective254>,
@@ -50,8 +51,6 @@ impl PrepareInputs {
 
         let public_input = public_inputs[self.input_index as usize];
         let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
-
-        let pvk = get_prepared_verifying_key();
 
         const MAX_LOOP: usize = 40;
         BitIteratorBE::new(public_input)

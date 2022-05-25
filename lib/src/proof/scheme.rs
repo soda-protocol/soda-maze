@@ -33,8 +33,8 @@ where
 {
     fn generate_public_inputs(pub_in: &DepositPublicInputs<F>) -> Vec<F> {
         let mut inputs = Vec::new();
-        inputs.push(F::from(pub_in.leaf_index));
         inputs.push(F::from(pub_in.deposit_amount));
+        inputs.push(F::from(pub_in.leaf_index));
         inputs.push(pub_in.leaf);
         inputs.push(pub_in.prev_root);
         inputs.extend_from_slice(&pub_in.update_nodes);
@@ -71,8 +71,8 @@ where
         DepositCircuit::<F, FH, FHG>::new(
             params.leaf_params.clone(),
             params.inner_params.clone(),
-            pub_in.leaf_index,
             pub_in.deposit_amount,
+            pub_in.leaf_index,
             pub_in.leaf,
             pub_in.prev_root,
             pub_in.update_nodes.clone(),

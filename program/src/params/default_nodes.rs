@@ -1,9 +1,9 @@
-use crate::{params::bn::Fr, bn::BigInteger256 as BigInteger, HEIGHT};
+use crate::{params::{HEIGHT, bn::Fr}, bn::BigInteger256 as BigInteger};
 
 pub const DEFAULT_ROOT_HASH: Fr =
     Fr::new(BigInteger::new([6904633607657702662, 3694115756873985381, 10257531701570203579, 1282041486191921121]));
 
-pub const BLANK_NODE_HASH_MAP: &[Fr; HEIGHT] = &[
+pub const DEFAULT_NODES_HASH_MAP: &[Fr; HEIGHT] = &[
     Fr::new(BigInteger::new([0, 0, 0, 0])),
     Fr::new(BigInteger::new([4316403218598554694, 7026366660643036788, 3202054552173960111, 833781817075694658])),
     Fr::new(BigInteger::new([7651674736625726087, 13367131455973456443, 11398914766172565206, 3308250589751421042])),

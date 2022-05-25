@@ -14,8 +14,8 @@ where
     FHG: FieldHasherGadget<F, FH>,
 {
     leaf_params: Rc<FH::Parameters>,
-    leaf_index: u64,
     deposit_amount: u64,
+    leaf_index: u64,
     leaf: F,
     prev_root: F,
     secret: F,
@@ -35,8 +35,8 @@ where
         
         // alloc input
         // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
-        let leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let deposit_amount = FpVar::new_input(cs.clone(), || Ok(F::from(self.deposit_amount)))?;
+        let leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let leaf_input = FpVar::new_input(cs.clone(), || Ok(self.leaf))?;
         let prev_root = FpVar::new_input(cs.clone(), || Ok(self.prev_root))?;
 
@@ -70,8 +70,8 @@ where
     pub fn new(
         leaf_params: FH::Parameters,
         inner_params: FH::Parameters,
-        leaf_index: u64,
         deposit_amount: u64,
+        leaf_index: u64,
         leaf: F,
         prev_root: F,
         update_nodes: Vec<F>,
@@ -81,8 +81,8 @@ where
     ) -> Self {
         Self {
             leaf_params: Rc::new(leaf_params),
-            leaf_index,
             deposit_amount,
+            leaf_index,
             leaf,
             prev_root,
             secret,
@@ -157,8 +157,8 @@ mod tests {
         let deposit = DepositCircuit::<_, _, PoseidonHasherGadget<Fr>>::new(
             leaf_params,
             inner_params,
-            index,
             amount,
+            index,
             leaf,
             prev_root,
             update_nodes,

@@ -31,8 +31,8 @@ pub struct DepositOriginInputs<F: PrimeField> {
 
 #[derive(Clone)]
 pub struct DepositPublicInputs<F: PrimeField> {
-    pub leaf_index: u64,
     pub deposit_amount: u64,
+    pub leaf_index: u64,
     pub leaf: F,
     pub prev_root: F,
     pub update_nodes: Vec<F>,
@@ -115,8 +115,8 @@ where
         };
 
         let pub_in = DepositPublicInputs {
-            leaf_index: orig_in.leaf_index,
             deposit_amount: orig_in.deposit_amount,
+            leaf_index: orig_in.leaf_index,
             leaf,
             prev_root,
             update_nodes,

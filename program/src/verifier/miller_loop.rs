@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::context::Context512;
-use crate::params::vk::get_prepared_verifying_key;
+use crate::params::vk::PreparedVerifyingKey;
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::error::MazeError;
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
@@ -45,6 +45,7 @@ impl MillerLoop {
     #[allow(clippy::too_many_arguments)]
     pub fn process(
         mut self,
+        pvk: &PreparedVerifyingKey,
         prepared_input_ctx: &Context512<G1Affine254>,
         proof_ac_ctx: &Context512<ProofAC>,
         proof_b_ctx: &Context512<ProofB>,
@@ -79,8 +80,6 @@ impl MillerLoop {
         let proof_b = proof_b_ctx.take()?;
         let mut r = r_ctx.borrow_mut()?;
         let mut f = f_ctx.borrow_mut()?;
-
-        let pvk = get_prepared_verifying_key();
 
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
@@ -156,6 +155,7 @@ impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
     pub fn process(
         mut self,
+        pvk: &PreparedVerifyingKey,
         prepared_input_ctx: &Context512<G1Affine254>,
         proof_ac_ctx: &Context512<ProofAC>,
         r_ctx: &Context512<G2HomProjective254>,
@@ -186,8 +186,6 @@ impl MillerLoopFinalize {
         let q2 = q2_ctx.take()?;
         let mut r = r_ctx.borrow_mut()?;
         let mut f = f_ctx.borrow_mut()?;
-
-        let pvk = get_prepared_verifying_key();
 
         let coeff = addition_step(&mut r, &q1);
         ell(&mut f, &coeff, &proof_ac.proof_a);

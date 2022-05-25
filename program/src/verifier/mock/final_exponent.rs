@@ -1,12 +1,11 @@
 use std::ops::{MulAssign, Mul};
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::{Zero, One};
-use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
+use num_traits::One;
 
-use crate::{bn::BnParameters as Bn, error::MazeError};
-use crate::bn::{Field, Fp12ParamsWrapper, QuadExtParameters, Fp6ParamsWrapper, CubicExtParameters, Fp2ParamsWrapper};
+use crate::bn::{Field, BnParameters as Bn};
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
-use crate::context::Context;
+use crate::params::vk::PreparedVerifyingKey;
+use super::fsm::FSM;
 
 fn exp_by_neg_x(
     index: &mut u8,
@@ -42,49 +41,54 @@ fn exp_by_neg_x(
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct FinalExponentInverse {
-    pub f: Fqk254, // Fqk254
+pub struct FinalExponentEasyPart {
+    pub r: Fqk254, // Fqk254
 }
 
-impl FinalExponentInverse {
-    pub fn process(self) -> Result<(), ProgramError> {
-        let mut f1 = self.f.clone();
-        f1.conjugate();
+impl FinalExponentEasyPart {
+    pub fn process(mut self) -> FSM {
+        if let Some(mut f2) = self.r.inverse() {
+            self.r.conjugate();
 
-        if let Some(mut f2) = self.f.inverse() {
             // f2 = f^(-1);
             // r = f^(p^6 - 1)
-            f1.mul_assign(&f2);
+            self.r.mul_assign(&f2);
 
             // f2 = f^(p^6 - 1)
-            f2 = f1;
+            f2 = self.r;
 
             // r = f^((p^6 - 1)(p^2))
-            f1.frobenius_map(2);
+            self.r.frobenius_map(2);
 
-            f1.mul_assign(f2);
+            self.r.mul_assign(f2);
 
-            // goto exp by neg x
-            Ok(())
+            // goto hard part 1
+            let mut r_inv = self.r;
+            r_inv.conjugate();
+
+            FSM::FinalExponentHardPart1(FinalExponentHardPart1 {
+                index: 0,
+                r: self.r,
+                r_inv,
+                y0: Fqk254::one(),
+            })
         } else {
             // proof failed
-            Ok(())
+            FSM::Finished(false)
         }
-        // let mut r_inv = f1.clone();
-        // r_inv.conjugate();
-        // let y0 = Fqk254::one();
     }
 }
 
-pub struct FinalExponentMulStep1 {
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentHardPart1 {
     pub index: u8,
     pub r: Fqk254,
     pub r_inv: Fqk254,
     pub y0: Fqk254,
 }
 
-impl FinalExponentMulStep1 {
-    pub fn process(mut self) -> Result<(), ProgramError> {
+impl FinalExponentHardPart1 {
+    pub fn process(mut self) -> FSM {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y0,
@@ -93,30 +97,40 @@ impl FinalExponentMulStep1 {
         );
         if finished {
             // there is some rest compute uint to calculate y1, y2, y3
-            let y1 = self.y0.cyclotomic_square();
-            let y2 = y1.cyclotomic_square();
-            let mut y3 = y2 * y1;
-            y3.conjugate();
-            let _y4 = Fqk254::one();
+            let y1 = Box::new(self.y0.cyclotomic_square());
+            let y2 = Box::new(y1.cyclotomic_square());
+            let y3 = Box::new(y2.mul(y1.as_ref()));
+            let mut y3_inv = Box::new(*y3);
+            y3_inv.conjugate();
 
-            // finished
-            Ok(())
+            // goto hard part 2
+            FSM::FinalExponentHardPart2(FinalExponentHardPart2 {
+                index: 0,
+                r: Box::new(self.r),
+                y1,
+                y3,
+                y3_inv,
+                y4: Box::new(Fqk254::one()),
+            })
         } else {
             // next loop
-            Ok(())
+            FSM::FinalExponentHardPart1(self)
         }
     }
 }
 
-pub struct FinalExponentMulStep2 {
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentHardPart2 {
     pub index: u8,
-    pub y3: Fqk254,
-    pub y3_inv: Fqk254,
-    pub y4: Fqk254,
+    pub r: Box<Fqk254>,
+    pub y1: Box<Fqk254>,
+    pub y3: Box<Fqk254>,
+    pub y3_inv: Box<Fqk254>,
+    pub y4: Box<Fqk254>,
 }
 
-impl FinalExponentMulStep2 {
-    pub fn process(mut self) -> Result<(), ProgramError> {
+impl FinalExponentHardPart2 {
+    pub fn process(mut self) -> FSM {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y4,
@@ -124,18 +138,32 @@ impl FinalExponentMulStep2 {
             &self.y3_inv,
         );
         if finished {
-            let _y5 = self.y4.cyclotomic_square();
-            let _y6 = Fqk254::one();
+            let y5 = Box::new(self.y4.cyclotomic_square());
+            let mut y5_inv = Box::new(*y5);
+            y5_inv.conjugate();
 
-            Ok(())
+            // goto hard part 3
+            FSM::FinalExponentHardPart3(FinalExponentHardPart3 {
+                index: 0,
+                r: self.r,
+                y1: self.y1,
+                y3: self.y3,
+                y4: self.y4,
+                y5,
+                y5_inv,
+                y6: Box::new(Fqk254::one()),
+            })
         } else {
-            Ok(())
+            FSM::FinalExponentHardPart2(self)
         }
     }
 }
 
-pub struct FinalExponentMulStep3 {
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentHardPart3 {
     pub index: u8,
+    pub r: Box<Fqk254>,
+    pub y1: Box<Fqk254>,
     pub y3: Box<Fqk254>,
     pub y4: Box<Fqk254>,
     pub y5: Box<Fqk254>,
@@ -143,8 +171,8 @@ pub struct FinalExponentMulStep3 {
     pub y6: Box<Fqk254>,
 }
 
-impl FinalExponentMulStep3 {
-    pub fn process(mut self) -> Result<(), ProgramError> {
+impl FinalExponentHardPart3 {
+    pub fn process(mut self) -> FSM {
         let finished = exp_by_neg_x(
             &mut self.index,
             &mut self.y6,
@@ -156,25 +184,32 @@ impl FinalExponentMulStep3 {
             self.y6.conjugate();
 
             let y7 = self.y6.mul(self.y4.as_ref());
-            let _y8 = y7.mul(self.y3.as_ref());
+            let y8 = Box::new(y7.mul(self.y3.as_ref()));
 
-            Ok(())
+            // goto hard part 4
+            FSM::FinalExponentHardPart4(FinalExponentHardPart4 {
+                r: self.r,
+                y1: self.y1,
+                y4: self.y4,
+                y8,
+            })
         } else {
-            Ok(())
+            FSM::FinalExponentHardPart3(self)
         }
     }
 }
 
-pub struct FinalExponentMulStep4 {
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalExponentHardPart4 {
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
     pub y4: Box<Fqk254>,
     pub y8: Box<Fqk254>,
 }
 
-impl FinalExponentMulStep4 {
+impl FinalExponentHardPart4 {
     #[inline(never)]
-    pub fn process(mut self) -> Result<(), ProgramError> {
+    pub fn process(mut self, pvk: &PreparedVerifyingKey) -> FSM {
         let y9 = self.y8.mul(self.y1.as_ref());
         let y10 = self.y8.mul(self.y4.as_ref());
         let y11 = y10.mul(self.r.as_ref());
@@ -186,8 +221,8 @@ impl FinalExponentMulStep4 {
         self.r.conjugate();
         let mut y15 = self.r.mul(y9);
         y15.frobenius_map(3);
-        let _y16 = y15 * &y14;
+        let y16 = y15 * &y14;
 
-        Ok(())
+        FSM::Finished(&y16 == pvk.alpha_g1_beta_g2)
     }
 }

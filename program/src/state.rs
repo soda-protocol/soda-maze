@@ -1,12 +1,13 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_pack::IsInitialized;
 
-use crate::Packer;
+use crate::{Packer, params::ProofType};
 use crate::verifier::fsm::FSM;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct VerifyState {
     pub is_initialized: bool,
+    pub proof_type: ProofType,
     pub fsm: FSM,
 }
 
@@ -21,9 +22,10 @@ impl Packer for VerifyState {
 }
 
 impl VerifyState {
-    pub fn new(fsm: FSM) -> Self {
+    pub fn new(proof_type: ProofType, fsm: FSM) -> Self {
         Self {
             is_initialized: true,
+            proof_type,
             fsm,
         }
     }
@@ -59,5 +61,5 @@ impl<S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> IsInitializ
 }
 
 impl<S: Clone + BorshSerialize + BorshDeserialize, const LEN: usize> Packer for StateWrapper<S, LEN> {
-    const LEN: usize = LEN;
+    const LEN: usize = 1 + LEN;
 }

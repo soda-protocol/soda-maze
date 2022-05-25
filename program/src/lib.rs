@@ -10,7 +10,6 @@ pub mod vanilla;
 pub mod params;
 pub mod context;
 pub mod state;
-pub mod hasher;
 pub mod gadget;
 
 solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
@@ -28,10 +27,6 @@ use solana_program::{
 };
 
 use crate::error::MazeError;
-
-pub const HEIGHT: usize = 27;
-pub const PUBLIC_INPUTS: usize = 45;
-pub const CREDENTIAL_LEN: usize = 12;
 
 pub trait Data: Sized {
     fn to_vec(self) -> Vec<u8>;
