@@ -83,6 +83,7 @@ pub fn process_optimal_create_account<'a>(
     )
 }
 
+#[inline(never)]
 pub fn process_token_transfer<'a>(
     token_program_info: &AccountInfo<'a>,
     from_account_info: &AccountInfo<'a>,
@@ -110,6 +111,7 @@ pub fn process_token_transfer<'a>(
     )
 }
 
+#[inline(never)]
 #[allow(clippy::too_many_arguments)]
 pub fn process_create_associated_token_account<'a>(
     rent_info: &AccountInfo<'a>,

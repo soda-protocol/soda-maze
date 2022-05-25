@@ -14,6 +14,7 @@ use crate::verifier::{ProofA, ProofB, ProofC, Verifier, get_verifier_pda};
 use crate::invoke::{process_token_transfer, process_rent_refund};
 use crate::invoke::{process_optimal_create_account, process_create_associated_token_account};
 
+#[inline(never)]
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
