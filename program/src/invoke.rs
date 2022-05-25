@@ -13,7 +13,7 @@ use spl_token::instruction as token_instruction;
 
 use crate::assert_rent_exempt;
 
-#[inline(always)]
+#[inline]
 pub fn process_rent_refund<'a>(
     from_info: &AccountInfo<'a>,
     receiver_info: &AccountInfo<'a>,
@@ -151,7 +151,7 @@ pub fn process_create_associated_token_account<'a>(
 }
 
 /// Invoke signed unless signers seeds are empty
-#[inline(always)]
+#[inline]
 pub fn invoke_optionally_signed(
     instruction: &Instruction,
     account_infos: &[AccountInfo],
