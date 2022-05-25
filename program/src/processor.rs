@@ -27,13 +27,28 @@ pub fn process_instruction(
             leaf,
             prev_root,
             updating_nodes,
-        } => process_create_deposit_credential(program_id, accounts, deposit_amount, leaf_index, leaf, prev_root, updating_nodes),
+        } => process_create_deposit_credential(
+            program_id,
+            accounts,
+            deposit_amount,
+            leaf_index,
+            leaf,
+            prev_root,
+            updating_nodes,
+        ),
         MazeInstruction::CreateDepositVerifier {
             commitment,
             proof_a,
             proof_b,
             proof_c,
-        } => process_create_deposit_verifier(program_id, accounts, commitment, proof_a, proof_b, proof_c),
+        } => process_create_deposit_verifier(
+            program_id,
+            accounts,
+            commitment,
+            proof_a,
+            proof_b,
+            proof_c,
+        ),
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
             nullifier,
@@ -41,7 +56,16 @@ pub fn process_instruction(
             leaf,
             prev_root,
             updating_nodes,
-        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, nullifier, leaf_index, leaf, prev_root, updating_nodes),
+        } => process_create_withdraw_credential(
+            program_id,
+            accounts,
+            withdraw_amount,
+            nullifier,
+            leaf_index,
+            leaf,
+            prev_root,
+            updating_nodes,
+        ),
         MazeInstruction::CreateWithdrawVerifier {
             proof_a,
             proof_b,
@@ -58,6 +82,7 @@ pub fn process_instruction(
 }
 
 #[inline(never)]
+#[allow(clippy::too_many_arguments)]
 fn process_create_deposit_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -179,6 +204,7 @@ fn process_create_deposit_verifier(
 }
 
 #[inline(never)]
+#[allow(clippy::too_many_arguments)]
 fn process_create_withdraw_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -592,6 +618,7 @@ fn process_reset_buffer_accounts<V: VanillaData>(
 
 /////////////////////////////////////////////////// admin authority ///////////////////////////////////////////////////
 
+#[inline(never)]
 pub fn process_create_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],

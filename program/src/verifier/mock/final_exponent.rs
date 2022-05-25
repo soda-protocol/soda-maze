@@ -63,13 +63,13 @@ impl FinalExponentEasyPart {
             self.r.mul_assign(f2);
 
             // goto hard part 1
-            let mut r_inv = Box::new(*self.r);
+            let mut r_inv = *self.r;
             r_inv.conjugate();
 
             Program::FinalExponentHardPart1(FinalExponentHardPart1 {
                 index: 0,
                 r: self.r,
-                r_inv,
+                r_inv: Box::new(r_inv),
                 y0: Box::new(Fqk254::one()),
             })
         } else {
@@ -97,19 +97,19 @@ impl FinalExponentHardPart1 {
         );
         if finished {
             // there is some rest compute uint to calculate y1, y2, y3
-            let y1 = Box::new(self.y0.cyclotomic_square());
-            let y2 = Box::new(y1.cyclotomic_square());
-            let y3 = Box::new(y2.mul(y1.as_ref()));
-            let mut y3_inv = Box::new(*y3);
+            let y1 = self.y0.cyclotomic_square();
+            let y2 = y1.cyclotomic_square();
+            let y3 = y2 * &y1;
+            let mut y3_inv = y3;
             y3_inv.conjugate();
 
             // goto hard part 2
             Program::FinalExponentHardPart2(FinalExponentHardPart2 {
                 index: 0,
-                r: Box::new(*self.r),
-                y1,
-                y3,
-                y3_inv,
+                r: self.r,
+                y1: Box::new(y1),
+                y3: Box::new(y3),
+                y3_inv: Box::new(y3_inv),
                 y4: Box::new(Fqk254::one()),
             })
         } else {
@@ -138,8 +138,8 @@ impl FinalExponentHardPart2 {
             &self.y3_inv,
         );
         if finished {
-            let y5 = Box::new(self.y4.cyclotomic_square());
-            let mut y5_inv = Box::new(*y5);
+            let y5 = self.y4.cyclotomic_square();
+            let mut y5_inv = y5;
             y5_inv.conjugate();
 
             // goto hard part 3
@@ -149,8 +149,8 @@ impl FinalExponentHardPart2 {
                 y1: self.y1,
                 y3: self.y3,
                 y4: self.y4,
-                y5,
-                y5_inv,
+                y5: Box::new(y5),
+                y5_inv: Box::new(y5),
                 y6: Box::new(Fqk254::one()),
             })
         } else {
@@ -184,14 +184,14 @@ impl FinalExponentHardPart3 {
             self.y6.conjugate();
 
             let y7 = self.y6.mul(self.y4.as_ref());
-            let y8 = Box::new(y7.mul(self.y3.as_ref()));
+            let y8 = y7.mul(self.y3.as_ref());
 
             // goto hard part 4
             Program::FinalExponentHardPart4(FinalExponentHardPart4 {
                 r: self.r,
                 y1: self.y1,
                 y4: self.y4,
-                y8,
+                y8: Box::new(y8),
             })
         } else {
             Program::FinalExponentHardPart3(self)

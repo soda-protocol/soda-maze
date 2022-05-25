@@ -49,20 +49,19 @@ impl PrepareInputs {
                 Program::PrepareInputs(self)
             } else {
                 let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
-                let r = Box::new(G2HomProjective254 {
+                let r = G2HomProjective254 {
                     x: self.proof_b.x,
                     y: self.proof_b.y,
                     z: Fq2::one(),
-                });
-                let f = Box::new(Fqk254::one());
-                let prepared_input = Box::new(G1Affine254::from(*self.g_ic));
+                };
+                let prepared_input = G1Affine254::from(*self.g_ic);
 
                 Program::MillerLoop(MillerLoop {
                     index,
                     coeff_index: 0,
-                    f,
-                    r,
-                    prepared_input,
+                    f: Box::new(Fqk254::one()),
+                    r: Box::new(r),
+                    prepared_input: Box::new(prepared_input),
                     proof_a: self.proof_a,
                     proof_b: self.proof_b,
                     proof_c: self.proof_c,
