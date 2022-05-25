@@ -42,7 +42,7 @@ fn exp_by_neg_x(
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentEasyPart {
-    pub r: Fqk254, // Fqk254
+    pub r: Box<Fqk254>, // Fqk254
 }
 
 impl FinalExponentEasyPart {
@@ -55,7 +55,7 @@ impl FinalExponentEasyPart {
             self.r.mul_assign(&f2);
 
             // f2 = f^(p^6 - 1)
-            f2 = self.r;
+            f2 = *self.r;
 
             // r = f^((p^6 - 1)(p^2))
             self.r.frobenius_map(2);
@@ -63,14 +63,14 @@ impl FinalExponentEasyPart {
             self.r.mul_assign(f2);
 
             // goto hard part 1
-            let mut r_inv = self.r;
+            let mut r_inv = Box::new(*self.r);
             r_inv.conjugate();
 
             Program::FinalExponentHardPart1(FinalExponentHardPart1 {
                 index: 0,
                 r: self.r,
                 r_inv,
-                y0: Fqk254::one(),
+                y0: Box::new(Fqk254::one()),
             })
         } else {
             // proof failed
@@ -82,9 +82,9 @@ impl FinalExponentEasyPart {
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart1 {
     pub index: u8,
-    pub r: Fqk254,
-    pub r_inv: Fqk254,
-    pub y0: Fqk254,
+    pub r: Box<Fqk254>,
+    pub r_inv: Box<Fqk254>,
+    pub y0: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart1 {
@@ -106,7 +106,7 @@ impl FinalExponentHardPart1 {
             // goto hard part 2
             Program::FinalExponentHardPart2(FinalExponentHardPart2 {
                 index: 0,
-                r: Box::new(self.r),
+                r: Box::new(*self.r),
                 y1,
                 y3,
                 y3_inv,

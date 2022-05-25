@@ -28,17 +28,17 @@ pub trait VanillaData:  Clone + BorshSerialize + BorshDeserialize {
     fn to_verifier(
         self,
         credential: Pubkey,
-        proof_a: ProofA,
-        proof_b: ProofB,
-        proof_c: ProofC,
+        proof_a: Box<ProofA>,
+        proof_b: Box<ProofB>,
+        proof_c: Box<ProofC>,
     ) -> Verifier {
         let public_inputs = self.to_public_inputs();
         let program = Program::PrepareInputs(PrepareInputs {
             input_index: 0,
             bit_index: 0,
             public_inputs,
-            g_ic: *Self::PVK.g_ic_init,
-            tmp: G1Projective254::zero(),
+            g_ic: Box::new(*Self::PVK.g_ic_init),
+            tmp: Box::new(G1Projective254::zero()),
             proof_a,
             proof_b,
             proof_c,

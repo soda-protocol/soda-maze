@@ -13,11 +13,11 @@ pub struct PrepareInputs {
     pub input_index: u8,
     pub bit_index: u16,
     pub public_inputs: Box<Vec<Fr>>,
-    pub g_ic: G1Projective254,
-    pub tmp: G1Projective254,
-    pub proof_a: ProofA,
-    pub proof_b: ProofB,
-    pub proof_c: ProofC,
+    pub g_ic: Box<G1Projective254>,
+    pub tmp: Box<G1Projective254>,
+    pub proof_a: Box<ProofA>,
+    pub proof_b: Box<ProofB>,
+    pub proof_c: Box<ProofC>,
 }
 
 impl PrepareInputs {
@@ -44,18 +44,18 @@ impl PrepareInputs {
             
             if self.public_inputs.get(self.input_index as usize).is_some() {
                 self.bit_index = 0;
-                self.tmp = G1Projective254::zero();
+                self.tmp = Box::new(G1Projective254::zero());
 
                 Program::PrepareInputs(self)
             } else {
                 let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
-                let r = G2HomProjective254 {
+                let r = Box::new(G2HomProjective254 {
                     x: self.proof_b.x,
                     y: self.proof_b.y,
                     z: Fq2::one(),
-                };
-                let f = Fqk254::one();
-                let prepared_input = G1Affine254::from(self.g_ic);
+                });
+                let f = Box::new(Fqk254::one());
+                let prepared_input = Box::new(G1Affine254::from(*self.g_ic));
 
                 Program::MillerLoop(MillerLoop {
                     index,

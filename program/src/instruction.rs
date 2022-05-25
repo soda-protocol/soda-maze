@@ -13,9 +13,9 @@ pub enum MazeInstruction {
     },
     CreateDepositVerifier {
         commitment: Box<Vec<Fr>>,
-        proof_a: ProofA,
-        proof_b: ProofB,
-        proof_c: ProofC,
+        proof_a: Box<ProofA>,
+        proof_b: Box<ProofB>,
+        proof_c: Box<ProofC>,
     },
     CreateWithdrawCredential {
         withdraw_amount: u64,
@@ -26,9 +26,9 @@ pub enum MazeInstruction {
         updating_nodes: Box<Vec<Fr>>,
     },
     CreateWithdrawVerifier {
-        proof_a: ProofA,
-        proof_b: ProofB,
-        proof_c: ProofC,
+        proof_a: Box<ProofA>,
+        proof_b: Box<ProofB>,
+        proof_c: Box<ProofC>,
     },
     VerifyProof,
     FinalizeDeposit,

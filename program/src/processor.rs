@@ -122,9 +122,9 @@ fn process_create_deposit_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     commitment: Box<Vec<Fr>>,
-    proof_a: ProofA,
-    proof_b: ProofB,
-    proof_c: ProofC,
+    proof_a: Box<ProofA>,
+    proof_b: Box<ProofB>,
+    proof_c: Box<ProofC>,
 ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
 
@@ -244,9 +244,9 @@ fn process_create_withdraw_credential(
 fn process_create_withdraw_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    proof_a: ProofA,
-    proof_b: ProofB,
-    proof_c: ProofC,
+    proof_a: Box<ProofA>,
+    proof_b: Box<ProofB>,
+    proof_c: Box<ProofC>,
 ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
 
@@ -389,7 +389,7 @@ fn process_finalize_deposit(
     merkle_nodes.insert(0, credential.vanilla_data.leaf);
     // check and update merkle nodes
     merkle_nodes
-        .iter()
+        .into_iter()
         .zip(merkle_path)
         .try_for_each(|(node, (layer, index))| -> ProgramResult {
             let node_info = next_account_info(accounts_iter)?;
@@ -415,7 +415,7 @@ fn process_finalize_deposit(
                 &[seed_1, &seed_2, &seed_3, &seed_4],
             )?;
 
-            TreeNode::new(*node)._pack_to_account_info(node_info)
+            TreeNode::new(node)._pack_to_account_info(node_info)
         })?;
 
     vault.update(new_root, credential.vanilla_data.leaf_index);
