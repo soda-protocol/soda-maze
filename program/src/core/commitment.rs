@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 use solana_program::pubkey::Pubkey;
 
-use crate::{params::{bn::Fr, rabin::{RABIN_MODULUS, RABIN_MODULUS_LEN}}, state::StateWrapper, bn::BigInteger};
+use crate::params::{bn::Fr, rabin::{RABIN_MODULUS, RABIN_MODULUS_LEN}};
+use crate::{state::StateWrapper, bn::BigInteger};
 
 pub fn is_commitment_valid(commitment: &[Fr]) -> bool {
     if commitment.len() != RABIN_MODULUS_LEN {
@@ -21,7 +22,7 @@ pub fn is_commitment_valid(commitment: &[Fr]) -> bool {
     false
 }
 
-const COMMITMENT_LEN: usize = 32 * RABIN_MODULUS_LEN;
+const COMMITMENT_LEN: usize = 4 + 32 * RABIN_MODULUS_LEN;
 
 pub type Commitment = StateWrapper<Box<Vec<Fr>>, COMMITMENT_LEN>;
 

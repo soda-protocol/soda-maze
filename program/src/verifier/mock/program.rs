@@ -25,11 +25,11 @@ impl Program {
     pub fn process(self, pvk: &PreparedVerifyingKey) -> Self {
         match self {
             Program::PrepareInputs(pi) => {
-                msg!("Proving stage: Prepare Inputs at index {}", pi.input_index);
+                msg!("Proving stage: Prepare Inputs at input index {}, bit index {}", pi.input_index, pi.bit_index);
                 pi.process(pvk)
             },
             Program::MillerLoop(ml) => {
-                msg!("Proving stage: Miller Loop at index {}", ml.index);
+                msg!("Proving stage: Miller Loop at ATE index {}, coeff index {}", ml.ate_index, ml.coeff_index);
                 ml.process(pvk)
             },
             Program::MillerLoopFinalize(mlf) => {
@@ -41,15 +41,15 @@ impl Program {
                 fee.process()
             },
             Program::FinalExponentHardPart1(feh1) => {
-                msg!("Proving stage: Final Exponent Hard Part 1");
+                msg!("Proving stage: Final Exponent Hard Part 1 at index {}", feh1.index);
                 feh1.process()
             },
             Program::FinalExponentHardPart2(feh2) => {
-                msg!("Proving stage: Final Exponent Hard Part 2");
+                msg!("Proving stage: Final Exponent Hard Part 2 at index {}", feh2.index);
                 feh2.process()
             },
             Program::FinalExponentHardPart3(feh3) => {
-                msg!("Proving stage: Final Exponent Hard Part 3");
+                msg!("Proving stage: Final Exponent Hard Part 3 at index {}", feh3.index);
                 feh3.process()
             },
             Program::FinalExponentHardPart4(feh4) => {

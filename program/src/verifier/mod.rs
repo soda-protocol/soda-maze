@@ -26,18 +26,16 @@ pub struct ProofAC {
 
 pub fn get_verifier_pda<'a>(
     credential: &'a Pubkey,
-    signer: &'a Pubkey,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], &'a [u8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], [u8; 1])) {
     let credential_ref = credential.as_ref();
-    let signer_ref = signer.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[credential_ref, &signer_ref],
+        &[credential_ref],
         program_id,
     );
 
-    (key, (credential_ref, signer_ref, [seed]))
+    (key, (credential_ref, [seed]))
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -55,7 +53,7 @@ impl IsInitialized for Verifier {
 }
 
 impl Packer for Verifier {
-    const LEN: usize = 2048;
+    const LEN: usize = 3072;
 }
 
 impl Verifier {

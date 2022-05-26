@@ -3,13 +3,14 @@ use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_accou
 use solana_program::entrypoint::ProgramResult;
 
 use crate::{params::bn::Fr, instruction::MazeInstruction, error::MazeError, Packer};
-use crate::core::{VanillaData, Credential, get_credential_pda};
+use crate::core::VanillaData;
 use crate::core::nullifier::{get_nullifier_pda, Nullifier};
 use crate::core::commitment::{get_commitment_pda, Commitment};
+use crate::core::credential::{Credential, get_credential_pda};
 use crate::core::deposit::{DepositCredential, DepositVanillaData};
 use crate::core::withdraw::{WithdrawCredential, WithdrawVanillaData};
-use crate::core::vault::{Vault, get_vault_authority_pda};
-use crate::core::node::{TreeNode, get_tree_node_pda, gen_merkle_path_from_leaf_index};
+use crate::core::vault::{Vault, get_vault_pda, get_vault_authority_pda};
+use crate::core::node::{MerkleNode, get_tree_node_pda, gen_merkle_path_from_leaf_index};
 use crate::verifier::{ProofA, ProofB, ProofC, Verifier, get_verifier_pda};
 use crate::invoke::{process_token_transfer, process_rent_refund};
 use crate::invoke::{process_optimal_create_account, process_create_associated_token_account};
@@ -17,7 +18,7 @@ use crate::invoke::{process_optimal_create_account, process_create_associated_to
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    input: &[u8],   
+    input: &[u8],
 ) -> ProgramResult {
     let instruction = MazeInstruction::deserialize(&mut input.as_ref())?;
     match instruction {
@@ -167,9 +168,8 @@ fn process_create_deposit_verifier(
         return Err(MazeError::InvalidAuthority.into());
     }
 
-    let (verifier_key, (seed_1, seed_2, seed_3)) = get_verifier_pda(
+    let (verifier_key, (seed_1, seed_2)) = get_verifier_pda(
         credential_info.key,
-        signer_info.key,
         program_id,
     );
     if verifier_info.key != &verifier_key {
@@ -184,7 +184,7 @@ fn process_create_deposit_verifier(
         program_id,
         Verifier::LEN,
         &[],
-        &[seed_1, seed_2, &seed_3],
+        &[seed_1, &seed_2],
     )?;
 
     credential.vanilla_data.fill_commitment(commitment)?;
@@ -290,9 +290,8 @@ fn process_create_withdraw_verifier(
         return Err(MazeError::InvalidAuthority.into());
     }
 
-    let (verifier_key, (seed_1, seed_2, seed_3)) = get_verifier_pda(
+    let (verifier_key, (seed_1, seed_2)) = get_verifier_pda(
         credential_info.key,
-        signer_info.key,
         program_id,
     );
     if verifier_info.key != &verifier_key {
@@ -307,7 +306,7 @@ fn process_create_withdraw_verifier(
         program_id,
         Verifier::LEN,
         &[],
-        &[seed_1, seed_2, &seed_3],
+        &[seed_1, &seed_2],
     )?;
 
     // check if vanilla data is valid
@@ -413,21 +412,22 @@ fn process_finalize_deposit(
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
     let new_root = merkle_nodes.pop().unwrap();
     merkle_nodes.insert(0, credential.vanilla_data.leaf);
+    
     // check and update merkle nodes
     merkle_nodes
         .into_iter()
         .zip(merkle_path)
-        .try_for_each(|(node, (layer, index))| -> ProgramResult {
+        .try_for_each(|(node, (layer, index))| {
             let node_info = next_account_info(accounts_iter)?;
             let (node_key, (seed_1, seed_2, seed_3, seed_4)) = get_tree_node_pda(
                 vault_info.key,
-                layer as u8,
+                layer,
                 index,
                 program_id,
             );
             if &node_key != node_info.key {
-                msg!("node at layer {} index {} is invalid", layer, index);
-                return Err(MazeError::InvalidPdaPubkey.into());
+                msg!("Node at layer {} index {} is invalid", layer, index);
+                return Err(MazeError::UnmatchedAccounts.into());
             }
 
             process_optimal_create_account(
@@ -436,12 +436,12 @@ fn process_finalize_deposit(
                 signer_info,
                 system_program_info,
                 program_id,
-                TreeNode::LEN,
+                MerkleNode::LEN,
                 &[],
                 &[seed_1, &seed_2, &seed_3, &seed_4],
             )?;
 
-            TreeNode::new(node)._pack_to_account_info(node_info)
+            MerkleNode::new(node)._pack_to_account_info(node_info)
         })?;
 
     vault.update(new_root, credential.vanilla_data.leaf_index);
@@ -543,17 +543,17 @@ fn process_finalize_withdraw(
     merkle_nodes
         .into_iter()
         .zip(merkle_path)
-        .try_for_each(|(node, (layer, index))| -> ProgramResult {
+        .try_for_each(|(node, (layer, index))| {
             let node_info = next_account_info(accounts_iter)?;
             let (node_key, (seed_1, seed_2, seed_3, seed_4)) = get_tree_node_pda(
                 vault_info.key,
-                layer as u8,
+                layer,
                 index,
                 program_id,
             );
             if &node_key != node_info.key {
-                msg!("node at layer {} index {} is invalid", layer, index);
-                return Err(MazeError::InvalidPdaPubkey.into());
+                msg!("Node at layer {} index {} is invalid", layer, index);
+                return Err(MazeError::UnmatchedAccounts.into());
             }
 
             process_optimal_create_account(
@@ -562,12 +562,12 @@ fn process_finalize_withdraw(
                 signer_info,
                 system_program_info,
                 program_id,
-                TreeNode::LEN,
+                MerkleNode::LEN,
                 &[],
                 &[seed_1, &seed_2, &seed_3, &seed_4],
             )?;
 
-            TreeNode::new(node)._pack_to_account_info(node_info)
+            MerkleNode::new(node)._pack_to_account_info(node_info)
         })?;
 
     vault.update(new_root, credential.vanilla_data.leaf_index);
@@ -635,15 +635,17 @@ pub fn process_create_vault(
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let admin_info = next_account_info(accounts_iter)?;
 
-    let (vault_signer_key, (seed_1, seed_2)) = get_vault_authority_pda(
-        vault_info.key,
+    if !admin_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
+    let (vault_key, (seed_1, seed_2, seed_3)) = get_vault_pda(
+        admin_info.key,
+        token_mint_info.key,
         program_id,
     );
-    if &vault_signer_key != vault_signer_info.key {
+    if &vault_key != vault_info.key {
         return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !vault_signer_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
     }
 
     process_optimal_create_account(
@@ -654,8 +656,16 @@ pub fn process_create_vault(
         program_id,
         Vault::LEN,
         &[],
-        &[seed_1, &seed_2],
+        &[seed_1, &seed_2, &seed_3],
     )?;
+
+    let (vault_signer_key, (_, seed_2)) = get_vault_authority_pda(
+        vault_info.key,
+        program_id,
+    );
+    if &vault_signer_key != vault_signer_info.key {
+        return Err(MazeError::InvalidPdaPubkey.into());
+    }
 
     process_create_associated_token_account(
         rent_info,
@@ -672,7 +682,7 @@ pub fn process_create_vault(
     let vault = Vault::new(
         *admin_info.key,
         *vault_token_account_info.key,
-        *vault_signer_info.key,
+        vault_signer_key,
         seed_2,
     );
     vault._initialize_to_account_info(vault_info)

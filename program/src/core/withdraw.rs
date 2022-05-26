@@ -3,7 +3,7 @@ use solana_program::{msg, entrypoint::ProgramResult};
 
 use crate::params::{bn::Fr, proof::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
-use super::{VanillaData, Credential, node::is_updating_nodes_valid};
+use super::{VanillaData, credential::Credential, node::is_updating_nodes_valid};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
@@ -37,7 +37,7 @@ impl WithdrawVanillaData {
 
 impl VanillaData for WithdrawVanillaData {
     const PROOF_TYPE: ProofType = ProofType::Withdraw;
-    const SIZE: usize = 8 + 32 + 8 + 32 + 32 + 4 + 32 * (HEIGHT + 1);
+    const SIZE: usize = 8 + 32 + 8 + 32 + 32 + 4 + 32 * HEIGHT;
 
     fn check_valid(&self) -> ProgramResult {
         if !self.nullifier.is_valid() {

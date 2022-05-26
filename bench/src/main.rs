@@ -205,6 +205,8 @@ impl<'a> MerkleTree<'a> {
                     .expect("poseidon hash error");
             });
 
+        println!("Fr::new(BigInteger::new({:?}))", &hash.0.0);
+
         Self {
             params,
             height,
@@ -374,60 +376,15 @@ fn main() {
             let const_params = get_withdraw_const_params(height);
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
 
-            // const_params.commitment_params.round_keys.iter().for_each(|k| {
-            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
-            // });
-            // const_params.commitment_params.mds_matrix.iter().for_each(|ks| {
-            //     println!("    &[");
-            //     ks.iter().for_each(|k| {
-            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
-            //     });
-            //     println!("    ],");
-            // });
-
-            // println!("--------------------------------------------------------------------");
-            // const_params.nullifier_params.round_keys.iter().for_each(|k| {
-            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
-            // });
-            // const_params.nullifier_params.mds_matrix.iter().for_each(|ks| {
-            //     println!("    &[");
-            //     ks.iter().for_each(|k| {
-            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
-            //     });
-            //     println!("    ],");
-            // });
-
-            // println!("--------------------------------------------------------------------");
-            // const_params.leaf_params.round_keys.iter().for_each(|k| {
-            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
-            // });
-            // const_params.leaf_params.mds_matrix.iter().for_each(|ks| {
-            //     println!("    &[");
-            //     ks.iter().for_each(|k| {
-            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
-            //     });
-            //     println!("    ],");
-            // });
-
-            // println!("--------------------------------------------------------------------");
-            // const_params.inner_params.round_keys.iter().for_each(|k| {
-            //     println!("    Fr::new(BigInteger::new({:?})),", &k.0.0);
-            // });
-            // const_params.inner_params.mds_matrix.iter().for_each(|ks| {
-            //     println!("    &[");
-            //     ks.iter().for_each(|k| {
-            //         println!("        Fr::new(BigInteger::new({:?})),", &k.0.0);
-            //     });
-            //     println!("    ],");
-            // });
-
             let amount_1 = u64::rand(&mut OsRng);
             let amount_2 = u64::rand(&mut OsRng);
             let deposit_amount = amount_1.max(amount_2);
             let withdraw_amount = amount_1.min(amount_2);
             let secret = Fr::rand(&mut OsRng);
 
-            let src_index = 0;
+            let index_1 = Uniform::new(0, 1 << height).sample(&mut OsRng);
+            let index_2 = Uniform::new(0, 1 << height).sample(&mut OsRng);
+            let src_index = index_1.min(index_2);
             let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
                 &[Fr::from(src_index), Fr::from(deposit_amount), secret],
@@ -435,7 +392,7 @@ fn main() {
             merkle_tree.add_leaf(src_index, src_leaf);
             let src_friend_nodes = merkle_tree.get_friends(src_index);
 
-            let dst_index = 1;
+            let dst_index = index_1.max(index_2);
             let dst_friend_nodes = merkle_tree.get_friends(dst_index);
 
             let origin_inputs = WithdrawOriginInputs {

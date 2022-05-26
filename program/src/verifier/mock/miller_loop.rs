@@ -29,7 +29,7 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoop {
-    pub index: u8,
+    pub ate_index: u8,
     pub coeff_index: u8,
     pub f: Box<Fqk254>, // Fqk254
     pub r: Box<G2HomProjective254>, // G2HomProjective254
@@ -51,13 +51,13 @@ impl MillerLoop {
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
 
-            self.index -= 1;
-            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+            self.ate_index -= 1;
+            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.ate_index as usize];
             let coeff = match bit {
                 1 => addition_step(&mut self.r, &self.proof_b),
                 -1 => addition_step(&mut self.r, &self.proof_b.neg()),
                 _ => {
-                    if self.index == 0 {
+                    if self.ate_index == 0 {
                         let q1 = mul_by_char::<BnParameters>(*self.proof_b);
                         let mut q2 = mul_by_char::<BnParameters>(q1);
         
@@ -91,7 +91,7 @@ impl MillerLoop {
             self.coeff_index += 1;
 
             // in ATE_LOOP_COUNT, the first value is zero, so index will not be zero
-            assert_ne!(self.index, 0);
+            assert_ne!(self.ate_index, 0);
         }
 
         // next loop

@@ -4,7 +4,8 @@ use solana_program::{msg, entrypoint::ProgramResult};
 use crate::params::{bn::Fr, rabin::RABIN_MODULUS_LEN, proof::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
 
-use super::{commitment::is_commitment_valid, node::is_updating_nodes_valid, VanillaData, Credential};
+use super::{commitment::is_commitment_valid, node::is_updating_nodes_valid};
+use super::{VanillaData, credential::Credential};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct DepositVanillaData {
@@ -50,7 +51,7 @@ impl DepositVanillaData {
 
 impl VanillaData for DepositVanillaData {
     const PROOF_TYPE: ProofType = ProofType::Deposit;
-    const SIZE: usize = 8 + 8 + 32 + 32 + 4 + (HEIGHT + 1) * 32 + 4 + RABIN_MODULUS_LEN * 32;
+    const SIZE: usize = 8 + 8 + 32 + 32 + 4 + HEIGHT * 32 + 1 + 4 + RABIN_MODULUS_LEN * 32;
 
     fn check_valid(&self) -> ProgramResult {
         if self.leaf_index >= 1 << HEIGHT {

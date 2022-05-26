@@ -30,14 +30,12 @@ pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
     (0..HEIGHT).into_iter().map(|layer| (layer, index >> layer)).collect()
 }
 
-pub type TreeNode = StateWrapper<Fr, 32>;
-
 pub fn get_tree_node_pda<'a>(
     vault: &'a Pubkey,
-    layer: u8,
+    layer: usize,
     index: u64,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], [u8; 1], [u8; 8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], [u8; 8], [u8; 8], [u8; 1])) {
     let vault_ref = vault.as_ref();
     let layer_bytes = layer.to_le_bytes();
     let index_bytes = index.to_le_bytes();
@@ -49,3 +47,5 @@ pub fn get_tree_node_pda<'a>(
 
     (key, (vault_ref, layer_bytes, index_bytes, [seed]))
 }
+
+pub type MerkleNode = StateWrapper<Fr, 32>;

@@ -16,6 +16,23 @@ pub struct Vault {
 }
 
 #[inline]
+pub fn get_vault_pda<'a>(
+    admin: &'a Pubkey,
+    token_mint: &'a Pubkey,
+    program_id: &Pubkey,
+) -> (Pubkey, (&'a [u8], &'a [u8], [u8; 1])) {
+    let admin_ref = admin.as_ref();
+    let token_mint_ref = token_mint.as_ref();
+
+    let (key, seed) = Pubkey::find_program_address(
+        &[admin_ref, token_mint_ref],
+        program_id,
+    );
+
+    (key, (admin_ref, token_mint_ref, [seed]))
+}
+
+#[inline]
 pub fn get_vault_authority_pda<'a>(
     vault: &'a Pubkey,
     program_id: &Pubkey,

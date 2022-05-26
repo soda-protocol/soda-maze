@@ -5,12 +5,11 @@ use borsh::{BorshSerialize, BorshDeserialize};
 
 use crate::params::bn::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
 
-const DEPOSIT_INPUTS: usize = 45;
+const DEPOSIT_INPUTS: usize = 37;
 
-const WITHDRAW_INPUTS: usize = 40;
+const WITHDRAW_INPUTS: usize = 26;
 
 pub struct PreparedVerifyingKey<'a> {
-    /// 
     pub g_ic_init: &'a G1Projective254,
     /// The unprepared verification key.
     pub gamma_abc_g1: &'a [G1Affine254],

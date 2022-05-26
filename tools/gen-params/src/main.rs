@@ -1,5 +1,6 @@
 use std::fs::OpenOptions;
 use std::path::PathBuf;
+use ark_ff::PrimeField;
 use ark_ec::AffineCurve;
 use ark_groth16::PreparedVerifyingKey;
 use ark_serialize::{CanonicalSerialize, Write};
@@ -15,7 +16,7 @@ use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
-use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
+use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, biguint_to_biguint_array};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
@@ -207,7 +208,7 @@ fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
 
 #[cfg(all(feature = "poseidon", feature = "bn254"))]
 fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
+    use soda_maze_lib::params::poseidon::*;
 
     let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
     let modulus = BigUint::from_bytes_le(&modulus);
@@ -319,6 +320,19 @@ fn main() {
                 prime_b: hex::encode(b.to_bytes_le()),
             };
             write_json_to_file(&prime_path, &primes);
+    
+            let modulus = BigUint::from_bytes_le(&modulus.to_bytes_le());
+            let modulus_array = biguint_to_biguint_array(modulus.clone(), prime_len * 2, bit_size);
+            modulus_array.chunks(cipher_batch).for_each(|chunk| {
+                let mut base = BigUint::from(1u64);
+                let val = chunk.iter().fold(BigUint::from(0u64), |sum, s| {
+                    let sum = &sum + s * &base;
+                    base <<= bit_size;
+                    sum
+                });
+                let val = Fr::from(val).into_repr();
+                println!("    BigInteger::new({:?}),", &val.0);
+            });
 
             let parameter = RabinParameters {
                 modulus: hex::encode(modulus.to_bytes_le()),
@@ -373,28 +387,3 @@ fn main() {
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use ark_bn254::Fr;
-//     use arkworks_utils::prelude::ark_ff::{BigInteger, PrimeField};
-//     use num_bigint::BigUint;
-//     use num_integer::Integer;
-//     use soda_maze_lib::vanilla::rabin::{biguint_to_biguint_array};
-    
-//     #[test]
-//     fn test() {
-//         let modulus = "73d64eaa4e8dbcf2b871d1f672177ccdaa1625a61effe43545c2d82b9287f1d146c91f7bbf8a160a6e6b43dfb8c051d4647d88d415dbb570ed5576025c54294da9e7ef18d6cb04504c27f577d396a8c6a7b45488467b9c6b00eed26c907a3420b2e15394e0794882d04e3585657e2a7a4c09b0a65cb095477a68426c3ef136f35f5c71dac8f52031caf43b6e3da774166881702de0bf693d6df73c0f8d812fccf7edf919b687ee6fd5a0d7b2bda2549cff0f32cd62bec9399d9803cb589c9295a6b5b0bb74ed6acac1485f663072dd38b5679de6b58ebf05e20ae02d3f1cabaa1115dad1746c47313e2d0ebf7ccc6c1a00c8bd3cecb25c38aa37faae96b159dd2f471fd4e95a8656dd3a6f7d03aebb5b1a602f0fb4972b0b5c4d12243e255d4923b232ff4324158d044cd69cb3492740ab875d0adfe318c01294f82f239800b7d1fe274694706c7c67dbd71259531db06ba559353ebfd9cd078a43ee06d18de911ff10e5a2669d4243face8e7c12009cfd2705b4";
-//         let modulus = hex::decode(modulus).expect("modulus is an invalid hex string");
-//         let modulus = BigUint::from_bytes_le(&modulus);
-
-//         let modulus_array = biguint_to_biguint_array(modulus, 24, 124);
-//         modulus_array.chunks(2).for_each(|chunk| {
-//             let val: BigUint = &chunk[0] + (&chunk[1] * (BigUint::from(1u64) << 124));
-
-//             let val: Fr = val.into();
-//             let val = val.into_repr();
-//             println!("BigInteger::new({:?}),", &val.0);
-//         });
-//     }
-// }

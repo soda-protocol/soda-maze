@@ -48,7 +48,7 @@ impl PrepareInputs {
 
                 Program::PrepareInputs(self)
             } else {
-                let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
+                let ate_index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
                 let r = G2HomProjective254 {
                     x: self.proof_b.x,
                     y: self.proof_b.y,
@@ -57,7 +57,7 @@ impl PrepareInputs {
                 let prepared_input = G1Affine254::from(*self.g_ic);
 
                 Program::MillerLoop(MillerLoop {
-                    index,
+                    ate_index,
                     coeff_index: 0,
                     f: Box::new(Fqk254::one()),
                     r: Box::new(r),
