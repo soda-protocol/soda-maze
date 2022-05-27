@@ -1,5 +1,5 @@
 use borsh::BorshDeserialize;
-use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}, program_memory::sol_memset};
+use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
 use solana_program::entrypoint::ProgramResult;
 
 use crate::{
@@ -630,7 +630,6 @@ fn process_reset_buffer_accounts<V: VanillaData>(
         return Err(MazeError::InvalidAuthority.into());
     }
     // clear credential
-    sol_memset(&mut credential_info.try_borrow_mut_data()?, 0, credential_info.data_len());
     process_rent_refund(credential_info, signer_info);
 
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
@@ -639,7 +638,6 @@ fn process_reset_buffer_accounts<V: VanillaData>(
         return Err(MazeError::UnmatchedAccounts.into());
     }
     // clear verifier
-    sol_memset(&mut verifier_info.try_borrow_mut_data()?, 0, verifier_info.data_len());
     process_rent_refund(verifier_info, signer_info);
 
     Ok(())
