@@ -104,6 +104,8 @@ fn process_create_deposit_credential(
     prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
+    msg!("Creating deposit credential: deposit amount {} at leaf index: {}", deposit_amount, leaf_index);
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -163,6 +165,8 @@ fn process_create_deposit_verifier(
     proof_b: Box<ProofB>,
     proof_c: Box<ProofC>,
 ) -> ProgramResult {
+    msg!("Creating deposit verifier");
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -226,6 +230,8 @@ fn process_create_withdraw_credential(
     prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
+    msg!("Creating withdraw credential: withdraw amount {} at leaf index: {}", withdraw_amount, leaf_index);
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -285,6 +291,8 @@ fn process_create_withdraw_verifier(
     proof_b: Box<ProofB>,
     proof_c: Box<ProofC>,
 ) -> ProgramResult {
+    msg!("Creating withdraw verifier");
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -337,6 +345,8 @@ pub fn process_verify_proof(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
+    msg!("Verifying proof");
+
     let accounts_iter = &mut accounts.iter();
 
     let verifier_info = next_account_info(accounts_iter)?;
@@ -352,6 +362,8 @@ fn process_finalize_deposit(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
+    msg!("Finalizing deposit");
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -474,6 +486,8 @@ fn process_finalize_withdraw(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
+    msg!("Finalizing withdraw");
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -599,6 +613,8 @@ fn process_reset_buffer_accounts<V: VanillaData>(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
+    msg!("Reset buffer accounts");
+
     let accounts_iter = &mut accounts.iter();
 
     let credential_info = next_account_info(accounts_iter)?;
@@ -634,6 +650,8 @@ pub fn process_create_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
+    msg!("Creating the vault");
+
     let accounts_iter = &mut accounts.iter();
 
     let system_program_info = next_account_info(accounts_iter)?;
@@ -704,6 +722,8 @@ fn process_control_vault(
     accounts: &[AccountInfo],
     enable: bool,
 ) -> ProgramResult {
+    msg!("Controling the vault");
+
     let accounts_iter = &mut accounts.iter();
 
     let vault_info = next_account_info(accounts_iter)?;
