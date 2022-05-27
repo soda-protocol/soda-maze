@@ -328,3 +328,37 @@ pub fn finalize_withdraw(
         data,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
+    use solana_client::rpc_client::RpcClient;
+
+    use crate::{id, instruction::create_vault};
+
+    const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
+    const DEVNET: &str = "https://api.devnet.solana.com";
+
+    #[test]
+    fn test_instruction() {
+        let client = RpcClient::new_with_commitment(DEVNET, CommitmentConfig {
+            commitment: CommitmentLevel::Processed,
+        });
+
+        let blockhash = client.get_latest_blockhash().unwrap();
+        let user = Keypair::from_base58_string(USER_KEYPAIR);
+        let token_mint = spl_token::native_mint::ID;
+
+        let instruction = create_vault(token_mint, user.pubkey()).unwrap();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&user.pubkey()),
+            &[&user],
+            blockhash,
+        );
+
+        let res = client.send_transaction(&transaction).unwrap();
+        println!("{}", res);
+    }
+}
