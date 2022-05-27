@@ -457,9 +457,9 @@ mod tests {
         //     Box::new(proof_c),
         // ).unwrap();
 
-        // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
+        let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
 
-        let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
+        // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
         let transaction = Transaction::new_signed_with_payer(
             &[instruction],

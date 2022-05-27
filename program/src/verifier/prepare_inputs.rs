@@ -32,16 +32,16 @@ impl PrepareInputs {
         loop {
             if let Some(bit) = bits_iter.next() {
                 self.tmp.double_in_place();
-                used_units += 500;
+                used_units += 13000;
                 if bit {
                     self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
-                    used_units += 42000;
+                    used_units += 22000;
                 }
                 self.bit_index += 1;
             } else {
                 self.g_ic.add_assign(&self.tmp);
                 self.input_index += 1;
-                used_units += 500;
+                used_units += 13000;
 
                 if self.input_index as usize >= self.public_inputs.len() {
                     let r = G2HomProjective254 {
@@ -69,7 +69,7 @@ impl PrepareInputs {
 
                     public_input = self.public_inputs[self.input_index as usize];
                     bits_iter = BitIteratorBE::without_leading_zeros(public_input).skip(0);
-                    used_units += 500;
+                    used_units += 1000;
                 }
             }
 
