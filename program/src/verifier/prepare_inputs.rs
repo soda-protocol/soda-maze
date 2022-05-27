@@ -35,7 +35,7 @@ impl PrepareInputs {
                 used_units += 13000;
                 if bit {
                     self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
-                    used_units += 22000;
+                    used_units += 21200;
                 }
                 self.bit_index += 1;
             } else {
