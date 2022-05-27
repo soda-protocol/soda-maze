@@ -351,16 +351,17 @@ pub fn reset_buffer_accounts(
 
 #[cfg(test)]
 mod tests {
-    use solana_program::{pubkey::Pubkey, system_instruction};
+    use solana_program::pubkey::Pubkey;
     use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer, pubkey};
     use solana_client::rpc_client::RpcClient;
 
-    use crate::{instruction::{create_vault, create_deposit_credential}, core::vault::Vault, Packer};
+    use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof};
+    use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
-    const VAULT: Pubkey = pubkey!("9LZLTREpRmmw1PbqjsC4vtDWStU2Es2Mqw8JVcGPnNq8");
+    const VAULT: Pubkey = pubkey!("84dS1AtpqVDshZphmWrC6dX9YEGffs6XAtPt16vPX3ZX");
 
     #[test]
     fn test_instruction() {
@@ -399,18 +400,64 @@ mod tests {
             BigInteger::new([15541703251344978826, 10978453290527186359, 10233791787923230785, 179983619992156155]),
             BigInteger::new([1403833390002913823, 14192997889125093942, 2057500286915250275, 2091709604487301396]),
         ];
+        let commitment = vec![
+            BigInteger::new([16722997434160713798, 11403452488286244511, 18318868681545149281, 21754274364414989]),
+            BigInteger::new([11611806235245355479, 5424040539426569871, 7513338721988059883, 35367902979566062]),
+            BigInteger::new([220681830571333505, 13034651635228622148, 14955611269817919911, 36862314553737607]),
+            BigInteger::new([3646867184726427713, 5600318523685585750, 7642679702590823310, 40280276519090518]),
+            BigInteger::new([2053746354640544201, 5271193340300995188, 15781609477155030499, 33238881268910210]),
+            BigInteger::new([4886134654328406654, 12634074070563300144, 17891432476597062324, 71955938858561633]),
+            BigInteger::new([2559727239711704880, 6392075204380784424, 12055047205046880238, 9598153984261654]),
+            BigInteger::new([8099615302498656019, 17681822004623220591, 4278720356088691622, 20549192218165015]),
+            BigInteger::new([1479306651680053975, 16970454663387229825, 1219617339513386804, 9996197586358739]),
+            BigInteger::new([12513940028146829811, 16771911556576546385, 12887667978113417874, 36027991776611425]),
+            BigInteger::new([18410058132998784786, 13401630289159459721, 14914310748430415085, 18313255534332353]),
+            BigInteger::new([5826441929749290616, 11335202586746830014, 10903293645248433631, 36117579937827459]),
+        ];
+        let proof_a = ProofA::new_const(
+            Fq::new(BigInteger::new([3750417186220724512, 3978078781434640716, 15163791108043952614, 2453596515077279990])),
+            Fq::new(BigInteger::new([5354853820532153524, 8883007908664368954, 470161243035897903, 1359038641147964963])),
+            false
+        );
+        let proof_b = ProofB::new_const(
+            Fq2::new_const(
+                Fq::new(BigInteger::new([12118601996045181130, 896706683785346415, 4709517509465227924, 1819241630933245065])),
+                Fq::new(BigInteger::new([16349181015735361827, 4843110160248729036, 17714835083434401718, 2754712195795085383])),
+            ),
+            Fq2::new_const(
+                Fq::new(BigInteger::new([3167422245359854874, 15117403505212976980, 14561078193533486427, 992932037830603307])),
+                Fq::new(BigInteger::new([10453996433908490996, 4951364747808814581, 1077088453432665796, 3244165116791247838])),
+            ),
+            false
+        );
+        let proof_c = ProofC::new_const(
+            Fq::new(BigInteger::new([6745960168647187300, 7304089792560402287, 5467772039812183716, 1531927553351135845])),
+            Fq::new(BigInteger::new([2914263778726088111, 9472631376659388131, 16215105594981982902, 939471742250680668])),
+            false
+        );
 
-        let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
+        // let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
-        //     user.pubkey(),
+        //     signer.pubkey(),
         //     deposit_amount,
         //     leaf_index,
         //     leaf,
         //     prev_root,
         //     Box::new(updating_nodes),
         // ).unwrap();
+
+        // let instruction = create_deposit_verifier(
+        //     VAULT,
+        //     signer.pubkey(),
+        //     Box::new(commitment),
+        //     Box::new(proof_a),
+        //     Box::new(proof_b),
+        //     Box::new(proof_c),
+        // ).unwrap();
+
+        let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
 
         let transaction = Transaction::new_signed_with_payer(
             &[instruction],

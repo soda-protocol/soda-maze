@@ -2,8 +2,8 @@ use std::ops::{AddAssign, Neg};
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
 
-use crate::bn::{BigInteger256 as BigInteger, BitIteratorBE, FpParameters};
-use crate::params::bn::{G1Projective254, G1Affine254, G2HomProjective254, Fq2, Fqk254, FrParameters};
+use crate::bn::{BigInteger256 as BigInteger, BitIteratorBE};
+use crate::params::bn::{G1Projective254, G1Affine254, G2HomProjective254, Fq2, Fqk254};
 use crate::params::proof::PreparedVerifyingKey;
 use crate::verifier::{ProofA, ProofB, ProofC};
 use super::program::Program;
@@ -23,55 +23,62 @@ pub struct PrepareInputs {
 
 impl PrepareInputs {
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
-        let public_input = self.public_inputs[self.input_index as usize];
-        let fr_bits = <FrParameters as FpParameters>::MODULUS_BITS as usize;
+        let mut public_input = self.public_inputs[self.input_index as usize];
+        let mut bits_iter = BitIteratorBE::without_leading_zeros(public_input)
+            .take(self.bit_index as usize);
 
-        const MAX_LOOP: usize = 40;
-        BitIteratorBE::new(public_input)
-            .skip(256 - fr_bits)
-            .skip(self.bit_index as usize)
-            .take(MAX_LOOP)
-            .for_each(|bit| {
+        const MAX_UINTS: usize = 1350000;
+        let mut used_units = 0;
+        loop {
+            if let Some(bit) = bits_iter.next() {
                 self.tmp.double_in_place();
+                used_units += 500;
                 if bit {
                     self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
+                    used_units += 35000;
                 }
                 self.bit_index += 1;
-            });
-        
-        if self.bit_index as usize >= fr_bits {
-            self.g_ic.add_assign(&self.tmp);
-            self.input_index += 1;
-            
-            if self.public_inputs.get(self.input_index as usize).is_some() {
-                self.bit_index = 0;
-                self.tmp = Box::new(G1Projective254::zero());
-
-                Program::PrepareInputs(self)
             } else {
-                let r = G2HomProjective254 {
-                    x: self.proof_b.x,
-                    y: self.proof_b.y,
-                    z: Fq2::one(),
-                };
-                let prepared_input = G1Affine254::from(*self.g_ic);
-                let proof_b_neg = self.proof_b.neg();
+                self.g_ic.add_assign(&self.tmp);
+                self.input_index += 1;
+                used_units += 500;
 
-                Program::MillerLoop(MillerLoop {
-                    ate_index: 0,
-                    coeff_index: 0,
-                    f: Box::new(Fqk254::one()),
-                    r: Box::new(r),
-                    prepared_input: Box::new(prepared_input),
-                    proof_a: self.proof_a,
-                    proof_b: self.proof_b,
-                    proof_b_neg: Box::new(proof_b_neg),
-                    proof_c: self.proof_c,
-                })
+                if self.input_index as usize >= self.public_inputs.len() {
+                    let r = G2HomProjective254 {
+                        x: self.proof_b.x,
+                        y: self.proof_b.y,
+                        z: Fq2::one(),
+                    };
+                    let prepared_input = G1Affine254::from(*self.g_ic);
+                    let proof_b_neg = self.proof_b.neg();
+    
+                    return Program::MillerLoop(MillerLoop {
+                        ate_index: 0,
+                        coeff_index: 0,
+                        f: Box::new(Fqk254::one()),
+                        r: Box::new(r),
+                        prepared_input: Box::new(prepared_input),
+                        proof_a: self.proof_a,
+                        proof_b: self.proof_b,
+                        proof_b_neg: Box::new(proof_b_neg),
+                        proof_c: self.proof_c,
+                    });
+                } else {
+                    self.bit_index = 0;
+                    self.tmp = Box::new(G1Projective254::zero());
+
+                    public_input = self.public_inputs[self.input_index as usize];
+                    bits_iter = BitIteratorBE::without_leading_zeros(public_input).take(0);
+                    used_units += 500;
+                }
             }
-        } else {
-            Program::PrepareInputs(self)
+
+            if used_units >= MAX_UINTS {
+                break;
+            }
         }
+
+        Program::PrepareInputs(self)
     }
 }
 

@@ -104,7 +104,7 @@ fn process_create_deposit_credential(
     prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
-    msg!("Creating deposit credential: deposit amount {} at leaf index: {}", deposit_amount, leaf_index);
+    msg!("Creating deposit credential: deposit amount {}, leaf index: {}", deposit_amount, leaf_index);
 
     let accounts_iter = &mut accounts.iter();
 
@@ -230,7 +230,7 @@ fn process_create_withdraw_credential(
     prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
-    msg!("Creating withdraw credential: withdraw amount {} at leaf index: {}", withdraw_amount, leaf_index);
+    msg!("Creating withdraw credential: withdraw amount {}, leaf index: {}", withdraw_amount, leaf_index);
 
     let accounts_iter = &mut accounts.iter();
 
