@@ -356,7 +356,7 @@ mod tests {
     use solana_client::rpc_client::RpcClient;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof};
-    use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}};
+    use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}, instruction::reset_buffer_accounts};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
@@ -457,7 +457,9 @@ mod tests {
         //     Box::new(proof_c),
         // ).unwrap();
 
-        let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
+        // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
+
+        let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
         let transaction = Transaction::new_signed_with_payer(
             &[instruction],
