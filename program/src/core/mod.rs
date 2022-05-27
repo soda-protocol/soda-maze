@@ -6,6 +6,7 @@ pub mod deposit;
 pub mod nullifier;
 pub mod credential;
 
+use std::fmt::Debug;
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::entrypoint::ProgramResult;
 use solana_program::pubkey::Pubkey;
@@ -21,7 +22,7 @@ pub fn is_fr_valid(fr: &BigInteger) -> bool {
     fr < &<FrParameters as FpParameters>::MODULUS
 }
 
-pub trait VanillaData:  Clone + BorshSerialize + BorshDeserialize {
+pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
     const PROOF_TYPE: ProofType;
     const PVK: &'static PreparedVerifyingKey<'static> = Self::PROOF_TYPE.pvk();
     const INPUTS_LEN: usize = Self::PROOF_TYPE.inputs_len();

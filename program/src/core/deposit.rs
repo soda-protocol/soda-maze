@@ -8,7 +8,7 @@ use super::is_fr_valid;
 use super::{commitment::is_commitment_valid, node::is_updating_nodes_valid};
 use super::{VanillaData, credential::Credential};
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct DepositVanillaData {
     pub deposit_amount: u64,
     pub leaf_index: u64,

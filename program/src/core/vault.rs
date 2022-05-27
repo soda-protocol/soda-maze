@@ -4,7 +4,7 @@ use solana_program::{msg, pubkey::Pubkey, program_pack::IsInitialized, entrypoin
 use crate::bn::BigInteger256 as BigInteger;
 use crate::{params::root::DEFAULT_ROOT_HASH, Packer, error::MazeError};
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct Vault {
     pub is_initialized: bool,
     pub enable: bool,

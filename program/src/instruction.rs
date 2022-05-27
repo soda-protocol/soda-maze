@@ -351,13 +351,16 @@ pub fn reset_buffer_accounts(
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
+    use solana_program::{pubkey::Pubkey, system_instruction};
+    use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer, pubkey};
     use solana_client::rpc_client::RpcClient;
 
-    use crate::instruction::create_vault;
+    use crate::{instruction::{create_vault, create_deposit_credential}, core::vault::Vault, Packer};
+    use crate::bn::BigInteger256 as BigInteger;
 
-    const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
+    const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
+    const VAULT: Pubkey = pubkey!("9LZLTREpRmmw1PbqjsC4vtDWStU2Es2Mqw8JVcGPnNq8");
 
     #[test]
     fn test_instruction() {
@@ -366,18 +369,55 @@ mod tests {
         });
 
         let blockhash = client.get_latest_blockhash().unwrap();
-        let user = Keypair::from_base58_string(USER_KEYPAIR);
+        let signer = Keypair::from_base58_string(USER_KEYPAIR);
         let token_mint = spl_token::native_mint::ID;
 
-        let instruction = create_vault(token_mint, user.pubkey()).unwrap();
+        let deposit_amount = 100;
+        let leaf_index = 0;
+        let leaf = BigInteger::new([3542236639209175990, 16910505828447755939, 15985469206914547775, 2949265978052157896]);
+        let prev_root = BigInteger::new([15731961227988085298, 1152253436246937880, 10067708109528847282, 2453386543983348226]);
+        let updating_nodes = vec![
+            BigInteger::new([15532250321868931685, 772932733899588440, 12868310124187153130, 438462560823777455]),
+            BigInteger::new([11847340026267790185, 10820144684227279182, 3897917803026447095, 1211025166583652450]),
+            BigInteger::new([13871474726796312921, 2045639111475989628, 12481963867359042585, 1654720166251331239]),
+            BigInteger::new([7522360132978259117, 14771120575066486403, 10596590224358807127, 3157651300534472347]),
+            BigInteger::new([7507876248263243529, 5715413346482742507, 12957876777088811968, 2510703228340708577]),
+            BigInteger::new([133315792692492865, 15293309774567381972, 14334463947285336696, 1723563495644442414]),
+            BigInteger::new([1928085400153529539, 1698449431575688062, 5445397574952319768, 1143000330999000263]),
+            BigInteger::new([12979161123112243949, 10519306232363901245, 7410924906293113533, 441442420902499555]),
+            BigInteger::new([13623320368263364327, 8828774309128316872, 10934886998453446221, 1177057120107296621]),
+            BigInteger::new([17522708475201759282, 412032152261673971, 16434968819987934970, 57110405472686226]),
+            BigInteger::new([12273231996521786577, 8864960514473101270, 7255808797058973254, 2024561412595145600]),
+            BigInteger::new([8041353708081998109, 4408055454208809679, 7467631578407169415, 174481746946129969]),
+            BigInteger::new([15759627427490212038, 2342726286939514839, 3188233064319415482, 206053989429984523]),
+            BigInteger::new([3862288674501080527, 4414699166683294138, 7867804525257430666, 2497191292622968527]),
+            BigInteger::new([18111671256300872493, 9560658010795795413, 11128501249746692797, 3218688909781081982]),
+            BigInteger::new([11621730998744754762, 6316575933548212603, 1290755564488270042, 1649482600435840483]),
+            BigInteger::new([14372000062670910161, 12363655746768868914, 2239893263450009019, 1148238205359365334]),
+            BigInteger::new([7047592107069037456, 15046063210205594002, 8658295702548938809, 1627711097087034838]),
+            BigInteger::new([778320942488412995, 1973661381734835396, 12584060032923075028, 1668508506270919639]),
+            BigInteger::new([15541703251344978826, 10978453290527186359, 10233791787923230785, 179983619992156155]),
+            BigInteger::new([1403833390002913823, 14192997889125093942, 2057500286915250275, 2091709604487301396]),
+        ];
+
+        let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
+
+        // let instruction = create_deposit_credential(
+        //     VAULT,
+        //     user.pubkey(),
+        //     deposit_amount,
+        //     leaf_index,
+        //     leaf,
+        //     prev_root,
+        //     Box::new(updating_nodes),
+        // ).unwrap();
 
         let transaction = Transaction::new_signed_with_payer(
             &[instruction],
-            Some(&user.pubkey()),
-            &[&user],
+            Some(&signer.pubkey()),
+            &[&signer],
             blockhash,
         );
-
         let res = client.send_transaction(&transaction).unwrap();
         println!("{}", res);
     }

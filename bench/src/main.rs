@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 use std::{path::PathBuf, fs::OpenOptions};
-use ark_ff::FpParameters;
-use ark_std::rand::prelude::Distribution;
-use ark_std::{UniformRand, rand::{SeedableRng, distributions::Uniform}};
+use ark_ff::{FpParameters, PrimeField};
+use ark_std::{UniformRand, rand::SeedableRng};
 use ark_groth16::{ProvingKey, VerifyingKey};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use arkworks_utils::poseidon::PoseidonParameters;
@@ -205,7 +204,8 @@ impl<'a> MerkleTree<'a> {
                     .expect("poseidon hash error");
             });
 
-        println!("Fr::new(BigInteger::new({:?}))", &hash.0.0);
+        let hash = hash.into_repr();
+        println!("Merkle Root: BigInteger::new({:?})", &hash.0);
 
         Self {
             params,
@@ -257,6 +257,10 @@ enum Opt {
         seed: Option<String>,
         #[structopt(long, default_value = "27")]
         height: usize,
+        #[structopt(long = "deposit-amount", default_value = "1")]
+        deposit_amount: u64,
+        #[structopt(long = "leaf-index", default_value = "0")]
+        leaf_index: u64,
         #[structopt(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
         #[structopt(long = "pk-path", parse(from_os_str))]
@@ -269,6 +273,14 @@ enum Opt {
         seed: Option<String>,
         #[structopt(long, default_value = "27")]
         height: usize,
+        #[structopt(long = "deposit-amount", default_value = "1")]
+        deposit_amount: u64,
+        #[structopt(long = "withdraw-amount", default_value = "1")]
+        withdraw_amount: u64,
+        #[structopt(long = "src-index", default_value = "0")]
+        src_index: u64,
+        #[structopt(long = "dst-index", default_value = "1")]
+        dst_index: u64,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[structopt(long = "proof-path", parse(from_os_str))]
@@ -295,6 +307,8 @@ fn main() {
         Opt::ProveDeposit {
             seed,
             height,
+            deposit_amount,
+            leaf_index,
             rabin_path,
             pk_path,
             proof_path,
@@ -326,8 +340,6 @@ fn main() {
                 EncryptionOriginInputs { padding_array }
             });
             
-            let leaf_index = Uniform::new(0, 1 << height).sample(&mut OsRng);
-            let deposit_amount = u64::rand(&mut OsRng);
             let secret = Fr::rand(&mut OsRng);
             let merkle_tree = MerkleTree::new(height, &const_params.inner_params);
             let friend_nodes = merkle_tree.blank.clone();
@@ -368,6 +380,10 @@ fn main() {
         Opt::ProveWithdraw {
             seed,
             height,
+            deposit_amount,
+            withdraw_amount,
+            src_index,
+            dst_index,
             pk_path,
             proof_path,
         } => {
@@ -375,24 +391,13 @@ fn main() {
 
             let const_params = get_withdraw_const_params(height);
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
-
-            let amount_1 = u64::rand(&mut OsRng);
-            let amount_2 = u64::rand(&mut OsRng);
-            let deposit_amount = amount_1.max(amount_2);
-            let withdraw_amount = amount_1.min(amount_2);
             let secret = Fr::rand(&mut OsRng);
-
-            let index_1 = Uniform::new(0, 1 << height).sample(&mut OsRng);
-            let index_2 = Uniform::new(0, 1 << height).sample(&mut OsRng);
-            let src_index = index_1.min(index_2);
             let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
                 &[Fr::from(src_index), Fr::from(deposit_amount), secret],
             ).expect("hash failed");
             merkle_tree.add_leaf(src_index, src_leaf);
             let src_friend_nodes = merkle_tree.get_friends(src_index);
-
-            let dst_index = index_1.max(index_2);
             let dst_friend_nodes = merkle_tree.get_friends(dst_index);
 
             let origin_inputs = WithdrawOriginInputs {
@@ -458,6 +463,67 @@ fn main() {
             } else {
                 println!("verify deposit proof failed");
             }
+
+            println!("proof a");
+            println!("-----------------------------------------------------");
+            println!("G1Affine254::new_const(");
+            println!("    Fq::new(BigInteger::new({:?})),", proof.a.x.0.0);
+            println!("    Fq::new(BigInteger::new({:?})),", proof.a.y.0.0);
+            println!("    {}", proof.a.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
+
+            println!("proof b");
+            println!("-----------------------------------------------------");
+            println!("G2Affine254::new_const(");
+            println!("    Fq2::new_const(");
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
+            println!("    ),");
+            println!("    Fq2::new_const(");
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
+            println!("    ),");
+            println!("    {}", proof.b.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
+
+            println!("proof c");
+            println!("-----------------------------------------------------");
+            println!("G1Affine254::new_const(");
+            println!("    Fq::new(BigInteger::new({:?})),", proof.c.x.0.0);
+            println!("    Fq::new(BigInteger::new({:?})),", proof.c.y.0.0);
+            println!("    {}", proof.c.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
+
+            println!("leaf");
+            println!("-----------------------------------------------------");
+            println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
+            println!("-----------------------------------------------------");
+
+            println!("prev_root");
+            println!("-----------------------------------------------------");
+            println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
+            println!("-----------------------------------------------------");
+
+            println!("update_nodes");
+            println!("-----------------------------------------------------");
+            println!("[");
+            pub_in.update_nodes.iter().for_each(|p| {
+                println!("    BigInteger::new({:?})", p.into_repr().0);
+            });
+            println!("]");
+            println!("-----------------------------------------------------");
+
+            println!("encryption");
+            println!("-----------------------------------------------------");
+            println!("[");
+            pub_in.encryption.as_ref().unwrap().cipher_field_array.iter().for_each(|p| {
+                println!("    BigInteger::new({:?})", p.into_repr().0);
+            });
+            println!("]");
+            println!("-----------------------------------------------------");
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);

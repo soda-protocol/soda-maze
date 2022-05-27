@@ -5,7 +5,7 @@ use crate::params::{proof::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
 use super::{is_fr_valid, VanillaData, credential::Credential, node::is_updating_nodes_valid};
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
     pub withdraw_amount: u64,
     pub nullifier: BigInteger,

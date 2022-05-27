@@ -21,7 +21,7 @@ pub fn get_credential_pda<'a>(
     (key, (vault_ref, signer_ref, [seed]))
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct Credential<V: VanillaData> {
     pub is_initialized: bool,
     pub vault: Pubkey,
