@@ -67,7 +67,7 @@ pub fn create_vault(token_mint: Pubkey, admin: Pubkey) -> Result<Instruction> {
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
             AccountMeta::new_readonly(spl_associated_token_account::ID, false),
-            AccountMeta::new_readonly(sysvar::ID, false),
+            AccountMeta::new_readonly(sysvar::rent::ID, false),
             AccountMeta::new_readonly(token_mint, false),
             AccountMeta::new(vault, false),
             AccountMeta::new_readonly(vault_signer, false),

@@ -667,7 +667,7 @@ pub fn process_create_vault(
         program_id,
         Vault::LEN,
         &[],
-        &[seed_1, &seed_2, &seed_3],
+        &[seed_1, seed_2, &seed_3],
     )?;
 
     let (vault_signer_key, (_, seed_2)) = get_vault_authority_pda(
