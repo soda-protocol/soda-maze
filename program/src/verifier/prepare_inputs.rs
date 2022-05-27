@@ -25,7 +25,7 @@ impl PrepareInputs {
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let mut public_input = self.public_inputs[self.input_index as usize];
         let mut bits_iter = BitIteratorBE::without_leading_zeros(public_input)
-            .take(self.bit_index as usize);
+            .skip(self.bit_index as usize);
 
         const MAX_UINTS: usize = 1350000;
         let mut used_units = 0;
@@ -35,7 +35,7 @@ impl PrepareInputs {
                 used_units += 500;
                 if bit {
                     self.tmp.add_assign_mixed(&pvk.gamma_abc_g1[self.input_index as usize]);
-                    used_units += 35000;
+                    used_units += 42000;
                 }
                 self.bit_index += 1;
             } else {
@@ -68,7 +68,7 @@ impl PrepareInputs {
                     self.tmp = Box::new(G1Projective254::zero());
 
                     public_input = self.public_inputs[self.input_index as usize];
-                    bits_iter = BitIteratorBE::without_leading_zeros(public_input).take(0);
+                    bits_iter = BitIteratorBE::without_leading_zeros(public_input).skip(0);
                     used_units += 500;
                 }
             }
