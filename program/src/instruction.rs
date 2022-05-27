@@ -329,12 +329,32 @@ pub fn finalize_withdraw(
     })
 }
 
+pub fn reset_buffer_accounts(
+    vault: Pubkey,
+    signer: Pubkey,
+) -> Result<Instruction> {
+    let (credential, _) = get_credential_pda(&vault, &signer, &ID);
+    let (verifier, _) = get_verifier_pda(&credential, &ID);
+
+    let data = MazeInstruction::ResetDepositAccounts.try_to_vec()?;
+
+    Ok(Instruction {
+        program_id: ID,
+        accounts: vec![
+            AccountMeta::new(credential, false),
+            AccountMeta::new(verifier, false),
+            AccountMeta::new(signer, true),
+        ],
+        data,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer};
     use solana_client::rpc_client::RpcClient;
 
-    use crate::{id, instruction::create_vault};
+    use crate::instruction::create_vault;
 
     const USER_KEYPAIR: &str = "25VtdefYWzk4fvyfAg3RzSrhwmy4HhgPyYcxetmHRmPrkCsDqSJw8Jav7tWCXToV6e1L7nGxhyEDnWYVsDHUgiZ7";
     const DEVNET: &str = "https://api.devnet.solana.com";

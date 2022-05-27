@@ -11,7 +11,7 @@ pub mod params;
 pub mod state;
 pub mod invoke;
 
-solana_program::declare_id!("BXmQChs6jiUkTdvwWnWkK7A9SZ5eTtWki4yVs8aypEDE");
+solana_program::declare_id!("CxdQFBMBvymks2TQxkpR98rzETngs6kkaqvcxX36hTi9");
 
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::pubkey::Pubkey;
