@@ -1,5 +1,3 @@
-use std::ops::Neg;
-
 use borsh::{BorshSerialize, BorshDeserialize};
 
 use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::{PreparedVerifyingKey}};
@@ -36,11 +34,14 @@ pub struct MillerLoop {
     pub prepared_input: Box<G1Affine254>, // G1Affine254
     pub proof_a: Box<ProofA>, // ProofA
     pub proof_b: Box<ProofB>, // ProofB
+    pub proof_b_neg: Box<ProofB>, // ProofB
     pub proof_c: Box<ProofC>, // ProofC
 }
 
 impl MillerLoop {
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
+        let ate_loop_count_inv = <BnParameters as Bn>::ATE_LOOP_COUNT_INV;
+
         const MAX_LOOP: usize = 2;
         for _ in 0..MAX_LOOP {
             self.f.square_in_place();
@@ -51,13 +52,13 @@ impl MillerLoop {
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
 
-            self.ate_index -= 1;
-            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.ate_index as usize];
+            let bit = ate_loop_count_inv[self.ate_index as usize];
+            self.ate_index += 1;
             let coeff = match bit {
                 1 => addition_step(&mut self.r, &self.proof_b),
-                -1 => addition_step(&mut self.r, &self.proof_b.neg()),
+                -1 => addition_step(&mut self.r, &self.proof_b_neg),
                 _ => {
-                    if self.ate_index == 0 {
+                    if (self.ate_index as usize) >= ate_loop_count_inv.len() {
                         let q1 = mul_by_char::<BnParameters>(*self.proof_b);
                         let mut q2 = mul_by_char::<BnParameters>(q1);
         
@@ -84,14 +85,13 @@ impl MillerLoop {
                     }
                 },
             };
-
             ell(&mut self.f, &coeff, &self.proof_a);
             ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
             ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
             self.coeff_index += 1;
 
-            // in ATE_LOOP_COUNT, the first value is zero, so index will not be zero
-            assert_ne!(self.ate_index, 0);
+            // in ATE_LOOP_COUNT_INV, the last value is zero, so here will never reached
+            assert!((self.ate_index as usize) < ate_loop_count_inv.len());
         }
 
         // next loop
@@ -126,7 +126,7 @@ impl MillerLoopFinalize {
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
         Program::FinalExponentEasyPart(FinalExponentEasyPart {
-            r: self.f,
+            f: self.f,
         })
     }
 }

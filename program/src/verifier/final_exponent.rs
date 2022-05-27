@@ -16,7 +16,7 @@ fn exp_by_neg_x(
     fe: &Fqk254,
     fe_inv: &Fqk254,
 ) -> bool {
-    let naf = <BnParameters as Bn>::NAF;
+    let naf = <BnParameters as Bn>::NAF_INV;
 
     const MAX_LOOP: usize = 8;
     for _ in 0..MAX_LOOP {

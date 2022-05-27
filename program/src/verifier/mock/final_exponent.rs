@@ -13,22 +13,21 @@ fn exp_by_neg_x(
     fe: &Fqk254,
     fe_inv: &Fqk254,
 ) -> bool {
-    let naf = <BnParameters as Bn>::NAF;
+    let naf_inv = <BnParameters as Bn>::NAF_INV;
 
     const MAX_LOOP: usize = 8;
     for _ in 0..MAX_LOOP {
         res.square_in_place();
 
-        let value = naf[*index as usize];
+        let value = naf_inv[*index as usize];
         *index += 1;
-
         if value > 0 {
             res.mul_assign(fe);
         } else if value < 0 {
             res.mul_assign(fe_inv);
         }
 
-        if (*index as usize) >= naf.len() {
+        if (*index as usize) >= naf_inv.len() {
             if !<BnParameters as Bn>::X_IS_NEGATIVE {
                 res.conjugate();
             }
@@ -42,33 +41,36 @@ fn exp_by_neg_x(
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentEasyPart {
-    pub r: Box<Fqk254>, // Fqk254
+    pub f: Box<Fqk254>, // Fqk254
 }
 
 impl FinalExponentEasyPart {
     pub fn process(mut self) -> Program {
-        if let Some(mut f2) = self.r.inverse() {
-            self.r.conjugate();
+        if let Some(mut f2) = self.f.inverse() {
+            // f1 = r.conjugate() = f^(p^6)
+            self.f.conjugate();
 
             // f2 = f^(-1);
             // r = f^(p^6 - 1)
-            self.r.mul_assign(&f2);
+            let mut r = self.f.mul(&f2);
 
             // f2 = f^(p^6 - 1)
-            f2 = *self.r;
+            f2 = r;
 
             // r = f^((p^6 - 1)(p^2))
-            self.r.frobenius_map(2);
+            r.frobenius_map(2);
 
-            self.r.mul_assign(f2);
+            // r = f^((p^6 - 1)(p^2) + (p^6 - 1))
+            // r = f^((p^6 - 1)(p^2 + 1))
+            r *= &f2;
 
             // goto hard part 1
-            let mut r_inv = *self.r;
+            let mut r_inv = r;
             r_inv.conjugate();
 
             Program::FinalExponentHardPart1(FinalExponentHardPart1 {
                 index: 0,
-                r: self.r,
+                r: Box::new(r),
                 r_inv: Box::new(r_inv),
                 y0: Box::new(Fqk254::one()),
             })
@@ -150,7 +152,7 @@ impl FinalExponentHardPart2 {
                 y3: self.y3,
                 y4: self.y4,
                 y5: Box::new(y5),
-                y5_inv: Box::new(y5),
+                y5_inv: Box::new(y5_inv),
                 y6: Box::new(Fqk254::one()),
             })
         } else {
@@ -184,7 +186,7 @@ impl FinalExponentHardPart3 {
             self.y6.conjugate();
 
             let y7 = self.y6.mul(self.y4.as_ref());
-            let y8 = y7.mul(self.y3.as_ref());
+            let y8 = y7 * self.y3.as_ref();
 
             // goto hard part 4
             Program::FinalExponentHardPart4(FinalExponentHardPart4 {

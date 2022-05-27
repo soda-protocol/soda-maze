@@ -4,7 +4,7 @@ use solana_program::{pubkey::Pubkey, instruction::{Instruction, AccountMeta}, sy
 use spl_associated_token_account::get_associated_token_address;
 
 use crate::ID;
-use crate::params::bn::Fr;
+use crate::bn::BigInteger256 as BigInteger;
 use crate::verifier::{ProofA, ProofB, ProofC, get_verifier_pda};
 use crate::core::vault::{get_vault_pda, get_vault_authority_pda};
 use crate::core::credential::get_credential_pda;
@@ -17,23 +17,23 @@ pub enum MazeInstruction {
     CreateDepositCredential {
         deposit_amount: u64,
         leaf_index: u64,
-        leaf: Fr,
-        prev_root: Fr,
-        updating_nodes: Box<Vec<Fr>>,
+        leaf: BigInteger,
+        prev_root: BigInteger,
+        updating_nodes: Box<Vec<BigInteger>>,
     },
     CreateDepositVerifier {
-        commitment: Box<Vec<Fr>>,
+        commitment: Box<Vec<BigInteger>>,
         proof_a: Box<ProofA>,
         proof_b: Box<ProofB>,
         proof_c: Box<ProofC>,
     },
     CreateWithdrawCredential {
         withdraw_amount: u64,
-        nullifier: Fr,
+        nullifier: BigInteger,
         leaf_index: u64,
-        leaf: Fr,
-        prev_root: Fr,
-        updating_nodes: Box<Vec<Fr>>,
+        leaf: BigInteger,
+        prev_root: BigInteger,
+        updating_nodes: Box<Vec<BigInteger>>,
     },
     CreateWithdrawVerifier {
         proof_a: Box<ProofA>,
@@ -93,9 +93,9 @@ pub fn create_deposit_credential(
     signer: Pubkey,
     deposit_amount: u64,
     leaf_index: u64,
-    leaf: Fr,
-    prev_root: Fr,
-    updating_nodes: Box<Vec<Fr>>,
+    leaf: BigInteger,
+    prev_root: BigInteger,
+    updating_nodes: Box<Vec<BigInteger>>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
 
@@ -123,7 +123,7 @@ pub fn create_deposit_credential(
 pub fn create_deposit_verifier(
     vault: Pubkey,
     signer: Pubkey,
-    commitment: Box<Vec<Fr>>,
+    commitment: Box<Vec<BigInteger>>,
     proof_a: Box<ProofA>,
     proof_b: Box<ProofB>,
     proof_c: Box<ProofC>,
@@ -156,11 +156,11 @@ pub fn create_withdraw_credential(
     vault: Pubkey,
     signer: Pubkey,
     withdraw_amount: u64,
-    nullifier: Fr,
+    nullifier: BigInteger,
     leaf_index: u64,
-    leaf: Fr,
-    prev_root: Fr,
-    updating_nodes: Box<Vec<Fr>>,
+    leaf: BigInteger,
+    prev_root: BigInteger,
+    updating_nodes: Box<Vec<BigInteger>>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
 
@@ -233,7 +233,7 @@ pub fn finalize_deposit(
     token_mint: Pubkey,
     signer: Pubkey,
     leaf_index: u64,
-    leaf: Fr,
+    leaf: BigInteger,
 ) -> Result<Instruction> {
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
@@ -281,7 +281,7 @@ pub fn finalize_withdraw(
     token_mint: Pubkey,
     signer: Pubkey,
     leaf_index: u64,
-    nullifier: Fr,
+    nullifier: BigInteger,
 ) -> Result<Instruction> {
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);

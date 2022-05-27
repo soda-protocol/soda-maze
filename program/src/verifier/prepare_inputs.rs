@@ -81,7 +81,7 @@ impl PrepareInputs {
 
                 let proof_b = proof_b_ctx.take()?;
 
-                let index = (<BnParameters as Bn>::ATE_LOOP_COUNT.len() - 1) as u8;
+                let index = (<BnParameters as Bn>::ATE_LOOP_COUNT_INV.len() - 1) as u8;
                 let r = G2HomProjective254 {
                     x: proof_b.x,
                     y: proof_b.y,

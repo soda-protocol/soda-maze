@@ -7,12 +7,19 @@ pub mod nullifier;
 pub mod credential;
 
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::Zero;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::pubkey::Pubkey;
+use num_traits::Zero;
 
-use crate::params::{bn::{Fr, G1Projective254}, proof::ProofType, proof::PreparedVerifyingKey};
+use crate::bn::{BigInteger256 as BigInteger, FpParameters};
+use crate::params::bn::FrParameters;
+use crate::params::{bn:: G1Projective254, proof::ProofType, proof::PreparedVerifyingKey};
 use crate::verifier::{ProofA, ProofB, ProofC, Verifier, mock::{program::Program, prepare_inputs::PrepareInputs}};
+
+#[inline(always)]
+pub fn is_fr_valid(fr: &BigInteger) -> bool {
+    fr < &<FrParameters as FpParameters>::MODULUS
+}
 
 pub trait VanillaData:  Clone + BorshSerialize + BorshDeserialize {
     const PROOF_TYPE: ProofType;
@@ -22,7 +29,7 @@ pub trait VanillaData:  Clone + BorshSerialize + BorshDeserialize {
 
     fn check_valid(&self) -> ProgramResult;
 
-    fn to_public_inputs(self) -> Box<Vec<Fr>>;
+    fn to_public_inputs(self) -> Box<Vec<BigInteger>>;
 
     fn to_verifier(
         self,

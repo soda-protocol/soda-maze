@@ -1,6 +1,5 @@
 
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::{Zero, One};
 
 use crate::bn::{Fp2, Field};
 
@@ -24,60 +23,6 @@ pub struct G2HomProjective<P: BnParameters> {
     pub x: Fp2<P::Fp2Params>,
     pub y: Fp2<P::Fp2Params>,
     pub z: Fp2<P::Fp2Params>,
-}
-
-impl<P: BnParameters> From<G2Affine<P>> for G2Prepared<P> {
-    fn from(q: G2Affine<P>) -> Self {
-        let two_inv = P::Fp::one().double().inverse().unwrap();
-        if q.is_zero() {
-            return Self {
-                ell_coeffs: vec![],
-                infinity: true,
-            };
-        }
-
-        let mut ell_coeffs = vec![];
-        let mut r = G2HomProjective {
-            x: q.x,
-            y: q.y,
-            z: Fp2::one(),
-        };
-
-        let negq = -q;
-
-        for i in (1..P::ATE_LOOP_COUNT.len()).rev() {
-            ell_coeffs.push(doubling_step::<P>(&mut r, &two_inv));
-
-            let bit = P::ATE_LOOP_COUNT[i - 1];
-
-            match bit {
-                1 => {
-                    ell_coeffs.push(addition_step::<P>(&mut r, &q));
-                }
-                -1 => {
-                    ell_coeffs.push(addition_step::<P>(&mut r, &negq));
-                }
-                _ => continue,
-            }
-        }
-
-        let q1 = mul_by_char::<P>(q);
-        let mut q2 = mul_by_char::<P>(q1);
-
-        if P::X_IS_NEGATIVE {
-            r.y = -r.y;
-        }
-
-        q2.y = -q2.y;
-
-        ell_coeffs.push(addition_step::<P>(&mut r, &q1));
-        ell_coeffs.push(addition_step::<P>(&mut r, &q2));
-
-        Self {
-            ell_coeffs,
-            infinity: false,
-        }
-    }
 }
 
 impl<P: BnParameters> G2Prepared<P> {

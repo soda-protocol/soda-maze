@@ -1,28 +1,28 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, entrypoint::ProgramResult};
 
-use crate::params::{bn::Fr, proof::ProofType, HEIGHT};
+use crate::params::{proof::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
-use super::{VanillaData, credential::Credential, node::is_updating_nodes_valid};
+use super::{is_fr_valid, VanillaData, credential::Credential, node::is_updating_nodes_valid};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
     pub withdraw_amount: u64,
-    pub nullifier: Fr,
+    pub nullifier: BigInteger,
     pub leaf_index: u64,
-    pub leaf: Fr,
-    pub prev_root: Fr,
-    pub updating_nodes: Box<Vec<Fr>>,
+    pub leaf: BigInteger,
+    pub prev_root: BigInteger,
+    pub updating_nodes: Box<Vec<BigInteger>>,
 }
 
 impl WithdrawVanillaData {
     pub fn new(
         withdraw_amount: u64,
-        nullifier: Fr,
+        nullifier: BigInteger,
         leaf_index: u64,
-        leaf: Fr,
-        prev_root: Fr,
-        updating_nodes: Box<Vec<Fr>>,
+        leaf: BigInteger,
+        prev_root: BigInteger,
+        updating_nodes: Box<Vec<BigInteger>>,
     ) -> Self {
         Self {
             withdraw_amount,
@@ -40,7 +40,7 @@ impl VanillaData for WithdrawVanillaData {
     const SIZE: usize = 8 + 32 + 8 + 32 + 32 + 4 + 32 * HEIGHT;
 
     fn check_valid(&self) -> ProgramResult {
-        if !self.nullifier.is_valid() {
+        if !is_fr_valid(&self.nullifier) {
             msg!("nullifier is invalid");
             return Err(MazeError::InvalidVanillaData.into());
         }
@@ -48,11 +48,11 @@ impl VanillaData for WithdrawVanillaData {
             msg!("dst leaf index is too large");
             return Err(MazeError::InvalidVanillaData.into());
         }
-        if !self.leaf.is_valid() {
-            msg!("dst leaf is invalid");
+        if !is_fr_valid(&self.leaf) {
+            msg!("leaf is invalid");
             return Err(MazeError::InvalidVanillaData.into());
         }
-        if !self.prev_root.is_valid() {
+        if !is_fr_valid(&self.prev_root) {
             msg!("prev root is invalid");
             return Err(MazeError::InvalidVanillaData.into());
         }
@@ -64,12 +64,12 @@ impl VanillaData for WithdrawVanillaData {
         Ok(())
     }
 
-    fn to_public_inputs(self) -> Box<Vec<Fr>> {
+    fn to_public_inputs(self) -> Box<Vec<BigInteger>> {
         let mut inputs = Box::new(Vec::with_capacity(Self::INPUTS_LEN));
 
-        inputs.push(Fr::from_repr(BigInteger::from(self.withdraw_amount)).unwrap());
+        inputs.push(BigInteger::from(self.withdraw_amount));
         inputs.push(self.nullifier);
-        inputs.push(Fr::from_repr(BigInteger::from(self.leaf_index)).unwrap());
+        inputs.push(BigInteger::from(self.leaf_index));
         inputs.push(self.leaf);
         inputs.push(self.prev_root);
         inputs.extend(*self.updating_nodes);

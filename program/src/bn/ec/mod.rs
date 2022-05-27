@@ -29,12 +29,13 @@ pub trait ModelParameters: 'static + Clone + Copy {
 }
 
 pub trait BnParameters: 'static {
-    const NAF: &'static [i8];
+    // inv of find wnaf of X
+    const NAF_INV: &'static [i8];
     // Whether or not `X` is negative.
     const X_IS_NEGATIVE: bool;
 
-    // The absolute value of `6X + 2`.
-    const ATE_LOOP_COUNT: &'static [i8];
+    // The inv absolute value of `6X + 2`.
+    const ATE_LOOP_COUNT_INV: &'static [i8];
 
     const TWIST_TYPE: TwistType;
     const TWIST_MUL_BY_Q_X: Fp2<Self::Fp2Params>;

@@ -141,10 +141,13 @@ pub fn process_instruction(
 ) -> ProgramResult {
     // let stage = PrepareInputs {
     //     input_index: input[0],
-    //     bit_index: input[1] as u16,
-    //     public_inputs: PUBLIC_INPUTS.to_vec(),
-    //     g_ic: G1_PROJECTIVE_VALUE.clone(),
-    //     tmp: G1_PROJECTIVE_VALUE.clone(),
+    //     bit_index: input[1],
+    //     public_inputs: todo!(),
+    //     g_ic: todo!(),
+    //     tmp: todo!(),
+    //     proof_a: todo!(),
+    //     proof_b: todo!(),
+    //     proof_c: todo!(),
     // };
     // stage.process()
 

@@ -6,10 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrayref = "0.3.6"
 borsh = "0.9.3"
 borsh-derive = "0.9.3"
-# num-bigint = "0.4.3"
 num-derive = "0.3"
 num-traits = "0.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -20,6 +18,10 @@ thiserror = "1.0"
 
 [dev-dependencies]
 rand = "0.8.5"
+ark-ff = "0.3.0"
+ark-ec = "0.3.0"
+ark-bn254 = "0.3.0"
+ark-groth16 = "0.3.0"
 solana-program-test = "1.10.13"
 solana-sdk = "1.10.2"
 solana-client = "1.10.13"

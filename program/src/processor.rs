@@ -2,7 +2,6 @@ use borsh::BorshDeserialize;
 use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
 use solana_program::entrypoint::ProgramResult;
 
-use crate::{params::bn::Fr, instruction::MazeInstruction, error::MazeError, Packer};
 use crate::core::VanillaData;
 use crate::core::nullifier::{get_nullifier_pda, Nullifier};
 use crate::core::commitment::{get_commitment_pda, Commitment};
@@ -14,6 +13,8 @@ use crate::core::node::{MerkleNode, get_tree_node_pda, gen_merkle_path_from_leaf
 use crate::verifier::{ProofA, ProofB, ProofC, Verifier, get_verifier_pda};
 use crate::invoke::{process_token_transfer, process_rent_refund};
 use crate::invoke::{process_optimal_create_account, process_create_associated_token_account};
+use crate::bn::BigInteger256 as BigInteger;
+use crate::{instruction::MazeInstruction, error::MazeError, Packer};
 
 pub fn process_instruction(
     program_id: &Pubkey,
@@ -89,9 +90,9 @@ fn process_create_deposit_credential(
     accounts: &[AccountInfo],
     deposit_amount: u64,
     leaf_index: u64,
-    leaf: Fr,
-    prev_root: Fr,
-    updating_nodes: Box<Vec<Fr>>,
+    leaf: BigInteger,
+    prev_root: BigInteger,
+    updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
 
@@ -147,7 +148,7 @@ fn process_create_deposit_credential(
 fn process_create_deposit_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    commitment: Box<Vec<Fr>>,
+    commitment: Box<Vec<BigInteger>>,
     proof_a: Box<ProofA>,
     proof_b: Box<ProofB>,
     proof_c: Box<ProofC>,
@@ -209,11 +210,11 @@ fn process_create_withdraw_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     withdraw_amount: u64,
-    nullifier: Fr,
+    nullifier: BigInteger,
     leaf_index: u64,
-    leaf: Fr,
-    prev_root: Fr,
-    updating_nodes: Box<Vec<Fr>>,
+    leaf: BigInteger,
+    prev_root: BigInteger,
+    updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
 

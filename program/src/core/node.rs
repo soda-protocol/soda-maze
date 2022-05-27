@@ -1,6 +1,8 @@
 use solana_program::pubkey::Pubkey;
 
-use crate::{params::{HEIGHT, bn::Fr}, state::StateWrapper};
+use crate::{params::HEIGHT, state::StateWrapper};
+use crate::bn::BigInteger256 as BigInteger;
+use super::is_fr_valid;
 
 /////////////////// Binary Merkle Tree //////////////////////////
 ///                         O                 ---------- root
@@ -17,11 +19,11 @@ use crate::{params::{HEIGHT, bn::Fr}, state::StateWrapper};
 /////////////////////////////////////////////////////////////////
 
 #[inline]
-pub fn is_updating_nodes_valid(nodes: &[Fr]) -> bool {
+pub fn is_updating_nodes_valid(nodes: &[BigInteger]) -> bool {
     if nodes.len() != HEIGHT {
         false
     } else {
-        nodes.iter().all(|x| x.is_valid())
+        nodes.iter().all(|x| is_fr_valid(x))
     }
 }
 
@@ -48,4 +50,4 @@ pub fn get_tree_node_pda<'a>(
     (key, (vault_ref, layer_bytes, index_bytes, [seed]))
 }
 
-pub type MerkleNode = StateWrapper<Fr, 32>;
+pub type MerkleNode = StateWrapper<BigInteger, 32>;

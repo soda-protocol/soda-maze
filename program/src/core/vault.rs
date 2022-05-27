@@ -1,7 +1,8 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, pubkey::Pubkey, program_pack::IsInitialized, entrypoint::ProgramResult};
 
-use crate::{params::{bn::Fr, root::DEFAULT_ROOT_HASH}, Packer, error::MazeError};
+use crate::bn::BigInteger256 as BigInteger;
+use crate::{params::root::DEFAULT_ROOT_HASH, Packer, error::MazeError};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Vault {
@@ -11,7 +12,7 @@ pub struct Vault {
     pub token_account: Pubkey,
     pub authority: Pubkey,
     pub seed: [u8; 1],
-    pub root: Fr,
+    pub root: BigInteger,
     pub index: u64,
 }
 
@@ -68,7 +69,7 @@ impl Vault {
         }
     }
 
-    pub fn check_consistency(&self, index: u64, root: &Fr) -> ProgramResult {
+    pub fn check_consistency(&self, index: u64, root: &BigInteger) -> ProgramResult {
         if self.index != index {
             msg!("Lastest index of vanilla data does not match with vault");
             return Err(MazeError::InvalidVanillaData.into()); 
@@ -85,7 +86,7 @@ impl Vault {
         [vault.as_ref(), &self.seed]
     }
 
-    pub fn update(&mut self, new_root: Fr, new_index: u64) {
+    pub fn update(&mut self, new_root: BigInteger, new_index: u64) {
         self.root = new_root;
         self.index = new_index;
     }

@@ -92,7 +92,7 @@ impl MillerLoop {
             self.coeff_index += 1;
 
             self.index -= 1;
-            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT[self.index as usize];
+            let bit = <BnParameters as Bn>::ATE_LOOP_COUNT_INV[self.index as usize];
             let coeff = match bit {
                 1 => addition_step(&mut r, &proof_b),
                 -1 => addition_step(&mut r, &(-proof_b)),
