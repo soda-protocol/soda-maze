@@ -32,7 +32,7 @@ pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
     (0..HEIGHT).into_iter().map(|layer| (layer, index >> layer)).collect()
 }
 
-pub fn get_tree_node_pda<'a>(
+pub fn get_merkle_node_pda<'a>(
     vault: &'a Pubkey,
     layer: usize,
     index: u64,

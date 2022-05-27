@@ -17,7 +17,7 @@ use std::marker::PhantomData;
 use crate::bn::{
     BnParameters, TwistType, BigInteger256 as BigInteger,
     G1Projective, G2Projective, G1Affine, G2Affine,
-    G2Prepared, EllCoeff, Fqk, G2HomProjective,
+    EllCoeff, Fqk, G2HomProjective,
 };
 
 #[derive(Clone, Copy)]
@@ -125,17 +125,6 @@ impl G2Affine254 {
 }
 
 pub type EllCoeffFq2 = EllCoeff<Fq2>;
-
-pub type G2Prepared254 = G2Prepared<Bn254Parameters>;
-
-impl G2Prepared254 {
-    pub const fn new_const(
-        ell_coeffs: Vec<EllCoeffFq2>,
-        infinity: bool,
-    ) -> Self {
-        Self { ell_coeffs, infinity }
-    }
-}
 
 pub type Fqk254 = Fqk<Bn254Parameters>;
 

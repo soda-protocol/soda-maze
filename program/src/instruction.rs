@@ -3,14 +3,18 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{pubkey::Pubkey, instruction::{Instruction, AccountMeta}, system_program, sysvar};
 use spl_associated_token_account::get_associated_token_address;
 
-use crate::ID;
-use crate::bn::BigInteger256 as BigInteger;
-use crate::verifier::{ProofA, ProofB, ProofC, get_verifier_pda};
-use crate::core::vault::{get_vault_pda, get_vault_authority_pda};
-use crate::core::credential::get_credential_pda;
-use crate::core::commitment::get_commitment_pda;
-use crate::core::node::{get_tree_node_pda, gen_merkle_path_from_leaf_index};
-use crate::core::nullifier::get_nullifier_pda;
+use crate::{
+    ID,
+    bn::BigInteger256 as BigInteger,
+    verifier::{ProofA, ProofB, ProofC, get_verifier_pda},
+    core::{
+        nullifier::get_nullifier_pda,
+        credential::get_credential_pda,
+        commitment::get_commitment_pda,
+        vault::{get_vault_pda, get_vault_authority_pda},
+        node::{get_merkle_node_pda, gen_merkle_path_from_leaf_index},
+    },
+};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum MazeInstruction {
@@ -244,7 +248,7 @@ pub fn finalize_deposit(
 
     let merkle_path = gen_merkle_path_from_leaf_index(leaf_index);
     let nodes_accounts = merkle_path.into_iter().map(|(layer, index)| {
-        let (node, _) = get_tree_node_pda(
+        let (node, _) = get_merkle_node_pda(
             &vault,
             layer,
             index,
@@ -292,7 +296,7 @@ pub fn finalize_withdraw(
 
     let merkle_path = gen_merkle_path_from_leaf_index(leaf_index);
     let nodes_accounts = merkle_path.into_iter().map(|(layer, index)| {
-        let (node, _) = get_tree_node_pda(
+        let (node, _) = get_merkle_node_pda(
             &vault,
             layer,
             index,

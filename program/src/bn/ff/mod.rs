@@ -5,14 +5,14 @@ mod macros;
 #[macro_use]
 mod arithmetic;
 
-use borsh::{BorshSerialize, BorshDeserialize};
 pub use model::*;
 pub use integer::*;
 
-use crate::{adc, mac_with_carry};
-
 use std::ops::{Neg, Add, Sub, Mul, AddAssign, SubAssign, MulAssign};
+use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::{Zero, One};
+
+use crate::{adc, mac_with_carry};
 
 impl_Fp!(
     Fp256,

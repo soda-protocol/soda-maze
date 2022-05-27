@@ -8,14 +8,6 @@ use super::{BnParameters, ModelParameters, GroupAffine, GroupProjective, TwistTy
 pub type G2Affine<P> = GroupAffine<<P as BnParameters>::G2Parameters>;
 pub type G2Projective<P> = GroupProjective<<P as BnParameters>::G2Parameters>;
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct G2Prepared<P: BnParameters> {
-    // Stores the coefficients of the line evaluations as calculated in
-    // https://eprint.iacr.org/2013/722.pdf
-    pub ell_coeffs: Vec<EllCoeff<Fp2<P::Fp2Params>>>,
-    pub infinity: bool,
-}
-
 pub(crate) type EllCoeff<F> = (F, F, F);
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
@@ -23,12 +15,6 @@ pub struct G2HomProjective<P: BnParameters> {
     pub x: Fp2<P::Fp2Params>,
     pub y: Fp2<P::Fp2Params>,
     pub z: Fp2<P::Fp2Params>,
-}
-
-impl<P: BnParameters> G2Prepared<P> {
-    pub fn is_zero(&self) -> bool {
-        self.infinity
-    }
 }
 
 pub fn mul_by_char<P: BnParameters>(r: G2Affine<P>) -> G2Affine<P> {

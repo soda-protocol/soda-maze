@@ -14,7 +14,7 @@ use num_traits::Zero;
 use crate::bn::{BigInteger256 as BigInteger, FpParameters};
 use crate::params::bn::FrParameters;
 use crate::params::{bn:: G1Projective254, proof::ProofType, proof::PreparedVerifyingKey};
-use crate::verifier::{ProofA, ProofB, ProofC, Verifier, mock::{program::Program, prepare_inputs::PrepareInputs}};
+use crate::verifier::{ProofA, ProofB, ProofC, Verifier, program::Program, prepare_inputs::PrepareInputs};
 
 #[inline(always)]
 pub fn is_fr_valid(fr: &BigInteger) -> bool {

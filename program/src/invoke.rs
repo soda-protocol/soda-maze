@@ -1,4 +1,5 @@
 use solana_program::{
+    msg,
     account_info::AccountInfo,
     entrypoint::ProgramResult,
     pubkey::Pubkey,
@@ -11,7 +12,7 @@ use solana_program::{
 use spl_associated_token_account::instruction::create_associated_token_account;
 use spl_token::instruction as token_instruction;
 
-use crate::assert_rent_exempt;
+use crate::error::MazeError;
 
 #[inline]
 pub fn process_rent_refund<'a>(
@@ -43,8 +44,12 @@ pub fn process_optimal_create_account<'a>(
         if target_account_info.data_len() != data_len {
             return Err(ProgramError::InvalidAccountData); 
         } else {
-            assert_rent_exempt(&rent, target_account_info)?;
-            return Ok(());
+            if !rent.is_exempt(target_account_info.lamports(), data_len) {
+                msg!("minimum rent: {}", &rent.minimum_balance(data_len));
+                return Err(MazeError::NotRentExempt.into());
+            } else {
+                return Ok(());
+            }
         }
     } else if target_account_info.owner != system_program_info.key {
         return Err(ProgramError::IllegalOwner);

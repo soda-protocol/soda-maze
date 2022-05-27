@@ -5,7 +5,6 @@
 /// `P::MODULUS` has (a) a non-zero MSB, and (b) at least one
 /// zero bit in the rest of the modulus.
 
-#[macro_export]
 macro_rules! impl_field_square_in_place {
     ($limbs: expr) => {
         #[inline]

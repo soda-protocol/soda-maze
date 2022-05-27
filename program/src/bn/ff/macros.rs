@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! impl_Fp {
     ($Fp:ident, $FpParameters:ident, $BigInteger:ident, $BigIntegerType:ty, $limbs:expr, $field_size:expr) => {
         pub trait $FpParameters: FpParameters<BigInteger = $BigIntegerType> {}
