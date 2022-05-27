@@ -219,11 +219,12 @@ pub fn create_withdraw_verifier(
     })
 }
 
-pub fn verify_proof(vault: Pubkey, signer: Pubkey) -> Result<Instruction> {
+pub fn verify_proof(vault: Pubkey, signer: Pubkey, padding: Vec<u8>) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
 
-    let data = MazeInstruction::VerifyProof.try_to_vec()?;
+    let mut data = MazeInstruction::VerifyProof.try_to_vec()?;
+    data.extend(padding);
 
     Ok(Instruction {
         program_id: ID,
@@ -354,6 +355,8 @@ mod tests {
     use solana_program::pubkey::Pubkey;
     use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer, pubkey};
     use solana_client::rpc_client::RpcClient;
+    use rand_core::{OsRng, RngCore};
+    use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof};
     use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}, instruction::reset_buffer_accounts};
@@ -457,17 +460,31 @@ mod tests {
         //     Box::new(proof_c),
         // ).unwrap();
 
-        let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
+        // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
 
         // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        let transaction = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&signer.pubkey()),
-            &[&signer],
-            blockhash,
-        );
-        let res = client.send_transaction(&transaction).unwrap();
-        println!("{}", res);
+        for _ in 0..10 {
+            let blockhash = client.get_latest_blockhash().unwrap();
+            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+            let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+            let transaction = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&signer.pubkey()),
+                &[&signer],
+                blockhash,
+            );
+            let res = client.send_transaction(&transaction).unwrap();
+            println!("{}", res);
+        }
+
+        // let transaction = Transaction::new_signed_with_payer(
+        //     &[verify_proof(VAULT, signer.pubkey()).unwrap()],
+        //     Some(&signer.pubkey()),
+        //     &[&signer],
+        //     blockhash,
+        // );
+        // let res = client.send_transaction(&transaction).unwrap();
+        // println!("{}", res);
     }
 }
