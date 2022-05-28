@@ -464,7 +464,7 @@ mod tests {
 
         // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..220 {
+        for _ in 0..250 {
             let blockhash = client.get_latest_blockhash().unwrap();
             let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
             let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();

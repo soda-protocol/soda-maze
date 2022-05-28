@@ -8,9 +8,10 @@ use crate::params::proof::PreparedVerifyingKey;
 use super::program::Program;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub enum ComputeStep {
+enum ComputeStep {
     Step0,
     Step1,
+    Step2,
 }
 
 fn exp_by_neg_x(
@@ -22,40 +23,47 @@ fn exp_by_neg_x(
 ) -> bool {
     let naf_inv = <BnParameters as Bn>::NAF_INV;
 
-    const MAX_UINTS: usize = 127500;
+    const MAX_UINTS: usize = 1350000;
     let mut used_units = 0;
     loop {
         match step {
             ComputeStep::Step0 => {
-                if used_units + 75000 >= MAX_UINTS {
+                if used_units + 100000 >= MAX_UINTS {
                     break;
                 }
                 res.square_in_place();
-                used_units += 75000;
+                used_units += 100000;
                 *step = ComputeStep::Step1;
             }
             ComputeStep::Step1 => {
-                if used_units + 75000 >= MAX_UINTS {
+                if used_units + 100000 >= MAX_UINTS {
                     break;
                 }
                 let value = naf_inv[*index as usize];
                 *index += 1;
                 if value > 0 {
                     res.mul_assign(fe);
+                    used_units += 100000;
                 } else if value < 0 {
                     res.mul_assign(fe_inv);
+                    used_units += 100000;
                 }
-                used_units += 75000;
                 
                 if (*index as usize) >= naf_inv.len() {
-                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                        res.conjugate();
-                    }
-                    // finished
-                    return true;
+                    *step = ComputeStep::Step2;
                 } else {
                     *step = ComputeStep::Step0;
                 }
+            }
+            ComputeStep::Step2 => {
+                if used_units + 300000 >= MAX_UINTS {
+                    break;
+                }
+                if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                    res.conjugate();
+                }
+                // finished
+                return true;
             }
         }
     }
@@ -108,7 +116,7 @@ impl FinalExponentEasyPart {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart1 {
-    pub step: ComputeStep,
+    step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub r_inv: Box<Fqk254>,
@@ -151,7 +159,7 @@ impl FinalExponentHardPart1 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart2 {
-    pub step: ComputeStep,
+    step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
@@ -194,7 +202,7 @@ impl FinalExponentHardPart2 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart3 {
-    pub step: ComputeStep,
+    step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
