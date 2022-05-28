@@ -15,7 +15,7 @@ fn exp_by_neg_x(
 ) -> bool {
     let naf_inv = <BnParameters as Bn>::NAF_INV;
 
-    const MAX_LOOP: usize = 9;
+    const MAX_LOOP: usize = 8;
     for _ in 0..MAX_LOOP {
         res.square_in_place();
 
