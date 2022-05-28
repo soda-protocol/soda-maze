@@ -464,27 +464,28 @@ mod tests {
 
         // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..10 {
-            let blockhash = client.get_latest_blockhash().unwrap();
-            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-            let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
-            let transaction = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&signer.pubkey()),
-                &[&signer],
-                blockhash,
-            );
-            let res = client.send_transaction(&transaction).unwrap();
-            println!("{}", res);
-        }
+        // for _ in 0..10 {
+        //     let blockhash = client.get_latest_blockhash().unwrap();
+        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        //     let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+        //     let transaction = Transaction::new_signed_with_payer(
+        //         &[instruction],
+        //         Some(&signer.pubkey()),
+        //         &[&signer],
+        //         blockhash,
+        //     );
+        //     let res = client.send_transaction(&transaction).unwrap();
+        //     println!("{}", res);
+        // }
 
-        // let transaction = Transaction::new_signed_with_payer(
-        //     &[verify_proof(VAULT, signer.pubkey()).unwrap()],
-        //     Some(&signer.pubkey()),
-        //     &[&signer],
-        //     blockhash,
-        // );
-        // let res = client.send_transaction(&transaction).unwrap();
-        // println!("{}", res);
+        let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        let transaction = Transaction::new_signed_with_payer(
+            &[verify_proof(VAULT, signer.pubkey(), padding).unwrap()],
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        );
+        let res = client.send_transaction(&transaction).unwrap();
+        println!("{}", res);
     }
 }

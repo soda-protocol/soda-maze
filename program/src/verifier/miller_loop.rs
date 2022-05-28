@@ -1,6 +1,6 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 
-use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::{PreparedVerifyingKey}};
+use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::PreparedVerifyingKey};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
 use crate::verifier::{ProofA, ProofB, ProofC};
 use super::program::Program;
@@ -26,7 +26,19 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub enum ComputeStep {
+    Step0,
+    Step1,
+    Step2,
+    Step3,
+    Step4,
+    Step5,
+    Step6,
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoop {
+    pub step: ComputeStep,
     pub ate_index: u8,
     pub coeff_index: u8,
     pub f: Box<Fqk254>, // Fqk254
@@ -42,58 +54,117 @@ impl MillerLoop {
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let ate_loop_count_inv = <BnParameters as Bn>::ATE_LOOP_COUNT_INV;
 
-        const MAX_LOOP: usize = 2;
-        for _ in 0..MAX_LOOP {
-            self.f.square_in_place();
+        const MAX_UINTS: usize = 1350000;
+        let mut used_units = 0;
+        loop {
+            match self.step {
+                ComputeStep::Step0 => {
+                    if used_units + 87000 >= MAX_UINTS {
+                        break;
+                    }
+                    self.f.square_in_place();
+                    used_units += 87000;
+                    self.step = ComputeStep::Step1;
+                }
+                ComputeStep::Step1 => {
+                    if used_units + 169000 >= MAX_UINTS {
+                        break;
+                    }
+                    let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
+                    ell(&mut self.f, &coeff, &self.proof_a);
+                    used_units += 169000;
+                    self.step = ComputeStep::Step2;
+                }
+                ComputeStep::Step2 => {
+                    if used_units + 96000 >= MAX_UINTS {
+                        break;
+                    }
+                    ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+                    used_units += 96000;
+                    self.step = ComputeStep::Step3;
+                }
+                ComputeStep::Step3 => {
+                    if used_units + 96000 >= MAX_UINTS {
+                        break;
+                    }
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+                    self.coeff_index += 1;
+                    used_units += 96000;
+                    self.step = ComputeStep::Step4;
+                }
+                ComputeStep::Step4 => {
+                    let bit = ate_loop_count_inv[self.ate_index as usize];
+                    self.ate_index += 1;
+                    match bit {
+                        1 => {
+                            if used_units + 175000 >= MAX_UINTS {
+                                break;
+                            }
+                            let coeff = addition_step(&mut self.r, &self.proof_b);
+                            ell(&mut self.f, &coeff, &self.proof_a);
+                            used_units += 175000;
+                            self.step = ComputeStep::Step5;
+                        },
+                        -1 => {
+                            if used_units + 175000 >= MAX_UINTS {
+                                break;
+                            }
+                            let coeff = addition_step(&mut self.r, &self.proof_b_neg);
+                            ell(&mut self.f, &coeff, &self.proof_a);
+                            used_units += 175000;
+                            self.step = ComputeStep::Step5;
+                        },
+                        _ => {
+                            if (self.ate_index as usize) >= ate_loop_count_inv.len() {
+                                // in Finalize
+                                return Program::MillerLoopFinalize(MillerLoopFinalize {
+                                    coeff_index: self.coeff_index,
+                                    prepared_input: self.prepared_input,
+                                    r: self.r,
+                                    f: self.f,
+                                    proof_a: self.proof_a,
+                                    proof_b: self.proof_b,
+                                    proof_c: self.proof_c,
+                                });
+                            } else {
+                                self.step = ComputeStep::Step0;
+                            }
+                        },
+                    };
+                }
+                ComputeStep::Step5 => {
+                    if used_units + 96000 >= MAX_UINTS {
+                        break;
+                    }
+                    ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+                    used_units += 96000;
+                    self.step = ComputeStep::Step6;
+                }
+                ComputeStep::Step6 => {
+                    if used_units + 96000 >= MAX_UINTS {
+                        break;
+                    }
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+                    self.coeff_index += 1;
+                    used_units += 96000;
 
-            let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
-            ell(&mut self.f, &coeff, &self.proof_a);
-            ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-            ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-            self.coeff_index += 1;
-
-            let bit = ate_loop_count_inv[self.ate_index as usize];
-            self.ate_index += 1;
-            let coeff = match bit {
-                1 => addition_step(&mut self.r, &self.proof_b),
-                -1 => addition_step(&mut self.r, &self.proof_b_neg),
-                _ => {
                     if (self.ate_index as usize) >= ate_loop_count_inv.len() {
-                        let q1 = mul_by_char::<BnParameters>(*self.proof_b);
-                        let mut q2 = mul_by_char::<BnParameters>(q1);
-        
-                        if <BnParameters as Bn>::X_IS_NEGATIVE {
-                            self.r.y = -self.r.y;
-                            self.f.conjugate();
-                        }
-
-                        q2.y = -q2.y;
-        
                         // in Finalize
                         return Program::MillerLoopFinalize(MillerLoopFinalize {
                             coeff_index: self.coeff_index,
                             prepared_input: self.prepared_input,
-                            proof_a: self.proof_a,
-                            proof_c: self.proof_c,
-                            q1: Box::new(q1),
-                            q2: Box::new(q2),
                             r: self.r,
                             f: self.f,
+                            proof_a: self.proof_a,
+                            proof_b: self.proof_b,
+                            proof_c: self.proof_c,
                         });
                     } else {
-                        continue;
+                        self.step = ComputeStep::Step0;
                     }
-                },
-            };
-            ell(&mut self.f, &coeff, &self.proof_a);
-            ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-            ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
-            self.coeff_index += 1;
-
-            // in ATE_LOOP_COUNT_INV, the last value is zero, so here will never reached
-            assert!((self.ate_index as usize) < ate_loop_count_inv.len());
+                }
+            }
         }
-
         // next loop
         Program::MillerLoop(self)
     }
@@ -102,25 +173,34 @@ impl MillerLoop {
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoopFinalize {
     pub coeff_index: u8,
-    pub prepared_input: Box<G1Affine254>, // G1Affine254
-    pub proof_a: Box<G1Affine254>, // G1Affine254
-    pub proof_c: Box<G1Affine254>, // G1Affine254
-    pub q1: Box<G2Affine254>, // G2Affine254
-    pub q2: Box<G2Affine254>, // G2Affine254
-    pub r: Box<G2HomProjective254>, // G2HomProjective254
-    pub f: Box<Fqk254>, // Fqk254
+    pub prepared_input: Box<G1Affine254>,
+    pub r: Box<G2HomProjective254>,
+    pub f: Box<Fqk254>,
+    pub proof_a: Box<ProofA>,
+    pub proof_b: Box<ProofB>,
+    pub proof_c: Box<ProofC>,
 }
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
-        let coeff = addition_step(&mut self.r, &self.q1);
+        let q1 = mul_by_char::<BnParameters>(*self.proof_b);
+        let mut q2 = mul_by_char::<BnParameters>(q1);
+
+        if <BnParameters as Bn>::X_IS_NEGATIVE {
+            self.r.y = -self.r.y;
+            self.f.conjugate();
+        }
+
+        q2.y = -q2.y;
+
+        let coeff = addition_step(&mut self.r, &q1);
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
         self.coeff_index += 1;
 
-        let coeff = addition_step(&mut self.r, &self.q2);
+        let coeff = addition_step(&mut self.r, &q2);
         ell(&mut self.f, &coeff, &self.proof_a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);

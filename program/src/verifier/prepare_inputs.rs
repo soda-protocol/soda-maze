@@ -7,7 +7,7 @@ use crate::params::bn::{G1Projective254, G1Affine254, G2HomProjective254, Fq2, F
 use crate::params::proof::PreparedVerifyingKey;
 use crate::verifier::{ProofA, ProofB, ProofC};
 use super::program::Program;
-use super::miller_loop::MillerLoop;
+use super::miller_loop::{MillerLoop, ComputeStep};
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
@@ -53,6 +53,7 @@ impl PrepareInputs {
                     let proof_b_neg = self.proof_b.neg();
     
                     return Program::MillerLoop(MillerLoop {
+                        step: ComputeStep::Step0,
                         ate_index: 0,
                         coeff_index: 0,
                         f: Box::new(Fqk254::one()),
