@@ -59,37 +59,37 @@ impl MillerLoop {
         loop {
             match self.step {
                 ComputeStep::Step0 => {
-                    if used_units + 80000 >= MAX_UINTS {
+                    if used_units + 75000 >= MAX_UINTS {
                         break;
                     }
                     self.f.square_in_place();
-                    used_units += 80000;
+                    used_units += 75000;
                     self.step = ComputeStep::Step1;
                 }
                 ComputeStep::Step1 => {
-                    if used_units + 160000 >= MAX_UINTS {
+                    if used_units + 161000 >= MAX_UINTS {
                         break;
                     }
                     let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
                     ell(&mut self.f, &coeff, &self.proof_a);
-                    used_units += 160000;
+                    used_units += 161000;
                     self.step = ComputeStep::Step2;
                 }
                 ComputeStep::Step2 => {
-                    if used_units + 92000 >= MAX_UINTS {
+                    if used_units + 93000 >= MAX_UINTS {
                         break;
                     }
                     ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-                    used_units += 92000;
+                    used_units += 93000;
                     self.step = ComputeStep::Step3;
                 }
                 ComputeStep::Step3 => {
-                    if used_units + 92000 >= MAX_UINTS {
+                    if used_units + 93000 >= MAX_UINTS {
                         break;
                     }
                     ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
                     self.coeff_index += 1;
-                    used_units += 92000;
+                    used_units += 93000;
                     self.step = ComputeStep::Step4;
                 }
                 ComputeStep::Step4 => {
@@ -97,21 +97,21 @@ impl MillerLoop {
                     self.ate_index += 1;
                     match bit {
                         1 => {
-                            if used_units + 160000 >= MAX_UINTS {
+                            if used_units + 161000 >= MAX_UINTS {
                                 break;
                             }
                             let coeff = addition_step(&mut self.r, &self.proof_b);
                             ell(&mut self.f, &coeff, &self.proof_a);
-                            used_units += 160000;
+                            used_units += 161000;
                             self.step = ComputeStep::Step5;
                         },
                         -1 => {
-                            if used_units + 160000 >= MAX_UINTS {
+                            if used_units + 161000 >= MAX_UINTS {
                                 break;
                             }
                             let coeff = addition_step(&mut self.r, &self.proof_b_neg);
                             ell(&mut self.f, &coeff, &self.proof_a);
-                            used_units += 160000;
+                            used_units += 161000;
                             self.step = ComputeStep::Step5;
                         },
                         _ => {
@@ -133,20 +133,20 @@ impl MillerLoop {
                     };
                 }
                 ComputeStep::Step5 => {
-                    if used_units + 92000 >= MAX_UINTS {
+                    if used_units + 93000 >= MAX_UINTS {
                         break;
                     }
                     ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-                    used_units += 92000;
+                    used_units += 93000;
                     self.step = ComputeStep::Step6;
                 }
                 ComputeStep::Step6 => {
-                    if used_units + 92000 >= MAX_UINTS {
+                    if used_units + 93000 >= MAX_UINTS {
                         break;
                     }
                     ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
                     self.coeff_index += 1;
-                    used_units += 92000;
+                    used_units += 93000;
 
                     if (self.ate_index as usize) >= ate_loop_count_inv.len() {
                         // in Finalize

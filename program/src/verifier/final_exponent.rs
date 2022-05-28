@@ -7,7 +7,14 @@ use crate::params::bn::{*, Bn254Parameters as BnParameters};
 use crate::params::proof::PreparedVerifyingKey;
 use super::program::Program;
 
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub enum ComputeStep {
+    Step0,
+    Step1,
+}
+
 fn exp_by_neg_x(
+    step: &mut ComputeStep,
     index: &mut u8,
     res: &mut Fqk254,
     fe: &Fqk254,
@@ -15,24 +22,41 @@ fn exp_by_neg_x(
 ) -> bool {
     let naf_inv = <BnParameters as Bn>::NAF_INV;
 
-    const MAX_LOOP: usize = 8;
-    for _ in 0..MAX_LOOP {
-        res.square_in_place();
-
-        let value = naf_inv[*index as usize];
-        *index += 1;
-        if value > 0 {
-            res.mul_assign(fe);
-        } else if value < 0 {
-            res.mul_assign(fe_inv);
-        }
-
-        if (*index as usize) >= naf_inv.len() {
-            if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                res.conjugate();
+    const MAX_UINTS: usize = 127500;
+    let mut used_units = 0;
+    loop {
+        match step {
+            ComputeStep::Step0 => {
+                if used_units + 75000 >= MAX_UINTS {
+                    break;
+                }
+                res.square_in_place();
+                used_units += 75000;
+                *step = ComputeStep::Step1;
             }
-            // finished
-            return true;
+            ComputeStep::Step1 => {
+                if used_units + 75000 >= MAX_UINTS {
+                    break;
+                }
+                let value = naf_inv[*index as usize];
+                *index += 1;
+                if value > 0 {
+                    res.mul_assign(fe);
+                } else if value < 0 {
+                    res.mul_assign(fe_inv);
+                }
+                used_units += 75000;
+                
+                if (*index as usize) >= naf_inv.len() {
+                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                        res.conjugate();
+                    }
+                    // finished
+                    return true;
+                } else {
+                    *step = ComputeStep::Step0;
+                }
+            }
         }
     }
     // next loop
@@ -69,6 +93,7 @@ impl FinalExponentEasyPart {
             r_inv.conjugate();
 
             Program::FinalExponentHardPart1(FinalExponentHardPart1 {
+                step: ComputeStep::Step0,
                 index: 0,
                 r: Box::new(r),
                 r_inv: Box::new(r_inv),
@@ -83,6 +108,7 @@ impl FinalExponentEasyPart {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart1 {
+    pub step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub r_inv: Box<Fqk254>,
@@ -92,6 +118,7 @@ pub struct FinalExponentHardPart1 {
 impl FinalExponentHardPart1 {
     pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
+            &mut self.step,
             &mut self.index,
             &mut self.y0,
             &self.r,
@@ -107,6 +134,7 @@ impl FinalExponentHardPart1 {
 
             // goto hard part 2
             Program::FinalExponentHardPart2(FinalExponentHardPart2 {
+                step: ComputeStep::Step0,
                 index: 0,
                 r: self.r,
                 y1: Box::new(y1),
@@ -123,6 +151,7 @@ impl FinalExponentHardPart1 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart2 {
+    pub step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
@@ -134,6 +163,7 @@ pub struct FinalExponentHardPart2 {
 impl FinalExponentHardPart2 {
     pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
+            &mut self.step,
             &mut self.index,
             &mut self.y4,
             &self.y3,
@@ -146,6 +176,7 @@ impl FinalExponentHardPart2 {
 
             // goto hard part 3
             Program::FinalExponentHardPart3(FinalExponentHardPart3 {
+                step: ComputeStep::Step0,
                 index: 0,
                 r: self.r,
                 y1: self.y1,
@@ -163,6 +194,7 @@ impl FinalExponentHardPart2 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart3 {
+    pub step: ComputeStep,
     pub index: u8,
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
@@ -176,6 +208,7 @@ pub struct FinalExponentHardPart3 {
 impl FinalExponentHardPart3 {
     pub fn process(mut self) -> Program {
         let finished = exp_by_neg_x(
+            &mut self.step,
             &mut self.index,
             &mut self.y6,
             &self.y5,
