@@ -54,7 +54,7 @@ impl MillerLoop {
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let ate_loop_count_inv = <BnParameters as Bn>::ATE_LOOP_COUNT_INV;
 
-        const MAX_UINTS: usize = 1360000;
+        const MAX_UINTS: usize = 1350000;
         let mut used_units = 0;
         loop {
             match self.step {
