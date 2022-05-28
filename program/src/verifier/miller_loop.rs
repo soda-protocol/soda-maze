@@ -59,11 +59,11 @@ impl MillerLoop {
         loop {
             match self.step {
                 ComputeStep::Step0 => {
-                    if used_units + 75000 >= MAX_UINTS {
+                    if used_units + 78000 >= MAX_UINTS {
                         break;
                     }
                     self.f.square_in_place();
-                    used_units += 75000;
+                    used_units += 78000;
                     self.step = ComputeStep::Step1;
                 }
                 ComputeStep::Step1 => {
