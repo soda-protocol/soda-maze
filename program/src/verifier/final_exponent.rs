@@ -20,6 +20,7 @@ fn exp_by_neg_x(
     res: &mut Fqk254,
     fe: &Fqk254,
     fe_inv: &Fqk254,
+    reserve_uints: usize,
 ) -> bool {
     let naf_inv = <BnParameters as Bn>::NAF_INV;
 
@@ -56,7 +57,7 @@ fn exp_by_neg_x(
                 }
             }
             ComputeStep::Step2 => {
-                if used_units + 300000 >= MAX_UINTS {
+                if used_units + reserve_uints >= MAX_UINTS {
                     break;
                 }
                 if !<BnParameters as Bn>::X_IS_NEGATIVE {
@@ -131,6 +132,7 @@ impl FinalExponentHardPart1 {
             &mut self.y0,
             &self.r,
             &self.r_inv,
+            200000,
         );
         if finished {
             // there is some rest compute uint to calculate y1, y2, y3
@@ -176,6 +178,7 @@ impl FinalExponentHardPart2 {
             &mut self.y4,
             &self.y3,
             &self.y3_inv,
+            100000,
         );
         if finished {
             let y5 = self.y4.cyclotomic_square();
@@ -221,20 +224,19 @@ impl FinalExponentHardPart3 {
             &mut self.y6,
             &self.y5,
             &self.y5_inv,
+            100000,
         );
         if finished {
             self.y3.conjugate();
             self.y6.conjugate();
 
-            let y7 = self.y6.mul(self.y4.as_ref());
-            let y8 = y7 * self.y3.as_ref();
-
             // goto hard part 4
             Program::FinalExponentHardPart4(FinalExponentHardPart4 {
                 r: self.r,
                 y1: self.y1,
+                y3: self.y3,
                 y4: self.y4,
-                y8: Box::new(y8),
+                y6: self.y6,
             })
         } else {
             Program::FinalExponentHardPart3(self)
@@ -246,21 +248,24 @@ impl FinalExponentHardPart3 {
 pub struct FinalExponentHardPart4 {
     pub r: Box<Fqk254>,
     pub y1: Box<Fqk254>,
+    pub y3: Box<Fqk254>,
     pub y4: Box<Fqk254>,
-    pub y8: Box<Fqk254>,
+    pub y6: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart4 {
     #[inline(never)]
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
-        let y9 = self.y8.mul(self.y1.as_ref());
-        let y10 = self.y8.mul(self.y4.as_ref());
+        let y7 = self.y6.mul(self.y4.as_ref());
+        let mut y8 = y7 * self.y3.as_ref();
+        let y9 = y8 * self.y1.as_ref();
+        let y10 = y8 * self.y4.as_ref();
         let y11 = y10.mul(self.r.as_ref());
         let mut y12 = y9;
         y12.frobenius_map(1);
         let y13 = y12 * &y11;
-        self.y8.frobenius_map(2);
-        let y14 = self.y8.mul(&y13);
+        y8.frobenius_map(2);
+        let y14 = y8 * &y13;
         self.r.conjugate();
         let mut y15 = self.r.mul(y9);
         y15.frobenius_map(3);
