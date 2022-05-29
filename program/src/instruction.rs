@@ -358,7 +358,7 @@ mod tests {
     use rand_core::{OsRng, RngCore};
     use ark_std::UniformRand;
 
-    use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof};
+    use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof, finalize_deposit};
     use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}, instruction::reset_buffer_accounts};
     use crate::bn::BigInteger256 as BigInteger;
 
@@ -464,28 +464,35 @@ mod tests {
 
         // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..200 {
-            let blockhash = client.get_latest_blockhash().unwrap();
-            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-            let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
-            let transaction = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&signer.pubkey()),
-                &[&signer],
-                blockhash,
-            );
-            let res = client.send_transaction(&transaction).unwrap();
-            println!("{}", res);
-        }
+        // for _ in 0..210 {
+        //     let blockhash = client.get_latest_blockhash().unwrap();
+        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        //     let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+        //     let transaction = Transaction::new_signed_with_payer(
+        //         &[instruction],
+        //         Some(&signer.pubkey()),
+        //         &[&signer],
+        //         blockhash,
+        //     );
+        //     let res = client.send_transaction(&transaction).unwrap();
+        //     println!("{}", res);
+        // }
 
-        // let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-        // let transaction = Transaction::new_signed_with_payer(
-        //     &[instruction],
-        //     Some(&signer.pubkey()),
-        //     &[&signer],
-        //     blockhash,
-        // );
-        // let res = client.send_transaction(&transaction).unwrap();
-        // println!("{}", res);
+        let instruction = finalize_deposit(
+            VAULT,
+            token_mint,
+            signer.pubkey(),
+            leaf_index,
+            leaf,
+        ).unwrap();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        );
+        let res = client.send_transaction(&transaction).unwrap();
+        println!("{}", res);
     }
 }

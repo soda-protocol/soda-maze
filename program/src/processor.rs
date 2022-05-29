@@ -390,8 +390,6 @@ fn process_finalize_deposit(
         return Err(MazeError::UnmatchedAccounts.into());
     }
     verifier.program.check_verified()?;
-    // clear verifier
-    process_rent_refund(verifier_info, signer_info);
 
     let credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
     if &credential.vault != vault_info.key {
@@ -406,8 +404,6 @@ fn process_finalize_deposit(
         return Err(MazeError::InvalidAuthority.into());
     }
     vault.check_consistency(credential.vanilla_data.leaf_index, &credential.vanilla_data.prev_root)?;
-    // clear credential
-    process_rent_refund(credential_info, signer_info);
 
     let (commitment_key, (seed_1, seed_2, seed_3)) = get_commitment_pda(
         vault_info.key,
@@ -478,7 +474,14 @@ fn process_finalize_deposit(
         signer_info,
         &[],
         credential.vanilla_data.deposit_amount,
-    )
+    )?;
+
+    // clear verifier
+    process_rent_refund(verifier_info, signer_info);
+    // clear credential
+    process_rent_refund(credential_info, signer_info);
+
+    Ok(())
 }
 
 #[inline(never)]

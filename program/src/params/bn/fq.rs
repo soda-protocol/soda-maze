@@ -97,7 +97,6 @@ mod tests {
     use num_traits::One;
 
     use crate::bn::Field;
-
     use super::Fq;
 
     #[test]
