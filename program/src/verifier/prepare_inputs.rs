@@ -1,27 +1,46 @@
-use std::ops::{AddAssign, Neg};
+use std::ops::AddAssign;
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::{Zero, One};
+use num_traits::Zero;
 
 use crate::bn::{BigInteger256 as BigInteger, BitIteratorBE};
-use crate::params::bn::{G1Projective254, G1Affine254, G2HomProjective254, Fq2, Fqk254};
+use crate::params::bn::{G1Projective254, G1Affine254};
 use crate::params::proof::PreparedVerifyingKey;
 use crate::verifier::{ProofA, ProofB, ProofC};
 use super::program::Program;
-use super::miller_loop::{MillerLoop, ComputeStep};
+use super::miller_loop::MillerLoop;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct PrepareInputs {
     pub input_index: u8,
-    pub bit_index: u16,
-    pub public_inputs: Box<Vec<BigInteger>>,
-    pub g_ic: Box<G1Projective254>,
-    pub tmp: Box<G1Projective254>,
-    pub proof_a: Box<ProofA>,
-    pub proof_b: Box<ProofB>,
-    pub proof_c: Box<ProofC>,
+    bit_index: u16,
+    public_inputs: Box<Vec<BigInteger>>,
+    g_ic: Box<G1Projective254>,
+    tmp: Box<G1Projective254>,
+    proof_a: Box<ProofA>,
+    proof_b: Box<ProofB>,
+    proof_c: Box<ProofC>,
 }
 
 impl PrepareInputs {
+    pub fn new(
+        pvk: &PreparedVerifyingKey,
+        public_inputs: Box<Vec<BigInteger>>,
+        proof_a: Box<ProofA>,
+        proof_b: Box<ProofB>,
+        proof_c: Box<ProofC>,
+    ) -> Self {
+        Self {
+            input_index: 0,
+            bit_index: 0,
+            public_inputs,
+            g_ic: Box::new(*pvk.g_ic_init),
+            tmp: Box::new(G1Projective254::zero()),
+            proof_a,
+            proof_b,
+            proof_c,
+        }
+    }
+
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let mut public_input = self.public_inputs[self.input_index as usize];
         let mut bits_iter = BitIteratorBE::without_leading_zeros(public_input)
@@ -44,26 +63,13 @@ impl PrepareInputs {
                 used_units += 13000;
 
                 if self.input_index as usize >= self.public_inputs.len() {
-                    let r = G2HomProjective254 {
-                        x: self.proof_b.x,
-                        y: self.proof_b.y,
-                        z: Fq2::one(),
-                    };
                     let prepared_input = G1Affine254::from(*self.g_ic);
-                    let proof_b_neg = self.proof_b.neg();
-    
-                    return Program::MillerLoop(MillerLoop {
-                        step: ComputeStep::Step0,
-                        ate_index: 0,
-                        coeff_index: 0,
-                        f: Box::new(Fqk254::one()),
-                        r: Box::new(r),
-                        prepared_input: Box::new(prepared_input),
-                        proof_a: self.proof_a,
-                        proof_b: self.proof_b,
-                        proof_b_neg: Box::new(proof_b_neg),
-                        proof_c: self.proof_c,
-                    });
+                    return Program::MillerLoop(MillerLoop::new(
+                        Box::new(prepared_input),
+                        self.proof_a,
+                        self.proof_b,
+                        self.proof_c,
+                    ));
                 } else {
                     self.bit_index = 0;
                     self.tmp = Box::new(G1Projective254::zero());
@@ -212,9 +218,9 @@ mod tests {
 
         loop {
             program = program.process(PVK);
-            if let Program::MillerLoop(ml) = &program {
-                println!("prepared_input_x {:?}", &ml.prepared_input.x.0.0);
-                println!("prepared_input_y {:?}", &ml.prepared_input.y.0.0);
+            if let Program::MillerLoop(_ml) = &program {
+                // println!("prepared_input_x {:?}", &ml.prepared_input.x.0.0);
+                // println!("prepared_input_y {:?}", &ml.prepared_input.y.0.0);
                 break;
             }
         }

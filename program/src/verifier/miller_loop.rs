@@ -1,4 +1,6 @@
+use std::ops::Neg;
 use borsh::{BorshSerialize, BorshDeserialize};
+use num_traits::One;
 
 use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::PreparedVerifyingKey};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
@@ -26,7 +28,7 @@ fn ell(f: &mut Fq12, coeffs: &EllCoeffFq2, p: &G1Affine254) {
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub enum ComputeStep {
+enum ComputeStep {
     Step0,
     Step1,
     Step2,
@@ -38,19 +40,45 @@ pub enum ComputeStep {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoop {
-    pub step: ComputeStep,
-    pub ate_index: u8,
-    pub coeff_index: u8,
-    pub f: Box<Fqk254>, // Fqk254
-    pub r: Box<G2HomProjective254>, // G2HomProjective254
-    pub prepared_input: Box<G1Affine254>, // G1Affine254
-    pub proof_a: Box<ProofA>, // ProofA
-    pub proof_b: Box<ProofB>, // ProofB
-    pub proof_b_neg: Box<ProofB>, // ProofB
-    pub proof_c: Box<ProofC>, // ProofC
+    step: ComputeStep,
+    ate_index: u8,
+    coeff_index: u8,
+    f: Box<Fqk254>, // Fqk254
+    r: Box<G2HomProjective254>, // G2HomProjective254
+    prepared_input: Box<G1Affine254>, // G1Affine254
+    proof_a: Box<ProofA>, // ProofA
+    proof_b: Box<ProofB>, // ProofB
+    proof_b_neg: Box<ProofB>, // ProofB
+    proof_c: Box<ProofC>, // ProofC
 }
 
 impl MillerLoop {
+    pub fn new(
+        prepared_input: Box<G1Affine254>,
+        proof_a: Box<ProofA>,
+        proof_b: Box<ProofB>,
+        proof_c: Box<ProofC>,
+    ) -> Self {
+        let r = G2HomProjective254 {
+            x: proof_b.x,
+            y: proof_b.y,
+            z: Fq2::one(),
+        };
+        let proof_b_neg = proof_b.neg();
+        Self {
+            step: ComputeStep::Step1,
+            ate_index: 0,
+            coeff_index: 0,
+            f: Box::new(Fqk254::one()),
+            r: Box::new(r),
+            prepared_input,
+            proof_a,
+            proof_b,
+            proof_b_neg: Box::new(proof_b_neg),
+            proof_c,
+        }
+    }
+
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
         let ate_loop_count_inv = <BnParameters as Bn>::ATE_LOOP_COUNT_INV;
 
@@ -172,13 +200,13 @@ impl MillerLoop {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct MillerLoopFinalize {
-    pub coeff_index: u8,
-    pub prepared_input: Box<G1Affine254>,
-    pub r: Box<G2HomProjective254>,
-    pub f: Box<Fqk254>,
-    pub proof_a: Box<ProofA>,
-    pub proof_b: Box<ProofB>,
-    pub proof_c: Box<ProofC>,
+    coeff_index: u8,
+    prepared_input: Box<G1Affine254>,
+    r: Box<G2HomProjective254>,
+    f: Box<Fqk254>,
+    proof_a: Box<ProofA>,
+    proof_b: Box<ProofB>,
+    proof_c: Box<ProofC>,
 }
 
 impl MillerLoopFinalize {
@@ -205,9 +233,7 @@ impl MillerLoopFinalize {
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
         ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
 
-        Program::FinalExponentEasyPart(FinalExponentEasyPart {
-            f: self.f,
-        })
+        Program::FinalExponentEasyPart(FinalExponentEasyPart::new(self.f))
     }
 }
 
@@ -333,8 +359,8 @@ mod tests {
 
         loop {
             program = program.process(PVK);
-            if let Program::FinalExponentEasyPart(e) = &program {
-                println!("out {:?}", e.f.c0.c0.c0.0.0);
+            if let Program::FinalExponentEasyPart(_e) = &program {
+                // println!("out {:?}", e.f.c0.c0.c0.0.0);
                 break;
             }
         }

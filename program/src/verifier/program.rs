@@ -25,35 +25,35 @@ impl Program {
     pub fn process(self, pvk: &PreparedVerifyingKey) -> Self {
         match self {
             Program::PrepareInputs(pi) => {
-                msg!("Proving stage: Prepare Inputs at input index {}, bit index {}", pi.input_index, pi.bit_index);
+                msg!("Proving stage: Preparing Inputs of index {}", pi.input_index);
                 pi.process(pvk)
             },
             Program::MillerLoop(ml) => {
-                msg!("Proving stage: Miller Loop at ATE index {}, coeff index {}", ml.ate_index, ml.coeff_index);
+                msg!("Proving stage: Miller Loop Evaluating");
                 ml.process(pvk)
             },
             Program::MillerLoopFinalize(mlf) => {
-                msg!("Proving stage: Miller Loop Finalize");
+                msg!("Proving stage: Miller Loop Finalizing");
                 mlf.process(pvk)
             },
             Program::FinalExponentEasyPart(fee) => {
-                msg!("Proving stage: Final Exponent Easy Part");
+                msg!("Proving stage: Final Exponent for Easy Part");
                 fee.process()
             },
             Program::FinalExponentHardPart1(feh1) => {
-                msg!("Proving stage: Final Exponent Hard Part 1 at index {}", feh1.index);
+                msg!("Proving stage: Final Exponent for Hard Part I");
                 feh1.process()
             },
             Program::FinalExponentHardPart2(feh2) => {
-                msg!("Proving stage: Final Exponent Hard Part 2 at index {}", feh2.index);
+                msg!("Proving stage: Final Exponent for Hard Part II");
                 feh2.process()
             },
             Program::FinalExponentHardPart3(feh3) => {
-                msg!("Proving stage: Final Exponent Hard Part 3 at index {}", feh3.index);
+                msg!("Proving stage: Final Exponent for Hard Part III");
                 feh3.process()
             },
             Program::FinalExponentHardPart4(feh4) => {
-                msg!("Proving stage: Final Exponent Hard Part 4");
+                msg!("Proving stage: Final Exponent for Hard Part IV");
                 feh4.process(pvk)
             },
             Program::Finish(f) => {

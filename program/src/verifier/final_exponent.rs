@@ -14,70 +14,95 @@ enum ComputeStep {
     Step2,
 }
 
-fn exp_by_neg_x(
-    step: &mut ComputeStep,
-    index: &mut u8,
-    res: &mut Fqk254,
-    fe: &Fqk254,
-    fe_inv: &Fqk254,
-    reserve_uints: usize,
-) -> bool {
-    let naf_inv = <BnParameters as Bn>::NAF_INV;
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+struct ExpByNegX {
+    none_zero: bool,
+    step: ComputeStep,
+    index: u8,
+    res: Box<Fqk254>,
+}
 
-    const MAX_UINTS: usize = 1350000;
-    let mut used_units = 0;
-    loop {
-        match step {
-            ComputeStep::Step0 => {
-                if used_units + 100000 >= MAX_UINTS {
-                    break;
-                }
-                res.square_in_place();
-                used_units += 100000;
-                *step = ComputeStep::Step1;
-            }
-            ComputeStep::Step1 => {
-                if used_units + 100000 >= MAX_UINTS {
-                    break;
-                }
-                let value = naf_inv[*index as usize];
-                *index += 1;
-                if value > 0 {
-                    res.mul_assign(fe);
-                    used_units += 100000;
-                } else if value < 0 {
-                    res.mul_assign(fe_inv);
-                    used_units += 100000;
-                }
-                
-                if (*index as usize) >= naf_inv.len() {
-                    *step = ComputeStep::Step2;
-                } else {
-                    *step = ComputeStep::Step0;
-                }
-            }
-            ComputeStep::Step2 => {
-                if used_units + reserve_uints >= MAX_UINTS {
-                    break;
-                }
-                if !<BnParameters as Bn>::X_IS_NEGATIVE {
-                    res.conjugate();
-                }
-                // finished
-                return true;
-            }
+impl ExpByNegX {
+    fn new() -> Self {
+        Self {
+            none_zero: false,
+            step: ComputeStep::Step0,
+            index: 0,
+            res: Box::new(Fqk254::one()),
         }
     }
-    // next loop
-    false
+
+    fn cyclotomic_exp(
+        &mut self,
+        fe: &Fqk254,
+        fe_inv: &Fqk254,
+        reserve_uints: usize,
+    ) -> bool {
+        let naf_inv = <BnParameters as Bn>::NAF_INV;
+
+        const MAX_UNITS: usize = 1350000;
+        let mut used_units = 0;
+        loop {
+            match self.step {
+                ComputeStep::Step0 => {
+                    if self.none_zero {
+                        if used_units + 100000 >= MAX_UNITS {
+                            break;
+                        }
+                        self.res.square_in_place();
+                        used_units += 100000;
+                    }
+                    self.step = ComputeStep::Step1;
+                }
+                ComputeStep::Step1 => {
+                    if used_units + 100000 >= MAX_UNITS {
+                        break;
+                    }
+                    let value = naf_inv[self.index as usize];
+                    if value > 0 {
+                        self.none_zero = true;
+                        self.res.mul_assign(fe);
+                        used_units += 100000;
+                    } else if value < 0 {
+                        self.none_zero = true;
+                        self.res.mul_assign(fe_inv);
+                        used_units += 100000;
+                    }
+                    self.index += 1;
+                    
+                    if (self.index as usize) >= naf_inv.len() {
+                        self.step = ComputeStep::Step2;
+                    } else {
+                        self.step = ComputeStep::Step0;
+                    }
+                }
+                ComputeStep::Step2 => {
+                    if used_units + reserve_uints >= MAX_UNITS {
+                        break;
+                    }
+                    if !<BnParameters as Bn>::X_IS_NEGATIVE {
+                        self.res.conjugate();
+                    }
+                    // finished
+                    return true;
+                }
+            }
+        }
+        // next loop
+        false
+    }
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentEasyPart {
-    pub f: Box<Fqk254>, // Fqk254
+    f: Box<Fqk254>, // Fqk254
 }
 
 impl FinalExponentEasyPart {
+    pub fn new(f: Box<Fqk254>) -> Self {
+        Self { f }
+    }
+
     pub fn process(mut self) -> Program {
         if let Some(mut f2) = self.f.inverse() {
             // f1 = r.conjugate() = f^(p^6)
@@ -102,11 +127,9 @@ impl FinalExponentEasyPart {
             r_inv.conjugate();
 
             Program::FinalExponentHardPart1(FinalExponentHardPart1 {
-                step: ComputeStep::Step0,
-                index: 0,
+                exp_by_neg_x: ExpByNegX::new(),
                 r: Box::new(r),
                 r_inv: Box::new(r_inv),
-                y0: Box::new(Fqk254::one()),
             })
         } else {
             // proof failed
@@ -117,26 +140,22 @@ impl FinalExponentEasyPart {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart1 {
-    step: ComputeStep,
-    pub index: u8,
-    pub r: Box<Fqk254>,
-    pub r_inv: Box<Fqk254>,
-    pub y0: Box<Fqk254>,
+    exp_by_neg_x: ExpByNegX,
+    r: Box<Fqk254>,
+    r_inv: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart1 {
     pub fn process(mut self) -> Program {
-        let finished = exp_by_neg_x(
-            &mut self.step,
-            &mut self.index,
-            &mut self.y0,
+        let finished = self.exp_by_neg_x.cyclotomic_exp(
             &self.r,
             &self.r_inv,
             200000,
         );
         if finished {
+            let y0 = self.exp_by_neg_x.res;
             // there is some rest compute uint to calculate y1, y2, y3
-            let y1 = self.y0.cyclotomic_square();
+            let y1 = y0.cyclotomic_square();
             let y2 = y1.cyclotomic_square();
             let y3 = y2 * &y1;
             let mut y3_inv = y3;
@@ -144,13 +163,11 @@ impl FinalExponentHardPart1 {
 
             // goto hard part 2
             Program::FinalExponentHardPart2(FinalExponentHardPart2 {
-                step: ComputeStep::Step0,
-                index: 0,
+                exp_by_neg_x: ExpByNegX::new(),
                 r: self.r,
                 y1: Box::new(y1),
                 y3: Box::new(y3),
                 y3_inv: Box::new(y3_inv),
-                y4: Box::new(Fqk254::one()),
             })
         } else {
             // next loop
@@ -161,41 +178,35 @@ impl FinalExponentHardPart1 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart2 {
-    step: ComputeStep,
-    pub index: u8,
-    pub r: Box<Fqk254>,
-    pub y1: Box<Fqk254>,
-    pub y3: Box<Fqk254>,
-    pub y3_inv: Box<Fqk254>,
-    pub y4: Box<Fqk254>,
+    exp_by_neg_x: ExpByNegX,
+    r: Box<Fqk254>,
+    y1: Box<Fqk254>,
+    y3: Box<Fqk254>,
+    y3_inv: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart2 {
     pub fn process(mut self) -> Program {
-        let finished = exp_by_neg_x(
-            &mut self.step,
-            &mut self.index,
-            &mut self.y4,
+        let finished = self.exp_by_neg_x.cyclotomic_exp(
             &self.y3,
             &self.y3_inv,
             100000,
         );
         if finished {
-            let y5 = self.y4.cyclotomic_square();
+            let y4 = self.exp_by_neg_x.res;
+            let y5 = y4.cyclotomic_square();
             let mut y5_inv = y5;
             y5_inv.conjugate();
 
             // goto hard part 3
             Program::FinalExponentHardPart3(FinalExponentHardPart3 {
-                step: ComputeStep::Step0,
-                index: 0,
+                exp_by_neg_x: ExpByNegX::new(),
                 r: self.r,
                 y1: self.y1,
                 y3: self.y3,
-                y4: self.y4,
+                y4,
                 y5: Box::new(y5),
                 y5_inv: Box::new(y5_inv),
-                y6: Box::new(Fqk254::one()),
             })
         } else {
             Program::FinalExponentHardPart2(self)
@@ -205,32 +216,28 @@ impl FinalExponentHardPart2 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart3 {
-    step: ComputeStep,
-    pub index: u8,
-    pub r: Box<Fqk254>,
-    pub y1: Box<Fqk254>,
-    pub y3: Box<Fqk254>,
-    pub y4: Box<Fqk254>,
-    pub y5: Box<Fqk254>,
-    pub y5_inv: Box<Fqk254>,
-    pub y6: Box<Fqk254>,
+    exp_by_neg_x: ExpByNegX,
+    r: Box<Fqk254>,
+    y1: Box<Fqk254>,
+    y3: Box<Fqk254>,
+    y4: Box<Fqk254>,
+    y5: Box<Fqk254>,
+    y5_inv: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart3 {
     pub fn process(mut self) -> Program {
-        let finished = exp_by_neg_x(
-            &mut self.step,
-            &mut self.index,
-            &mut self.y6,
+        let finished = self.exp_by_neg_x.cyclotomic_exp(
             &self.y5,
             &self.y5_inv,
             200000,
         );
         if finished {
+            let mut y6 = self.exp_by_neg_x.res;
             self.y3.conjugate();
-            self.y6.conjugate();
+            y6.conjugate();
 
-            let y7 = self.y6.mul(self.y4.as_ref());
+            let y7 = y6.mul(self.y4.as_ref());
             let y8 = y7 * self.y3.as_ref();
 
             // goto hard part 4
@@ -248,10 +255,10 @@ impl FinalExponentHardPart3 {
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct FinalExponentHardPart4 {
-    pub r: Box<Fqk254>,
-    pub y1: Box<Fqk254>,
-    pub y4: Box<Fqk254>,
-    pub y8: Box<Fqk254>,
+    r: Box<Fqk254>,
+    y1: Box<Fqk254>,
+    y4: Box<Fqk254>,
+    y8: Box<Fqk254>,
 }
 
 impl FinalExponentHardPart4 {
