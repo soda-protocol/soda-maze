@@ -1,6 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @param {Pubkey} vault_key
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_merkle_friends_pubkeys(vault_key: Pubkey, data: Uint8Array): any;
+/**
 * @param {BigInt} leaf_index
 * @param {BigInt} deposit_amount
 * @param {Pubkey} vault
@@ -20,12 +26,6 @@ export function gen_deposit_proof(leaf_index: BigInt, deposit_amount: BigInt, va
 * @returns {any}
 */
 export function gen_withdraw_proof(user_credential: any, leaf_index: BigInt, withdraw_amount: BigInt, signer: Pubkey, src_friends: Array<any>, dst_friends: Array<any>): any;
-/**
-* @param {Pubkey} key
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_merkle_friends_pubkeys(key: Pubkey, data: Uint8Array): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -318,9 +318,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly get_merkle_friends_pubkeys: (a: number, b: number) => number;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly get_merkle_friends_pubkeys: (a: number, b: number) => number;
   readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;

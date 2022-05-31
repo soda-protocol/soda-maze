@@ -1,9 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export function get_merkle_friends_pubkeys(a: number, b: number): number;
 export function gen_deposit_proof(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
 export function gen_withdraw_proof(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
-export function get_merkle_friends_pubkeys(a: number, b: number): number;
 export function __wbg_pubkey_free(a: number): void;
 export function systeminstruction_createAccount(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function systeminstruction_createAccountWithSeed(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number): number;

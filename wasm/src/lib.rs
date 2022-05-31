@@ -41,8 +41,15 @@ pub struct ProofResult {
     pub user_credential: UserCredential,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct VaultInfo {
+    pub enable: bool,
+    pub index: u64,
+    pub friends: Vec<Pubkey>,
+}
+
 #[wasm_bindgen]
-pub fn get_merkle_friends_pubkeys(key: Pubkey, data: Uint8Array) -> JsValue {
+pub fn get_merkle_friends_pubkeys(vault_key: Pubkey, data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault_data = data.to_vec();
@@ -58,11 +65,16 @@ pub fn get_merkle_friends_pubkeys(key: Pubkey, data: Uint8Array) -> JsValue {
             } else {
                 (layer as u8, index - 1)
             };
-            let (friend, _) = get_merkle_node_pda(&key, layer, index, &ID);
+            let (friend, _) = get_merkle_node_pda(&vault_key, layer, index, &ID);
             
             friend
         })
         .collect::<Vec<_>>();
 
-    JsValue::from_serde(&friends).expect("serde error")
+    let vault_info = VaultInfo {
+        enable: vault.enable,
+        index: vault.index,
+        friends,
+    };
+    JsValue::from_serde(&vault_info).expect("serde error")
 }
