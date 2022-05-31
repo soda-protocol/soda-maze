@@ -7,15 +7,16 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::program_pack::IsInitialized;
 use solana_program::pubkey::Pubkey;
 
-use crate::{Packer, params::proof::ProofType};
+use crate::{Packer, params::verify::ProofType};
 use crate::params::bn::{G1Affine254, G2Affine254};
 use self::program::Program;
 
-pub type ProofA = G1Affine254;
-
-pub type ProofB = G2Affine254;
-
-pub type ProofC = G1Affine254;
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
+pub struct Proof {
+    pub a: G1Affine254,
+    pub b: G2Affine254,
+    pub c: G1Affine254,
+}
 
 pub fn get_verifier_pda<'a>(
     credential: &'a Pubkey,

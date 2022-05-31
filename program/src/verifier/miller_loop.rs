@@ -2,9 +2,9 @@ use std::ops::Neg;
 use borsh::{BorshSerialize, BorshDeserialize};
 use num_traits::One;
 
-use crate::params::{bn::{*, Bn254Parameters as BnParameters}, proof::PreparedVerifyingKey};
+use crate::params::{bn::{*, Bn254Parameters as BnParameters}, verify::PreparedVerifyingKey};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
-use crate::verifier::{ProofA, ProofB, ProofC};
+use crate::verifier::Proof;
 use super::program::Program;
 use super::final_exponent::FinalExponentEasyPart;
 
@@ -46,25 +46,18 @@ pub struct MillerLoop {
     f: Box<Fqk254>, // Fqk254
     r: Box<G2HomProjective254>, // G2HomProjective254
     prepared_input: Box<G1Affine254>, // G1Affine254
-    proof_a: Box<ProofA>, // ProofA
-    proof_b: Box<ProofB>, // ProofB
-    proof_b_neg: Box<ProofB>, // ProofB
-    proof_c: Box<ProofC>, // ProofC
+    proof: Box<Proof>,
+    proof_b_neg: Box<G2Affine254>,
 }
 
 impl MillerLoop {
-    pub fn new(
-        prepared_input: Box<G1Affine254>,
-        proof_a: Box<ProofA>,
-        proof_b: Box<ProofB>,
-        proof_c: Box<ProofC>,
-    ) -> Self {
+    pub fn new(prepared_input: Box<G1Affine254>, proof: Box<Proof>) -> Self {
         let r = G2HomProjective254 {
-            x: proof_b.x,
-            y: proof_b.y,
+            x: proof.b.x,
+            y: proof.b.y,
             z: Fq2::one(),
         };
-        let proof_b_neg = proof_b.neg();
+        let proof_b_neg = proof.b.neg();
         Self {
             step: ComputeStep::Step1,
             ate_index: 0,
@@ -72,10 +65,8 @@ impl MillerLoop {
             f: Box::new(Fqk254::one()),
             r: Box::new(r),
             prepared_input,
-            proof_a,
-            proof_b,
+            proof,
             proof_b_neg: Box::new(proof_b_neg),
-            proof_c,
         }
     }
 
@@ -99,7 +90,7 @@ impl MillerLoop {
                         break;
                     }
                     let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
-                    ell(&mut self.f, &coeff, &self.proof_a);
+                    ell(&mut self.f, &coeff, &self.proof.a);
                     used_units += 155000;
                     self.step = ComputeStep::Step2;
                 }
@@ -115,7 +106,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
                     self.coeff_index += 1;
                     used_units += 90000;
                     self.step = ComputeStep::Step4;
@@ -127,8 +118,8 @@ impl MillerLoop {
                             if used_units + 155000 >= MAX_UNITS {
                                 break;
                             }
-                            let coeff = addition_step(&mut self.r, &self.proof_b);
-                            ell(&mut self.f, &coeff, &self.proof_a);
+                            let coeff = addition_step(&mut self.r, &self.proof.b);
+                            ell(&mut self.f, &coeff, &self.proof.a);
                             used_units += 155000;
                             self.step = ComputeStep::Step5;
                         },
@@ -137,7 +128,7 @@ impl MillerLoop {
                                 break;
                             }
                             let coeff = addition_step(&mut self.r, &self.proof_b_neg);
-                            ell(&mut self.f, &coeff, &self.proof_a);
+                            ell(&mut self.f, &coeff, &self.proof.a);
                             used_units += 155000;
                             self.step = ComputeStep::Step5;
                         },
@@ -149,9 +140,7 @@ impl MillerLoop {
                                     prepared_input: self.prepared_input,
                                     r: self.r,
                                     f: self.f,
-                                    proof_a: self.proof_a,
-                                    proof_b: self.proof_b,
-                                    proof_c: self.proof_c,
+                                    proof: self.proof,
                                 });
                             } else {
                                 self.step = ComputeStep::Step0;
@@ -172,7 +161,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
                     self.coeff_index += 1;
                     used_units += 90000;
 
@@ -183,9 +172,7 @@ impl MillerLoop {
                             prepared_input: self.prepared_input,
                             r: self.r,
                             f: self.f,
-                            proof_a: self.proof_a,
-                            proof_b: self.proof_b,
-                            proof_c: self.proof_c,
+                            proof: self.proof,
                         });
                     } else {
                         self.step = ComputeStep::Step0;
@@ -204,15 +191,13 @@ pub struct MillerLoopFinalize {
     prepared_input: Box<G1Affine254>,
     r: Box<G2HomProjective254>,
     f: Box<Fqk254>,
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 }
 
 impl MillerLoopFinalize {
     #[allow(clippy::too_many_arguments)]
     pub fn process(mut self, pvk: &PreparedVerifyingKey) -> Program {
-        let q1 = mul_by_char::<BnParameters>(*self.proof_b);
+        let q1 = mul_by_char::<BnParameters>(self.proof.b);
         let mut q2 = mul_by_char::<BnParameters>(q1);
 
         if <BnParameters as Bn>::X_IS_NEGATIVE {
@@ -223,15 +208,15 @@ impl MillerLoopFinalize {
         q2.y = -q2.y;
 
         let coeff = addition_step(&mut self.r, &q1);
-        ell(&mut self.f, &coeff, &self.proof_a);
+        ell(&mut self.f, &coeff, &self.proof.a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
         self.coeff_index += 1;
 
         let coeff = addition_step(&mut self.r, &q2);
-        ell(&mut self.f, &coeff, &self.proof_a);
+        ell(&mut self.f, &coeff, &self.proof.a);
         ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof_c);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
 
         Program::FinalExponentEasyPart(FinalExponentEasyPart::new(self.f))
     }
@@ -242,20 +227,20 @@ mod tests {
     use std::ops::Neg;
     use num_traits::One;
 
-    use crate::params::{bn::*, proof::{PreparedVerifyingKey, ProofType}};
-    use crate::verifier::{ProofA, ProofB, ProofC, program::Program};
+    use crate::params::{bn::*, verify::{PreparedVerifyingKey, ProofType}};
+    use crate::verifier::{Proof, program::Program};
     use crate::bn::BigInteger256 as BigInteger;
     use super::{MillerLoop, ComputeStep};
 
     const PVK: &PreparedVerifyingKey = ProofType::Deposit.pvk();
 
-    fn get_proof_data() -> (ProofA, ProofB, ProofC) {
-        let proof_a = ProofA::new_const(
+    fn get_proof_data() -> Proof {
+        let a = G1Affine254::new_const(
             Fq::new(BigInteger::new([3750417186220724512, 3978078781434640716, 15163791108043952614, 2453596515077279990])),
             Fq::new(BigInteger::new([5354853820532153524, 8883007908664368954, 470161243035897903, 1359038641147964963])),
             false
         );
-        let proof_b = ProofB::new_const(
+        let b = G2Affine254::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([12118601996045181130, 896706683785346415, 4709517509465227924, 1819241630933245065])),
                 Fq::new(BigInteger::new([16349181015735361827, 4843110160248729036, 17714835083434401718, 2754712195795085383])),
@@ -266,21 +251,21 @@ mod tests {
             ),
             false
         );
-        let proof_c = ProofC::new_const(
+        let c = G1Affine254::new_const(
             Fq::new(BigInteger::new([6745960168647187300, 7304089792560402287, 5467772039812183716, 1531927553351135845])),
             Fq::new(BigInteger::new([2914263778726088111, 9472631376659388131, 16215105594981982902, 939471742250680668])),
             false
         );
 
-        (proof_a, proof_b, proof_c)
+        Proof { a, b, c }
     }
 
-    fn get_deposit_verifying_program(proof_a: ProofA, proof_b: ProofB, proof_c: ProofC) -> (G1Affine254, Program) {
-        let proof_b_neg = proof_b.neg();
+    fn get_deposit_verifying_program(proof: Proof) -> (G1Affine254, Program) {
+        let proof_b_neg = proof.b.neg();
 
         let r = G2HomProjective254 {
-            x: proof_b.x,
-            y: proof_b.y,
+            x: proof.b.x,
+            y: proof.b.y,
             z: Fq2::one(),
         };
         let prepared_input = G1Affine254::new(
@@ -296,10 +281,8 @@ mod tests {
             f: Box::new(Fqk254::one()),
             r: Box::new(r),
             prepared_input: Box::new(prepared_input),
-            proof_a: Box::new(proof_a),
-            proof_b: Box::new(proof_b),
+            proof: Box::new(proof),
             proof_b_neg: Box::new(proof_b_neg),
-            proof_c: Box::new(proof_c),
         }))
     }
 
@@ -354,8 +337,8 @@ mod tests {
 
     #[test]
     fn test_miller_loop() {
-        let (proof_a, proof_b, proof_c) = get_proof_data();
-        let (prepared_inputs, mut program) = get_deposit_verifying_program(proof_a.clone(), proof_b.clone(), proof_c.clone());
+        let proof = get_proof_data();
+        let (prepared_inputs, mut program) = get_deposit_verifying_program(proof.clone());
 
         loop {
             program = program.process(PVK);
@@ -370,9 +353,9 @@ mod tests {
             use ark_bn254::Bn254;
 
             let prepared_inputs = transform_g1_affine(&prepared_inputs);
-            let proof_a = transform_g1_affine(&proof_a);
-            let proof_b = transform_g2_affine(&proof_b);
-            let proof_c = transform_g1_affine(&proof_c);
+            let proof_a = transform_g1_affine(&proof.a);
+            let proof_b = transform_g2_affine(&proof.b);
+            let proof_c = transform_g1_affine(&proof.c);
 
             let pvk_gamma_g2_neg_pc = transform_g2_prepared(&PVK.gamma_g2_neg_pc);
             let pvk_delta_g2_neg_pc = transform_g2_prepared(&PVK.delta_g2_neg_pc);

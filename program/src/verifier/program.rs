@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, entrypoint::ProgramResult};
 
 use crate::error::MazeError;
-use crate::params::proof::PreparedVerifyingKey;
+use crate::params::verify::PreparedVerifyingKey;
 use super::prepare_inputs::*;
 use super::miller_loop::*;
 use super::final_exponent::*;

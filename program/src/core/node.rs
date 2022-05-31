@@ -28,16 +28,16 @@ pub fn is_updating_nodes_valid(nodes: &[BigInteger]) -> bool {
 }
 
 #[inline]
-pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(usize, u64)> {
-    (0..HEIGHT).into_iter().map(|layer| (layer, index >> layer)).collect()
+pub fn gen_merkle_path_from_leaf_index(index: u64) -> Vec<(u8, u64)> {
+    (0..HEIGHT).into_iter().map(|layer| (layer as u8, index >> layer)).collect()
 }
 
 pub fn get_merkle_node_pda<'a>(
     vault: &'a Pubkey,
-    layer: usize,
+    layer: u8,
     index: u64,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], [u8; 8], [u8; 8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], [u8; 1], [u8; 8], [u8; 1])) {
     let vault_ref = vault.as_ref();
     let layer_bytes = layer.to_le_bytes();
     let index_bytes = index.to_le_bytes();

@@ -1,7 +1,7 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, entrypoint::ProgramResult};
 
-use crate::params::{proof::ProofType, HEIGHT};
+use crate::params::{verify::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
 use super::{is_fr_valid, VanillaData, credential::Credential, node::is_updating_nodes_valid};
 

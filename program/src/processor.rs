@@ -7,7 +7,7 @@ use crate::{
     error::MazeError,
     instruction::MazeInstruction,
     bn::BigInteger256 as BigInteger,
-    verifier::{ProofA, ProofB, ProofC, Verifier, get_verifier_pda},
+    verifier::{Proof, Verifier, get_verifier_pda},
     core::{
         VanillaData,
         nullifier::{get_nullifier_pda, Nullifier},
@@ -35,54 +35,22 @@ pub fn process_instruction(
     match instruction {
         MazeInstruction::CreateDepositCredential {
             deposit_amount,
-            leaf_index,
             leaf,
-            prev_root,
             updating_nodes,
-        } => process_create_deposit_credential(
-            program_id,
-            accounts,
-            deposit_amount,
-            leaf_index,
-            leaf,
-            prev_root,
-            updating_nodes,
-        ),
+        } => process_create_deposit_credential(program_id, accounts, deposit_amount, leaf, updating_nodes),
         MazeInstruction::CreateDepositVerifier {
             commitment,
-            proof_a,
-            proof_b,
-            proof_c,
-        } => process_create_deposit_verifier(
-            program_id,
-            accounts,
-            commitment,
-            proof_a,
-            proof_b,
-            proof_c,
-        ),
+            proof,
+        } => process_create_deposit_verifier(program_id, accounts, commitment, proof),
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
             nullifier,
-            leaf_index,
             leaf,
-            prev_root,
             updating_nodes,
-        } => process_create_withdraw_credential(
-            program_id,
-            accounts,
-            withdraw_amount,
-            nullifier,
-            leaf_index,
-            leaf,
-            prev_root,
-            updating_nodes,
-        ),
+        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, nullifier, leaf, updating_nodes),
         MazeInstruction::CreateWithdrawVerifier {
-            proof_a,
-            proof_b,
-            proof_c,
-        } => process_create_withdraw_verifier(program_id, accounts, proof_a, proof_b, proof_c),
+            proof,
+        } => process_create_withdraw_verifier(program_id, accounts, proof),
         MazeInstruction::VerifyProof => process_verify_proof(program_id, accounts),
         MazeInstruction::FinalizeDeposit => process_finalize_deposit(program_id, accounts),
         MazeInstruction::FinalizeWithdraw => process_finalize_withdraw(program_id, accounts),
@@ -94,17 +62,14 @@ pub fn process_instruction(
 }
 
 #[inline(never)]
-#[allow(clippy::too_many_arguments)]
 fn process_create_deposit_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     deposit_amount: u64,
-    leaf_index: u64,
     leaf: BigInteger,
-    prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
-    msg!("Creating deposit credential: deposit amount {}, leaf index: {}", deposit_amount, leaf_index);
+    msg!("Creating deposit credential: deposit amount {}", deposit_amount);
 
     let accounts_iter = &mut accounts.iter();
 
@@ -116,7 +81,6 @@ fn process_create_deposit_credential(
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_valid()?;
-    vault.check_consistency(leaf_index, &prev_root)?;
 
     if !signer_info.is_signer {
         return Err(MazeError::InvalidAuthority.into());
@@ -147,9 +111,9 @@ fn process_create_deposit_credential(
         *signer_info.key,
         DepositVanillaData::new(
             deposit_amount,
-            leaf_index,
+            vault.index,
             leaf,
-            prev_root,
+            vault.root,
             updating_nodes,
         ),
     );
@@ -161,9 +125,7 @@ fn process_create_deposit_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     commitment: Box<Vec<BigInteger>>,
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 ) -> ProgramResult {
     msg!("Creating deposit verifier");
 
@@ -209,28 +171,20 @@ fn process_create_deposit_verifier(
     credential.pack_to_account_info(credential_info)?;
 
     // create verifier
-    let verifier = credential.vanilla_data.to_verifier(
-        *credential_info.key,
-        proof_a,
-        proof_b,
-        proof_c,
-    );
+    let verifier = credential.vanilla_data.to_verifier(*credential_info.key, proof);
     verifier.initialize_to_account_info(verifier_info)
 }
 
 #[inline(never)]
-#[allow(clippy::too_many_arguments)]
 fn process_create_withdraw_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     withdraw_amount: u64,
     nullifier: BigInteger,
-    leaf_index: u64,
     leaf: BigInteger,
-    prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> ProgramResult {
-    msg!("Creating withdraw credential: withdraw amount {}, leaf index: {}", withdraw_amount, leaf_index);
+    msg!("Creating withdraw credential: withdraw amount {}", withdraw_amount);
 
     let accounts_iter = &mut accounts.iter();
 
@@ -242,7 +196,6 @@ fn process_create_withdraw_credential(
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_valid()?;
-    vault.check_consistency(leaf_index, &prev_root)?;
 
     if !signer_info.is_signer {
         return Err(MazeError::InvalidAuthority.into());
@@ -274,9 +227,9 @@ fn process_create_withdraw_credential(
         WithdrawVanillaData::new(
             withdraw_amount,
             nullifier,
-            leaf_index,
+            vault.index,
             leaf,
-            prev_root,
+            vault.root,
             updating_nodes,
         ),
     );
@@ -287,9 +240,7 @@ fn process_create_withdraw_credential(
 fn process_create_withdraw_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 ) -> ProgramResult {
     msg!("Creating withdraw verifier");
 
@@ -332,12 +283,7 @@ fn process_create_withdraw_verifier(
     credential.vanilla_data.check_valid()?;
 
     // create verifier
-    let verifier = credential.vanilla_data.to_verifier(
-        *credential_info.key,
-        proof_a,
-        proof_b,
-        proof_c,
-    );
+    let verifier = credential.vanilla_data.to_verifier(*credential_info.key, proof);
     verifier.initialize_to_account_info(verifier_info)
 }
 

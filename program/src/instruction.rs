@@ -6,7 +6,7 @@ use spl_associated_token_account::get_associated_token_address;
 use crate::{
     ID,
     bn::BigInteger256 as BigInteger,
-    verifier::{ProofA, ProofB, ProofC, get_verifier_pda},
+    verifier::{Proof, get_verifier_pda},
     core::{
         nullifier::get_nullifier_pda,
         credential::get_credential_pda,
@@ -20,29 +20,21 @@ use crate::{
 pub enum MazeInstruction {
     CreateDepositCredential {
         deposit_amount: u64,
-        leaf_index: u64,
         leaf: BigInteger,
-        prev_root: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
     },
     CreateDepositVerifier {
         commitment: Box<Vec<BigInteger>>,
-        proof_a: Box<ProofA>,
-        proof_b: Box<ProofB>,
-        proof_c: Box<ProofC>,
+        proof: Box<Proof>,
     },
     CreateWithdrawCredential {
         withdraw_amount: u64,
         nullifier: BigInteger,
-        leaf_index: u64,
         leaf: BigInteger,
-        prev_root: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
     },
     CreateWithdrawVerifier {
-        proof_a: Box<ProofA>,
-        proof_b: Box<ProofB>,
-        proof_c: Box<ProofC>,
+        proof: Box<Proof>,
     },
     VerifyProof,
     FinalizeDeposit,
@@ -91,23 +83,18 @@ pub fn control_vault(vault: Pubkey, admin: Pubkey, enable: bool) -> Result<Instr
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create_deposit_credential(
     vault: Pubkey,
     signer: Pubkey,
     deposit_amount: u64,
-    leaf_index: u64,
     leaf: BigInteger,
-    prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
 
     let data = MazeInstruction::CreateDepositCredential {
         deposit_amount,
-        leaf_index,
         leaf,
-        prev_root,
         updating_nodes,
     }.try_to_vec()?;
 
@@ -128,18 +115,14 @@ pub fn create_deposit_verifier(
     vault: Pubkey,
     signer: Pubkey,
     commitment: Box<Vec<BigInteger>>,
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
     
     let data = MazeInstruction::CreateDepositVerifier {
         commitment,
-        proof_a,
-        proof_b,
-        proof_c,
+        proof,
     }.try_to_vec()?;
 
     Ok(Instruction {
@@ -155,15 +138,12 @@ pub fn create_deposit_verifier(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create_withdraw_credential(
     vault: Pubkey,
     signer: Pubkey,
     withdraw_amount: u64,
     nullifier: BigInteger,
-    leaf_index: u64,
     leaf: BigInteger,
-    prev_root: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
@@ -171,9 +151,7 @@ pub fn create_withdraw_credential(
     let data = MazeInstruction::CreateWithdrawCredential {
         withdraw_amount,
         nullifier,
-        leaf_index,
         leaf,
-        prev_root,
         updating_nodes,
     }.try_to_vec()?;
 
@@ -193,18 +171,12 @@ pub fn create_withdraw_credential(
 pub fn create_withdraw_verifier(
     vault: Pubkey,
     signer: Pubkey,
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 ) -> Result<Instruction> {
     let (credential, _) = get_credential_pda(&vault, &signer, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
 
-    let data = MazeInstruction::CreateWithdrawVerifier {
-        proof_a,
-        proof_b,
-        proof_c,
-    }.try_to_vec()?;
+    let data = MazeInstruction::CreateWithdrawVerifier { proof }.try_to_vec()?;
 
     Ok(Instruction {
         program_id: ID,
@@ -359,7 +331,7 @@ mod tests {
     use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_proof, finalize_deposit};
-    use crate::{core::vault::Vault, Packer, verifier::{ProofA, ProofB, ProofC}, params::bn::{Fq, Fq2}, instruction::reset_buffer_accounts};
+    use crate::{core::vault::Vault, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::reset_buffer_accounts};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
@@ -417,12 +389,12 @@ mod tests {
             BigInteger::new([18410058132998784786, 13401630289159459721, 14914310748430415085, 18313255534332353]),
             BigInteger::new([5826441929749290616, 11335202586746830014, 10903293645248433631, 36117579937827459]),
         ];
-        let proof_a = ProofA::new_const(
+        let a = G1Affine254::new_const(
             Fq::new(BigInteger::new([3750417186220724512, 3978078781434640716, 15163791108043952614, 2453596515077279990])),
             Fq::new(BigInteger::new([5354853820532153524, 8883007908664368954, 470161243035897903, 1359038641147964963])),
             false
         );
-        let proof_b = ProofB::new_const(
+        let b = G2Affine254::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([12118601996045181130, 896706683785346415, 4709517509465227924, 1819241630933245065])),
                 Fq::new(BigInteger::new([16349181015735361827, 4843110160248729036, 17714835083434401718, 2754712195795085383])),
@@ -433,7 +405,7 @@ mod tests {
             ),
             false
         );
-        let proof_c = ProofC::new_const(
+        let c = G1Affine254::new_const(
             Fq::new(BigInteger::new([6745960168647187300, 7304089792560402287, 5467772039812183716, 1531927553351135845])),
             Fq::new(BigInteger::new([2914263778726088111, 9472631376659388131, 16215105594981982902, 939471742250680668])),
             false

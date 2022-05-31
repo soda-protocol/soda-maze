@@ -1,7 +1,7 @@
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::{msg, entrypoint::ProgramResult};
 
-use crate::params::{rabin::RABIN_MODULUS_LEN, proof::ProofType, HEIGHT};
+use crate::params::{rabin::RABIN_MODULUS_LEN, verify::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
 
 use super::is_fr_valid;

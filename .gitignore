@@ -1,5 +1,6 @@
 lib/target
 bench/target
 program/target
+wasm/target
 tools/gen-params/target
 *Cargo.lock

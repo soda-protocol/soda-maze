@@ -6,7 +6,9 @@ mod macros;
 pub use arithmetic::*;
 pub use macros::*;
 
+use std::fmt::Debug;
 use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Serialize, Deserialize};
 
 bigint_impl!(BigInteger256, 4);
 
@@ -14,6 +16,7 @@ bigint_impl!(BigInteger256, 4);
 /// sequence of `u64` limbs, least-significant limb first.
 pub trait BigInteger:
     'static
+    + Debug
     + Copy
     + Clone
     + Default
@@ -25,6 +28,8 @@ pub trait BigInteger:
     + From<u64>
     + BorshSerialize
     + BorshDeserialize
+    + Serialize
+    + Deserialize<'static>
 {
     /// Number of limbs.
     const NUM_LIMBS: usize;

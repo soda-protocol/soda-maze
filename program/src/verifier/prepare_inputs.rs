@@ -4,8 +4,8 @@ use num_traits::Zero;
 
 use crate::bn::{BigInteger256 as BigInteger, BitIteratorBE};
 use crate::params::bn::{G1Projective254, G1Affine254};
-use crate::params::proof::PreparedVerifyingKey;
-use crate::verifier::{ProofA, ProofB, ProofC};
+use crate::params::verify::PreparedVerifyingKey;
+use crate::verifier::Proof;
 use super::program::Program;
 use super::miller_loop::MillerLoop;
 
@@ -16,28 +16,18 @@ pub struct PrepareInputs {
     public_inputs: Box<Vec<BigInteger>>,
     g_ic: Box<G1Projective254>,
     tmp: Box<G1Projective254>,
-    proof_a: Box<ProofA>,
-    proof_b: Box<ProofB>,
-    proof_c: Box<ProofC>,
+    proof: Box<Proof>,
 }
 
 impl PrepareInputs {
-    pub fn new(
-        pvk: &PreparedVerifyingKey,
-        public_inputs: Box<Vec<BigInteger>>,
-        proof_a: Box<ProofA>,
-        proof_b: Box<ProofB>,
-        proof_c: Box<ProofC>,
-    ) -> Self {
+    pub fn new(pvk: &PreparedVerifyingKey, public_inputs: Box<Vec<BigInteger>>, proof: Box<Proof>) -> Self {
         Self {
             input_index: 0,
             bit_index: 0,
             public_inputs,
             g_ic: Box::new(*pvk.g_ic_init),
             tmp: Box::new(G1Projective254::zero()),
-            proof_a,
-            proof_b,
-            proof_c,
+            proof,
         }
     }
 
@@ -64,12 +54,7 @@ impl PrepareInputs {
 
                 if self.input_index as usize >= self.public_inputs.len() {
                     let prepared_input = G1Affine254::from(*self.g_ic);
-                    return Program::MillerLoop(MillerLoop::new(
-                        Box::new(prepared_input),
-                        self.proof_a,
-                        self.proof_b,
-                        self.proof_c,
-                    ));
+                    return Program::MillerLoop(MillerLoop::new(Box::new(prepared_input), self.proof));
                 } else {
                     self.bit_index = 0;
                     self.tmp = Box::new(G1Projective254::zero());
@@ -93,8 +78,8 @@ impl PrepareInputs {
 mod tests {
     use solana_program::pubkey::Pubkey;
 
-    use crate::params::{bn::{G1Affine254, G1Projective254}, proof::{PreparedVerifyingKey, ProofType}};
-    use crate::{params::bn::{Fq, Fq2}, verifier::{ProofA, ProofB, ProofC, program::Program}};
+    use crate::params::{bn::{G1Affine254, G2Affine254, G1Projective254}, verify::{PreparedVerifyingKey, ProofType}};
+    use crate::{params::bn::{Fq, Fq2}, verifier::{Proof, program::Program}};
     use crate::bn::BigInteger256 as BigInteger;
     use crate::core::{VanillaData, deposit::DepositVanillaData};
 
@@ -142,12 +127,12 @@ mod tests {
             BigInteger::new([18410058132998784786, 13401630289159459721, 14914310748430415085, 18313255534332353]),
             BigInteger::new([5826441929749290616, 11335202586746830014, 10903293645248433631, 36117579937827459]),
         ];
-        let proof_a = ProofA::new_const(
+        let a = G1Affine254::new_const(
             Fq::new(BigInteger::new([3750417186220724512, 3978078781434640716, 15163791108043952614, 2453596515077279990])),
             Fq::new(BigInteger::new([5354853820532153524, 8883007908664368954, 470161243035897903, 1359038641147964963])),
             false
         );
-        let proof_b = ProofB::new_const(
+        let b = G2Affine254::new_const(
             Fq2::new_const(
                 Fq::new(BigInteger::new([12118601996045181130, 896706683785346415, 4709517509465227924, 1819241630933245065])),
                 Fq::new(BigInteger::new([16349181015735361827, 4843110160248729036, 17714835083434401718, 2754712195795085383])),
@@ -158,11 +143,12 @@ mod tests {
             ),
             false
         );
-        let proof_c = ProofC::new_const(
+        let c = G1Affine254::new_const(
             Fq::new(BigInteger::new([6745960168647187300, 7304089792560402287, 5467772039812183716, 1531927553351135845])),
             Fq::new(BigInteger::new([2914263778726088111, 9472631376659388131, 16215105594981982902, 939471742250680668])),
             false
         );
+        let proof = Proof { a, b, c };
 
         let mut deposit_data = DepositVanillaData::new(
             deposit_amount,
@@ -174,12 +160,7 @@ mod tests {
         deposit_data.fill_commitment(Box::new(commitment)).unwrap();
 
         let public_inputs = deposit_data.clone().to_public_inputs();
-        let verifier = deposit_data.to_verifier(
-            Pubkey::default(),
-            Box::new(proof_a),
-            Box::new(proof_b),
-            Box::new(proof_c),
-        );
+        let verifier = deposit_data.to_verifier(Pubkey::default(), Box::new(proof));
 
         (public_inputs, verifier.program)
     }

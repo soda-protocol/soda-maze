@@ -4,7 +4,7 @@ use num_traits::One;
 
 use crate::bn::{Field, BnParameters as Bn};
 use crate::params::bn::{*, Bn254Parameters as BnParameters};
-use crate::params::proof::PreparedVerifyingKey;
+use crate::params::verify::PreparedVerifyingKey;
 use super::program::Program;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]

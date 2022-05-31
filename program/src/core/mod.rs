@@ -13,8 +13,8 @@ use solana_program::pubkey::Pubkey;
 
 use crate::bn::{BigInteger256 as BigInteger, FpParameters};
 use crate::params::bn::FrParameters;
-use crate::params::{proof::ProofType, proof::PreparedVerifyingKey};
-use crate::verifier::{ProofA, ProofB, ProofC, Verifier, program::Program, prepare_inputs::PrepareInputs};
+use crate::params::{verify::ProofType, verify::PreparedVerifyingKey};
+use crate::verifier::{Proof, Verifier, program::Program, prepare_inputs::PrepareInputs};
 
 #[inline(always)]
 pub fn is_fr_valid(fr: &BigInteger) -> bool {
@@ -34,17 +34,13 @@ pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
     fn to_verifier(
         self,
         credential: Pubkey,
-        proof_a: Box<ProofA>,
-        proof_b: Box<ProofB>,
-        proof_c: Box<ProofC>,
+        proof: Box<Proof>,
     ) -> Verifier {
         let public_inputs = self.to_public_inputs();
         let program = Program::PrepareInputs(PrepareInputs::new(
             Self::PVK,
             public_inputs,
-            proof_a,
-            proof_b,
-            proof_c,
+            proof,
         ));
 
         Verifier::new(Self::PROOF_TYPE, credential, program)

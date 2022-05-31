@@ -1,0 +1,40 @@
+[package]
+name = "soda-maze-wasm"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[patch.crates-io]
+rand_core = { path = "./rand_core-0.6.3" }
+
+[dependencies]
+soda-maze-lib = { path = "../lib", package = "soda-maze-lib" }
+soda-maze-program = { path = "../program", package = "soda-maze-program" }
+ark-ff = "0.3.0"
+ark-std = "0.3.0"
+ark-ec = "0.3.0"
+ark-bn254 = "0.3.0"
+ark-groth16 = "0.3.0"
+ark-serialize = "0.3.0"
+arkworks-utils = "0.4.20"
+num-bigint = "0.4.3"
+num-bigint-dig = { version = "0.8.1", features = ["prime"] }
+rand_core = { version = "0.6.3", features = ["std"] }
+hex = "0.4.3"
+lazy_static = "1.4.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.71"
+solana-program = "1.10.20"
+wasm-bindgen = { version = "0.2.76", features = ["serde-serialize"] }
+js-sys = "0.3.53"
+console_error_panic_hook = "0.1.6"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.26"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"

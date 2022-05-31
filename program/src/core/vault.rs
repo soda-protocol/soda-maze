@@ -1,10 +1,11 @@
 use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Serialize, Deserialize};
 use solana_program::{msg, pubkey::Pubkey, program_pack::IsInitialized, entrypoint::ProgramResult};
 
 use crate::bn::BigInteger256 as BigInteger;
 use crate::{params::root::DEFAULT_ROOT_HASH, Packer, error::MazeError};
 
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct Vault {
     pub is_initialized: bool,
     pub enable: bool,
