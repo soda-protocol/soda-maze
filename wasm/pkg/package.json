@@ -1,0 +1,12 @@
+{
+  "name": "soda-maze-wasm",
+  "version": "0.1.0",
+  "files": [
+    "soda_maze_wasm_bg.wasm",
+    "soda_maze_wasm.js",
+    "soda_maze_wasm.d.ts"
+  ],
+  "module": "soda_maze_wasm.js",
+  "types": "soda_maze_wasm.d.ts",
+  "sideEffects": false
+}
