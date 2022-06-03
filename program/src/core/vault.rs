@@ -87,9 +87,9 @@ impl Vault {
         [vault.as_ref(), &self.seed]
     }
 
-    pub fn update(&mut self, new_root: BigInteger, new_index: u64) {
+    pub fn update(&mut self, new_root: BigInteger) {
         self.root = new_root;
-        self.index = new_index;
+        self.index += 1;
     }
 
     pub fn control(&mut self, enable: bool) {

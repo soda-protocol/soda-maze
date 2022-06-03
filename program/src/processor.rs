@@ -409,7 +409,7 @@ fn process_finalize_deposit(
             MerkleNode::new(node).pack_to_account_info(node_info)
         })?;
 
-    vault.update(new_root, credential.vanilla_data.leaf_index);
+    vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
     // transfer token from user to vault
@@ -544,7 +544,7 @@ fn process_finalize_withdraw(
             MerkleNode::new(node).pack_to_account_info(node_info)
         })?;
 
-    vault.update(new_root, credential.vanilla_data.leaf_index);
+    vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
     // transfer token from vault to user
