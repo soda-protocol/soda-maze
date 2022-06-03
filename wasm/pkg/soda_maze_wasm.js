@@ -197,11 +197,11 @@ function _assertClass(instance, klass) {
 * @param {Uint8Array} data
 * @returns {any}
 */
-export function get_merkle_friends_pubkeys(vault_key, data) {
+export function get_vault_info(vault_key, data) {
     _assertClass(vault_key, Pubkey);
     var ptr0 = vault_key.ptr;
     vault_key.ptr = 0;
-    const ret = wasm.get_merkle_friends_pubkeys(ptr0, addHeapObject(data));
+    const ret = wasm.get_vault_info(ptr0, addHeapObject(data));
     return takeObject(ret);
 }
 
