@@ -413,14 +413,14 @@ fn process_finalize_deposit(
     vault.pack_to_account_info(vault_info)?;
 
     // transfer token from user to vault
-    process_token_transfer(
-        token_program_info,
-        src_token_account_info,
-        vault_token_account_info,
-        signer_info,
-        &[],
-        credential.vanilla_data.deposit_amount,
-    )?;
+    // process_token_transfer(
+    //     token_program_info,
+    //     src_token_account_info,
+    //     vault_token_account_info,
+    //     signer_info,
+    //     &[],
+    //     credential.vanilla_data.deposit_amount,
+    // )?;
 
     // clear verifier
     process_rent_refund(verifier_info, signer_info);

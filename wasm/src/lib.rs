@@ -49,7 +49,7 @@ pub struct VaultInfo {
 }
 
 #[wasm_bindgen]
-pub fn get_merkle_friends_pubkeys(vault_key: Pubkey, data: Uint8Array) -> JsValue {
+pub fn get_vault_info(vault_key: Pubkey, data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault_data = data.to_vec();
