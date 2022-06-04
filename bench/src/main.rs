@@ -273,8 +273,8 @@ enum Opt {
         seed: Option<String>,
         #[structopt(long, default_value = "27")]
         height: usize,
-        #[structopt(long = "deposit-amount", default_value = "1")]
-        deposit_amount: u64,
+        #[structopt(long = "balance", default_value = "1")]
+        balance: u64,
         #[structopt(long = "withdraw-amount", default_value = "1")]
         withdraw_amount: u64,
         #[structopt(long = "src-index", default_value = "0")]
@@ -380,7 +380,7 @@ fn main() {
         Opt::ProveWithdraw {
             seed,
             height,
-            deposit_amount,
+            balance,
             withdraw_amount,
             src_index,
             dst_index,
@@ -394,14 +394,14 @@ fn main() {
             let secret = Fr::rand(&mut OsRng);
             let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
-                &[Fr::from(src_index), Fr::from(deposit_amount), secret],
+                &[Fr::from(src_index), Fr::from(balance), secret],
             ).expect("hash failed");
             merkle_tree.add_leaf(src_index, src_leaf);
             let src_friend_nodes = merkle_tree.get_friends(src_index);
             let dst_friend_nodes = merkle_tree.get_friends(dst_index);
 
             let origin_inputs = WithdrawOriginInputs {
-                deposit_amount,
+                balance,
                 withdraw_amount,
                 src_leaf_index: src_index,
                 dst_leaf_index: dst_index,
@@ -464,69 +464,69 @@ fn main() {
                 println!("verify deposit proof failed");
             }
 
-            println!("proof a");
-            println!("-----------------------------------------------------");
-            println!("G1Affine254::new_const(");
-            println!("    Fq::new(BigInteger::new({:?})),", proof.a.x.0.0);
-            println!("    Fq::new(BigInteger::new({:?})),", proof.a.y.0.0);
-            println!("    {}", proof.a.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
-
-            println!("proof b");
-            println!("-----------------------------------------------------");
-            println!("G2Affine254::new_const(");
-            println!("    Fq2::new_const(");
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
-            println!("    ),");
-            println!("    Fq2::new_const(");
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
-            println!("    ),");
-            println!("    {}", proof.b.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
-
-            println!("proof c");
-            println!("-----------------------------------------------------");
-            println!("G1Affine254::new_const(");
-            println!("    Fq::new(BigInteger::new({:?})),", proof.c.x.0.0);
-            println!("    Fq::new(BigInteger::new({:?})),", proof.c.y.0.0);
-            println!("    {}", proof.c.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
-
-            println!("leaf");
-            println!("-----------------------------------------------------");
-            println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
-            println!("-----------------------------------------------------");
-
-            println!("prev_root");
-            println!("-----------------------------------------------------");
-            println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
-            println!("-----------------------------------------------------");
-
-            println!("update_nodes");
-            println!("-----------------------------------------------------");
-            println!("[");
-            pub_in.update_nodes.iter().for_each(|p| {
-                println!("    BigInteger::new({:?})", p.into_repr().0);
-            });
-            println!("]");
-            println!("-----------------------------------------------------");
-
-            println!("encryption");
-            println!("-----------------------------------------------------");
-            println!("[");
-            pub_in.encryption.as_ref().unwrap().cipher_field_array.iter().for_each(|p| {
-                println!("    BigInteger::new({:?})", p.into_repr().0);
-            });
-            println!("]");
-            println!("-----------------------------------------------------");
-
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);
+
+            // println!("proof a");
+            // println!("-----------------------------------------------------");
+            // println!("G1Affine254::new_const(");
+            // println!("    Fq::new(BigInteger::new({:?})),", proof.a.x.0.0);
+            // println!("    Fq::new(BigInteger::new({:?})),", proof.a.y.0.0);
+            // println!("    {}", proof.a.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
+
+            // println!("proof b");
+            // println!("-----------------------------------------------------");
+            // println!("G2Affine254::new_const(");
+            // println!("    Fq2::new_const(");
+            // println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
+            // println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
+            // println!("    ),");
+            // println!("    Fq2::new_const(");
+            // println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
+            // println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
+            // println!("    ),");
+            // println!("    {}", proof.b.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
+
+            // println!("proof c");
+            // println!("-----------------------------------------------------");
+            // println!("G1Affine254::new_const(");
+            // println!("    Fq::new(BigInteger::new({:?})),", proof.c.x.0.0);
+            // println!("    Fq::new(BigInteger::new({:?})),", proof.c.y.0.0);
+            // println!("    {}", proof.c.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
+
+            // println!("leaf");
+            // println!("-----------------------------------------------------");
+            // println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
+            // println!("-----------------------------------------------------");
+
+            // println!("prev_root");
+            // println!("-----------------------------------------------------");
+            // println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
+            // println!("-----------------------------------------------------");
+
+            // println!("update_nodes");
+            // println!("-----------------------------------------------------");
+            // println!("[");
+            // pub_in.update_nodes.iter().for_each(|p| {
+            //     println!("    BigInteger::new({:?})", p.into_repr().0);
+            // });
+            // println!("]");
+            // println!("-----------------------------------------------------");
+
+            // println!("encryption");
+            // println!("-----------------------------------------------------");
+            // println!("[");
+            // pub_in.encryption.as_ref().unwrap().cipher_field_array.iter().for_each(|p| {
+            //     println!("    BigInteger::new({:?})", p.into_repr().0);
+            // });
+            // println!("]");
+            // println!("-----------------------------------------------------");
         },
         Opt::VerifyWithdraw {
             vk_path,

@@ -18,7 +18,7 @@ where
     leaf_params: Rc<FH::Parameters>,
     src_leaf_index: u64,
     dst_leaf_index: u64,
-    deposit_amount: u64,
+    balance: u64,
     withdraw_amount: u64,
     nullifier: F,
     secret: F,
@@ -49,17 +49,17 @@ where
 
         // alloc witness
         let src_leaf_index = FpVar::new_witness(cs.clone(), || Ok(F::from(self.src_leaf_index)))?;
-        let deposit_amount = Uint64::new_witness(cs.clone(), || Ok(self.deposit_amount))?;
+        let balance = Uint64::new_witness(cs.clone(), || Ok(self.balance))?;
         let secret = FpVar::new_witness(cs.clone(), || Ok(self.secret))?;
 
-        // restrain withdraw amount is less and equal than deposit amount
-        let deposit_amount = deposit_amount.fp_var().clone();
-        deposit_amount.enforce_cmp_unchecked(
+        // restrain withdraw amount is less and equal than balance
+        let balance = balance.fp_var().clone();
+        balance.enforce_cmp_unchecked(
             &withdraw_amount,
             Ordering::Greater,
             true,
         )?;
-        let rest_amount = &deposit_amount - withdraw_amount;
+        let rest_amount = &balance - withdraw_amount;
 
         // hash nullifier: hash(leaf_index | secret)
         let nullifier = FHG::hash_gadget(
@@ -68,10 +68,10 @@ where
         )?;
         nullifier.enforce_equal(&nullifier_input)?;
 
-        // hash leaf: hash(leaf_index | deposit_amount | commitment)
+        // hash leaf: hash(leaf_index | balance | secret)
         let src_leaf = FHG::hash_gadget(
             &leaf_params,
-            &[src_leaf_index.clone(), deposit_amount, secret.clone()],
+            &[src_leaf_index.clone(), balance, secret.clone()],
         )?;
         // gen existance proof
         self.src_proof.synthesize(
@@ -105,7 +105,7 @@ where
         inner_params: FH::Parameters,
         src_leaf_index: u64,
         dst_leaf_index: u64,
-        deposit_amount: u64,
+        balance: u64,
         withdraw_amount: u64,
         nullifier: F,
         secret: F,
@@ -120,7 +120,7 @@ where
             leaf_params: Rc::new(leaf_params),
             src_leaf_index,
             dst_leaf_index,
-            deposit_amount,
+            balance,
             withdraw_amount,
             nullifier,
             secret,

@@ -131,7 +131,7 @@ where
             params.inner_params.clone(),
             priv_in.src_leaf_index,
             pub_in.dst_leaf_index,
-            priv_in.deposit_amount,
+            priv_in.balance,
             pub_in.withdraw_amount,
             pub_in.nullifier,
             priv_in.secret,

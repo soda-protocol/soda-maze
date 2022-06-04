@@ -346,7 +346,7 @@ mod tests {
 
         let blockhash = client.get_latest_blockhash().unwrap();
         let signer = Keypair::from_base58_string(USER_KEYPAIR);
-        let token_mint = spl_token::native_mint::ID;
+        let token_mint = pubkey!("Bj9LaiV7aR1z2263r5fuPjZN1asu3QXHUnGkHUAcZ4e1");
 
         let deposit_amount = 100;
         let leaf_index = 0;
@@ -411,7 +411,7 @@ mod tests {
             false
         );
 
-        // let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
+        let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
@@ -450,13 +450,13 @@ mod tests {
         //     println!("{}", res);
         // }
 
-        let instruction = finalize_deposit(
-            VAULT,
-            token_mint,
-            signer.pubkey(),
-            leaf_index,
-            leaf,
-        ).unwrap();
+        // let instruction = finalize_deposit(
+        //     VAULT,
+        //     token_mint,
+        //     signer.pubkey(),
+        //     leaf_index,
+        //     leaf,
+        // ).unwrap();
 
         let transaction = Transaction::new_signed_with_payer(
             &[instruction],

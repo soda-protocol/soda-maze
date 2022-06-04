@@ -19,7 +19,7 @@ pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {
 
 #[derive(Clone)]
 pub struct WithdrawOriginInputs<F: PrimeField> {
-    pub deposit_amount: u64,
+    pub balance: u64,
     pub withdraw_amount: u64,
     pub src_leaf_index: u64,
     pub dst_leaf_index: u64,
@@ -40,7 +40,7 @@ pub struct WithdrawPublicInputs<F: PrimeField> {
 
 #[derive(Clone)]
 pub struct WithdrawPrivateInputs<F: PrimeField> {
-    pub deposit_amount: u64,
+    pub balance: u64,
     pub secret: F,
     pub src_friend_nodes: Vec<(bool, F)>,
     pub dst_friend_nodes: Vec<(bool, F)>,
@@ -60,11 +60,11 @@ where
 
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         let src_leaf_index = 0;
-        let deposit_amount = 1;
+        let balance = 1;
         let secret = F::zero();
         let leaf = FH::hash(
             &params.leaf_params,
-            &[F::from(src_leaf_index), F::from(deposit_amount), secret],
+            &[F::from(src_leaf_index), F::from(balance), secret],
         ).map_err(|e| anyhow!("hash error: {}", e))?;
 
         let src_friend_nodes = vec![FH::empty_hash(); params.height];
@@ -72,8 +72,8 @@ where
         dst_friend_nodes[0] = leaf;
 
         let origin_inputs = WithdrawOriginInputs {
-            deposit_amount,
-            withdraw_amount: deposit_amount,
+            balance,
+            withdraw_amount: balance,
             src_leaf_index,
             dst_leaf_index: src_leaf_index + 1,
             secret,
@@ -93,7 +93,7 @@ where
         assert!(orig_in.dst_leaf_index < (1 << params.height));
         assert!(orig_in.src_leaf_index < orig_in.dst_leaf_index);
         assert!(orig_in.withdraw_amount > 0);
-        assert!(orig_in.deposit_amount >= orig_in.withdraw_amount);
+        assert!(orig_in.balance >= orig_in.withdraw_amount);
 
         let src_friend_nodes = orig_in.src_friend_nodes
             .iter()
@@ -120,14 +120,14 @@ where
 
         let src_leaf = FH::hash(
             &params.leaf_params,
-            &[F::from(orig_in.src_leaf_index), F::from(orig_in.deposit_amount), orig_in.secret],
+            &[F::from(orig_in.src_leaf_index), F::from(orig_in.balance), orig_in.secret],
         ).unwrap();
         let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &src_friend_nodes, src_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
             .unwrap()
             .clone();
-        let rest_amount = orig_in.deposit_amount - orig_in.withdraw_amount;
+        let rest_amount = orig_in.balance - orig_in.withdraw_amount;
         let dst_leaf = FH::hash(
             &params.leaf_params,
             &[F::from(orig_in.dst_leaf_index), F::from(rest_amount), orig_in.secret],
@@ -144,7 +144,7 @@ where
             update_nodes,
         };
         let priv_in = WithdrawPrivateInputs {
-            deposit_amount: orig_in.deposit_amount,
+            balance: orig_in.balance,
             secret: orig_in.secret,
             src_friend_nodes,
             dst_friend_nodes,

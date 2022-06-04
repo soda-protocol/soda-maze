@@ -1,6 +1,6 @@
 use ark_ff::{BigInteger256, PrimeField};
 use ark_bn254::{Fr, Bn254};
-use ark_groth16::{Groth16, Proof};
+use ark_groth16::{Groth16, Proof, ProvingKey};
 use ark_serialize::CanonicalDeserialize;
 use js_sys::{Uint8Array, Array};
 use rand_core::OsRng;
@@ -14,16 +14,11 @@ use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, Instructions, UserCredential, ProofResult};
-use crate::params::{WITHDRAW_CONST_PARAMS, DEFAULT_NODE_HASHES, WITHDRAW_PK};
+use crate::{log, from_hex, Instructions, ProofResult};
+use crate::params::*;
 
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-
-fn from_hex<De: CanonicalDeserialize>(s: String) -> De {
-    let buf = hex::decode(s).expect("failed to parse hex string");
-    CanonicalDeserialize::deserialize(&buf[..]).expect("canonical deserialize failed")
-}
 
 fn gen_withdraw_instructions(
     vault: Pubkey,
@@ -88,24 +83,29 @@ fn gen_withdraw_instructions(
 }
 
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn gen_withdraw_proof(
-    user_credential: JsValue,
-    leaf_index: u64,
-    withdraw_amount: u64,
+    vault: Pubkey,
+    mint: Pubkey,
     signer: Pubkey,
+    src_leaf_index: u64,
+    balance: u64,
+    dst_leaf_index: u64,
+    withdraw_amount: u64,
+    secret: String,
     src_friends: Array,
     dst_friends: Array,
+    pk: Uint8Array,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
     log("Preparing input datas...");
 
-    let mut user_credential = user_credential.into_serde::<UserCredential>().expect("user credential deserialize failed");
-
+    let ref nodes_hashes = get_default_node_hashes();
     let src_friend_nodes = src_friends.iter().enumerate().map(|(layer, friend)| {
         let data = Uint8Array::from(friend).to_vec();
         if data.is_empty() {
-            DEFAULT_NODE_HASHES[layer]
+            nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("node data can not unpack");
             Fr::from_repr(BigInteger256::new(node.unwrap_state().0)).expect("invalid fr repr")
@@ -116,7 +116,7 @@ pub fn gen_withdraw_proof(
     let dst_friend_nodes = dst_friends.iter().enumerate().map(|(layer, friend)| {
         let data = Uint8Array::from(friend).to_vec();
         if data.is_empty() {
-            DEFAULT_NODE_HASHES[layer]
+            nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("node data can not unpack");
             Fr::from_repr(BigInteger256::new(node.unwrap_state().0)).expect("invalid fr repr")
@@ -125,36 +125,36 @@ pub fn gen_withdraw_proof(
     assert_eq!(dst_friend_nodes.len(), HEIGHT, "invalid dst friends array length");
 
     let origin_inputs = WithdrawOriginInputs {
-        deposit_amount: user_credential.balance,
+        balance,
         withdraw_amount,
-        src_leaf_index: user_credential.index,
-        dst_leaf_index: leaf_index,
-        secret: from_hex(user_credential.secret.clone()),
+        src_leaf_index,
+        dst_leaf_index,
+        secret: from_hex(secret),
         src_friend_nodes,
         dst_friend_nodes,
     };
 
+    let withdraw_const_params = get_withdraw_const_params();
+
+    let pk: ProvingKey<Bn254> = CanonicalDeserialize::deserialize(&pk.to_vec()[..]).expect("failed to parse file");
+
     log("Generating vanilla proof...");
 
     let (pub_in, priv_in) =
-        WithdrawVanillaInstant::generate_vanilla_proof(&WITHDRAW_CONST_PARAMS, &origin_inputs)
+        WithdrawVanillaInstant::generate_vanilla_proof(&withdraw_const_params, &origin_inputs)
             .expect("generate vanilla proof failed");
 
     log("Generating snark proof...");
 
     let proof =
-        WithdrawInstant::generate_snark_proof(&mut OsRng, &WITHDRAW_CONST_PARAMS, &pub_in, &priv_in, &WITHDRAW_PK)
+        WithdrawInstant::generate_snark_proof(&mut OsRng, &withdraw_const_params, &pub_in, &priv_in, &pk)
             .expect("generate snark proof failed");
 
     log("Generating solana instructions...");
 
-    let vault = user_credential.vault;
-    let mint = user_credential.mint;
-    user_credential.balance -= withdraw_amount;
-    user_credential.index = leaf_index;
     let res = ProofResult {
-        user_credential,
         instructions: gen_withdraw_instructions(vault, mint, signer, proof, pub_in),
+        output: (dst_leaf_index, balance - withdraw_amount),
     };
     JsValue::from_serde(&res).expect("serde error")
 }

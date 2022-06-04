@@ -1,31 +1,43 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} signer
+* @param {BigInt} src_leaf_index
+* @param {BigInt} balance
+* @param {BigInt} dst_leaf_index
+* @param {BigInt} withdraw_amount
+* @param {string} secret
+* @param {Array<any>} src_friends
+* @param {Array<any>} dst_friends
+* @param {Uint8Array} pk
+* @returns {any}
+*/
+export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, secret: string, src_friends: Array<any>, dst_friends: Array<any>, pk: Uint8Array): any;
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} signer
+* @param {BigInt} leaf_index
+* @param {BigInt} deposit_amount
+* @param {Array<any>} friends
+* @param {string} secret
+* @param {any} encryption_params
+* @param {Uint8Array} pk
+* @returns {any}
+*/
+export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string, encryption_params: any, pk: Uint8Array): any;
+/**
 * @param {Pubkey} vault_key
 * @param {Uint8Array} data
 * @returns {any}
 */
 export function get_vault_info(vault_key: Pubkey, data: Uint8Array): any;
 /**
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
-* @param {Pubkey} vault
-* @param {Pubkey} signer
-* @param {Pubkey} mint
-* @param {Array<any>} friends
-* @returns {any}
+* @returns {string}
 */
-export function gen_deposit_proof(leaf_index: BigInt, deposit_amount: BigInt, vault: Pubkey, signer: Pubkey, mint: Pubkey, friends: Array<any>): any;
-/**
-* @param {any} user_credential
-* @param {BigInt} leaf_index
-* @param {BigInt} withdraw_amount
-* @param {Pubkey} signer
-* @param {Array<any>} src_friends
-* @param {Array<any>} dst_friends
-* @returns {any}
-*/
-export function gen_withdraw_proof(user_credential: any, leaf_index: BigInt, withdraw_amount: BigInt, signer: Pubkey, src_friends: Array<any>, dst_friends: Array<any>): any;
+export function gen_new_secret(): string;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -318,9 +330,10 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
+  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => number;
   readonly get_vault_info: (a: number, b: number) => number;
-  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly gen_new_secret: (a: number) => void;
   readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;

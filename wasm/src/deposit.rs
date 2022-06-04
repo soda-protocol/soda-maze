@@ -1,8 +1,7 @@
-use ark_std::UniformRand;
 use ark_ff::{FpParameters, BigInteger256, PrimeField};
 use ark_bn254::{Fr, FrParameters, Bn254};
-use ark_groth16::{Groth16, Proof};
-use ark_serialize::CanonicalSerialize;
+use ark_groth16::{Groth16, Proof, ProvingKey};
+use ark_serialize::CanonicalDeserialize;
 use js_sys::{Uint8Array, Array};
 use num_bigint::BigUint;
 use rand_core::OsRng;
@@ -17,17 +16,11 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, Instructions, UserCredential, ProofResult};
-use crate::params::{ENCRYPTION_CONST_PARAMS, DEPOSIT_CONST_PARAMS, DEFAULT_NODE_HASHES, DEPOSIT_PK};
+use crate::{log, from_hex, Instructions, ProofResult};
+use crate::params::*;
 
 type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
 type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-
-fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
-    let mut buf = Vec::new();
-    data.serialize(&mut buf).expect("serialize failed");
-    hex::encode(buf)
-}
 
 fn gen_deposit_instructions(
     vault: Pubkey,
@@ -88,22 +81,27 @@ fn gen_deposit_instructions(
 }
 
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn gen_deposit_proof(
+    vault: Pubkey,
+    mint: Pubkey,
+    signer: Pubkey,
     leaf_index: u64,
     deposit_amount: u64,
-    vault: Pubkey,
-    signer: Pubkey,
-    mint: Pubkey,
     friends: Array,
+    secret: String,
+    encryption_params: JsValue,
+    pk: Uint8Array,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Preparing input datas...");
+    log("Processing proof datas...");
 
+    let ref nodes_hashes = get_default_node_hashes();
     let friend_nodes = friends.iter().enumerate().map(|(layer, friend)| {
         let data = Uint8Array::from(friend).to_vec();
         if data.is_empty() {
-            DEFAULT_NODE_HASHES[layer]
+            nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("node data can not unpack");
             Fr::from_repr(BigInteger256::new(node.unwrap_state().0)).expect("invalid fr repr")
@@ -111,53 +109,52 @@ pub fn gen_deposit_proof(
     }).collect::<Vec<_>>();
     assert_eq!(friend_nodes.len(), HEIGHT, "invalid friends array length");
 
+    let encryption_params: RabinParameters = encryption_params.into_serde().expect("encryption params can not unpack");
+    let encryption_const_params = get_encryption_const_params(&encryption_params);
+    let deposit_const_params = get_deposit_const_params(encryption_const_params);
+
     let encryption = {
-        let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / ENCRYPTION_CONST_PARAMS.bit_size;
-        if <FrParameters as FpParameters>::MODULUS_BITS as usize % ENCRYPTION_CONST_PARAMS.bit_size != 0 {
+        let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / encryption_params.bit_size;
+        if <FrParameters as FpParameters>::MODULUS_BITS as usize % encryption_params.bit_size != 0 {
             leaf_len += 1;
         }
-        let padding_array = (0..ENCRYPTION_CONST_PARAMS.modulus_len - leaf_len).into_iter().map(|_| {
+        let padding_array = (0..encryption_params.modulus_len - leaf_len).into_iter().map(|_| {
             use num_bigint_dig::RandBigInt;
-            let r = OsRng.gen_biguint(ENCRYPTION_CONST_PARAMS.bit_size);
+            let r = OsRng.gen_biguint(encryption_params.bit_size);
             BigUint::from_bytes_le(&r.to_bytes_le())
         }).collect::<Vec<_>>();
         
         Some(EncryptionOriginInputs { padding_array })
     };
 
-    let secret = Fr::rand(&mut OsRng);
     let origin_inputs = DepositOriginInputs {
         leaf_index,
         deposit_amount,
-        secret,
+        secret: from_hex(secret),
         friend_nodes,
         encryption,
     };
+    
+    let pk: ProvingKey<Bn254> = CanonicalDeserialize::deserialize(&pk.to_vec()[..]).expect("failed to parse file");
 
     log("Generating vanilla proof...");
 
     let (pub_in, priv_in) =
-        DepositVanillaInstant::generate_vanilla_proof(&DEPOSIT_CONST_PARAMS, &origin_inputs)
+        DepositVanillaInstant::generate_vanilla_proof(&deposit_const_params, &origin_inputs)
             .expect("generate vanilla proof failed");
 
     log("Generating snark proof...");
 
     let proof =
-        DepositInstant::generate_snark_proof(&mut OsRng, &DEPOSIT_CONST_PARAMS, &pub_in, &priv_in, &DEPOSIT_PK)
+        DepositInstant::generate_snark_proof(&mut OsRng, &deposit_const_params, &pub_in, &priv_in, &pk)
             .expect("generate snark proof failed");
+    drop(pk);
 
     log("Generating solana instructions...");
 
-    let user_credential = UserCredential {
-        vault,
-        mint,
-        balance: pub_in.deposit_amount,
-        index: pub_in.leaf_index,
-        secret: to_hex(&secret),
-    };
     let res = ProofResult {
-        user_credential,
         instructions: gen_deposit_instructions(vault, mint, signer, proof, pub_in),
+        output: (leaf_index, deposit_amount),
     };
     JsValue::from_serde(&res).expect("serde error")
 }
