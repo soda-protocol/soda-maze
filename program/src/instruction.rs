@@ -42,16 +42,27 @@ pub enum MazeInstruction {
     ResetDepositAccounts,
     ResetWithdrawAccounts,
     // 128 ~
-    CreateVault,
+    CreateVault {
+        min_deposit: u64,
+        min_withdraw: u64,
+    },
     ControlVault(bool),
 }
 
-pub fn create_vault(token_mint: Pubkey, admin: Pubkey) -> Result<Instruction> {
+pub fn create_vault(
+    token_mint: Pubkey,
+    admin: Pubkey,
+    min_deposit: u64,
+    min_withdraw: u64,
+) -> Result<Instruction> {
     let (vault, _) = get_vault_pda(&admin, &token_mint, &ID);
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
 
-    let data = MazeInstruction::CreateVault.try_to_vec()?;
+    let data = MazeInstruction::CreateVault {
+        min_deposit,
+        min_withdraw,
+    }.try_to_vec()?;
 
     Ok(Instruction {
         program_id: ID,
@@ -411,7 +422,7 @@ mod tests {
             false
         );
 
-        let instruction = create_vault(token_mint, signer.pubkey()).unwrap();
+        let instruction = create_vault(token_mint, signer.pubkey(), 100, 100).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,

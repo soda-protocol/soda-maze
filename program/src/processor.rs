@@ -56,7 +56,10 @@ pub fn process_instruction(
         MazeInstruction::FinalizeWithdraw => process_finalize_withdraw(program_id, accounts),
         MazeInstruction::ResetDepositAccounts => process_reset_buffer_accounts::<DepositVanillaData>(program_id, accounts),
         MazeInstruction::ResetWithdrawAccounts => process_reset_buffer_accounts::<WithdrawVanillaData>(program_id, accounts),
-        MazeInstruction::CreateVault => process_create_vault(program_id, accounts),
+        MazeInstruction::CreateVault {
+            min_deposit,
+            min_withdraw,
+        } => process_create_vault(program_id, accounts, min_deposit, min_withdraw),
         MazeInstruction::ControlVault(enable) => process_control_vault(program_id, accounts, enable),
     }
 }
@@ -80,7 +83,8 @@ fn process_create_deposit_credential(
     let signer_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
-    vault.check_valid()?;
+    vault.check_enable()?;
+    vault.check_deposit(deposit_amount)?;
 
     if !signer_info.is_signer {
         return Err(MazeError::InvalidAuthority.into());
@@ -195,7 +199,8 @@ fn process_create_withdraw_credential(
     let signer_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
-    vault.check_valid()?;
+    vault.check_enable()?;
+    vault.check_withdraw(withdraw_amount)?;
 
     if !signer_info.is_signer {
         return Err(MazeError::InvalidAuthority.into());
@@ -328,7 +333,7 @@ fn process_finalize_deposit(
         msg!("Token account in vault is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
-    vault.check_valid()?;
+    vault.check_enable()?;
 
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
     if &verifier.credential != credential_info.key {
@@ -460,7 +465,7 @@ fn process_finalize_withdraw(
         msg!("Authority in vault is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
-    vault.check_valid()?;
+    vault.check_enable()?;
 
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
     if &verifier.credential != credential_info.key {
@@ -598,6 +603,8 @@ fn process_reset_buffer_accounts<V: VanillaData>(
 pub fn process_create_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    min_deposit: u64,
+    min_withdraw: u64,
 ) -> ProgramResult {
     msg!("Creating the vault");
 
@@ -662,6 +669,8 @@ pub fn process_create_vault(
         *vault_token_account_info.key,
         vault_signer_key,
         seed_2,
+        min_deposit,
+        min_withdraw,
     );
     vault.initialize_to_account_info(vault_info)
 }

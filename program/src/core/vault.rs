@@ -15,6 +15,8 @@ pub struct Vault {
     pub seed: [u8; 1],
     pub root: BigInteger,
     pub index: u64,
+    pub min_deposit: u64,
+    pub min_withdraw: u64,
 }
 
 #[inline]
@@ -49,7 +51,14 @@ pub fn get_vault_authority_pda<'a>(
 }
 
 impl Vault {
-    pub fn new(admin: Pubkey, token_account: Pubkey, authority: Pubkey, seed: [u8; 1]) -> Self {
+    pub fn new(
+        admin: Pubkey,
+        token_account: Pubkey,
+        authority: Pubkey,
+        seed: [u8; 1],
+        min_deposit: u64,
+        min_withdraw: u64,
+    ) -> Self {
         Self {
             is_initialized: true,
             enable: true,
@@ -59,10 +68,12 @@ impl Vault {
             seed,
             root: DEFAULT_ROOT_HASH,
             index: 0,
+            min_deposit,
+            min_withdraw,
         }
     }
 
-    pub fn check_valid(&self) -> ProgramResult {
+    pub fn check_enable(&self) -> ProgramResult {
         if self.enable {
             Ok(())
         } else {
@@ -80,6 +91,24 @@ impl Vault {
             return Err(MazeError::InvalidVanillaData.into()); 
         }
         Ok(())
+    }
+
+    pub fn check_deposit(&self, deposit_amount: u64) -> ProgramResult {
+        if deposit_amount < self.min_deposit {
+            msg!("Deposit amount is less than minimum deposit");
+            Err(MazeError::InvalidVanillaData.into())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn check_withdraw(&self, withdraw_amount: u64) -> ProgramResult {
+        if withdraw_amount < self.min_withdraw {
+            msg!("Withdraw amount is less than minimum withdraw");
+            Err(MazeError::InvalidVanillaData.into())
+        } else {
+            Ok(())
+        }
     }
 
     #[inline]
@@ -104,5 +133,5 @@ impl IsInitialized for Vault {
 }
 
 impl Packer for Vault {
-    const LEN: usize = 1 + 1 + 32 + 32 + 32 + 1 + 32 + 8;
+    const LEN: usize = 1 + 1 + 32 + 32 + 32 + 1 + 32 + 8 + 8 + 8;
 }
