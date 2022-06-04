@@ -109,6 +109,8 @@ pub fn gen_deposit_proof(
     }).collect::<Vec<_>>();
     assert_eq!(friend_nodes.len(), HEIGHT, "invalid friends array length");
 
+    log("Processing const params...");
+
     let encryption_params: RabinParameters = encryption_params.into_serde().expect("encryption params can not unpack");
     let encryption_const_params = get_encryption_const_params(&encryption_params);
     let deposit_const_params = get_deposit_const_params(encryption_const_params);
@@ -135,6 +137,8 @@ pub fn gen_deposit_proof(
         encryption,
     };
     
+    log("Processing pk...");
+
     let pk: ProvingKey<Bn254> = CanonicalDeserialize::deserialize(&pk.to_vec()[..]).expect("failed to parse file");
 
     log("Generating vanilla proof...");

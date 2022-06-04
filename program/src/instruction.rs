@@ -347,7 +347,7 @@ mod tests {
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
-    const VAULT: Pubkey = pubkey!("84dS1AtpqVDshZphmWrC6dX9YEGffs6XAtPt16vPX3ZX");
+    const VAULT: Pubkey = pubkey!("HrW9kiPVD8mydeNmv29YYFMZ2nTt588MUA4wgFxijWmG");
 
     #[test]
     fn test_instruction() {
@@ -360,9 +360,7 @@ mod tests {
         let token_mint = pubkey!("GR6zSp8opYZh7H2ZFEJBbQYVjY4dkKc19iFoPEhWXTrV");
 
         let deposit_amount = 100;
-        let leaf_index = 0;
         let leaf = BigInteger::new([3542236639209175990, 16910505828447755939, 15985469206914547775, 2949265978052157896]);
-        let prev_root = BigInteger::new([15731961227988085298, 1152253436246937880, 10067708109528847282, 2453386543983348226]);
         let updating_nodes = vec![
             BigInteger::new([15532250321868931685, 772932733899588440, 12868310124187153130, 438462560823777455]),
             BigInteger::new([11847340026267790185, 10820144684227279182, 3897917803026447095, 1211025166583652450]),
@@ -421,16 +419,15 @@ mod tests {
             Fq::new(BigInteger::new([2914263778726088111, 9472631376659388131, 16215105594981982902, 939471742250680668])),
             false
         );
+        let proof = Proof { a, b, c };
 
-        let instruction = create_vault(token_mint, signer.pubkey(), 10, 10).unwrap();
+        // let instruction = create_vault(token_mint, signer.pubkey(), 10, 10).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
         //     signer.pubkey(),
         //     deposit_amount,
-        //     leaf_index,
         //     leaf,
-        //     prev_root,
         //     Box::new(updating_nodes),
         // ).unwrap();
 
@@ -438,28 +435,26 @@ mod tests {
         //     VAULT,
         //     signer.pubkey(),
         //     Box::new(commitment),
-        //     Box::new(proof_a),
-        //     Box::new(proof_b),
-        //     Box::new(proof_c),
+        //     Box::new(proof),
         // ).unwrap();
 
         // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
 
         // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        // for _ in 0..210 {
-        //     let blockhash = client.get_latest_blockhash().unwrap();
-        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-        //     let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
-        //     let transaction = Transaction::new_signed_with_payer(
-        //         &[instruction],
-        //         Some(&signer.pubkey()),
-        //         &[&signer],
-        //         blockhash,
-        //     );
-        //     let res = client.send_transaction(&transaction).unwrap();
-        //     println!("{}", res);
-        // }
+        for _ in 0..210 {
+            let blockhash = client.get_latest_blockhash().unwrap();
+            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+            let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+            let transaction = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&signer.pubkey()),
+                &[&signer],
+                blockhash,
+            );
+            let res = client.send_transaction(&transaction).unwrap();
+            println!("{}", res);
+        }
 
         // let instruction = finalize_deposit(
         //     VAULT,
@@ -469,13 +464,13 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        let transaction = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&signer.pubkey()),
-            &[&signer],
-            blockhash,
-        );
-        let res = client.send_transaction(&transaction).unwrap();
-        println!("{}", res);
+        // let transaction = Transaction::new_signed_with_payer(
+        //     &[instruction],
+        //     Some(&signer.pubkey()),
+        //     &[&signer],
+        //     blockhash,
+        // );
+        // let res = client.send_transaction(&transaction).unwrap();
+        // println!("{}", res);
     }
 }

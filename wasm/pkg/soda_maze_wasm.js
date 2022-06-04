@@ -200,6 +200,40 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} signer
+* @param {BigInt} leaf_index
+* @param {BigInt} deposit_amount
+* @param {Array<any>} friends
+* @param {string} secret
+* @param {any} encryption_params
+* @param {Uint8Array} pk
+* @returns {any}
+*/
+export function gen_deposit_proof(vault, mint, signer, leaf_index, deposit_amount, friends, secret, encryption_params, pk) {
+    _assertClass(vault, Pubkey);
+    var ptr0 = vault.ptr;
+    vault.ptr = 0;
+    _assertClass(mint, Pubkey);
+    var ptr1 = mint.ptr;
+    mint.ptr = 0;
+    _assertClass(signer, Pubkey);
+    var ptr2 = signer.ptr;
+    signer.ptr = 0;
+    uint64CvtShim[0] = leaf_index;
+    const low3 = u32CvtShim[0];
+    const high3 = u32CvtShim[1];
+    uint64CvtShim[0] = deposit_amount;
+    const low4 = u32CvtShim[0];
+    const high4 = u32CvtShim[1];
+    const ptr5 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len5 = WASM_VECTOR_LEN;
+    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(friends), ptr5, len5, addHeapObject(encryption_params), addHeapObject(pk));
+    return takeObject(ret);
+}
+
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} signer
 * @param {BigInt} src_leaf_index
 * @param {BigInt} balance
 * @param {BigInt} dst_leaf_index
@@ -235,40 +269,6 @@ export function gen_withdraw_proof(vault, mint, signer, src_leaf_index, balance,
     const ptr7 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len7 = WASM_VECTOR_LEN;
     const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, low5, high5, low6, high6, ptr7, len7, addHeapObject(src_friends), addHeapObject(dst_friends), addHeapObject(pk));
-    return takeObject(ret);
-}
-
-/**
-* @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} signer
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
-* @param {Array<any>} friends
-* @param {string} secret
-* @param {any} encryption_params
-* @param {Uint8Array} pk
-* @returns {any}
-*/
-export function gen_deposit_proof(vault, mint, signer, leaf_index, deposit_amount, friends, secret, encryption_params, pk) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    _assertClass(mint, Pubkey);
-    var ptr1 = mint.ptr;
-    mint.ptr = 0;
-    _assertClass(signer, Pubkey);
-    var ptr2 = signer.ptr;
-    signer.ptr = 0;
-    uint64CvtShim[0] = leaf_index;
-    const low3 = u32CvtShim[0];
-    const high3 = u32CvtShim[1];
-    uint64CvtShim[0] = deposit_amount;
-    const low4 = u32CvtShim[0];
-    const high4 = u32CvtShim[1];
-    const ptr5 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(friends), ptr5, len5, addHeapObject(encryption_params), addHeapObject(pk));
     return takeObject(ret);
 }
 
