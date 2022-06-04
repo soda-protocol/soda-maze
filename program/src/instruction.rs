@@ -357,7 +357,7 @@ mod tests {
 
         let blockhash = client.get_latest_blockhash().unwrap();
         let signer = Keypair::from_base58_string(USER_KEYPAIR);
-        let token_mint = pubkey!("Bj9LaiV7aR1z2263r5fuPjZN1asu3QXHUnGkHUAcZ4e1");
+        let token_mint = pubkey!("GR6zSp8opYZh7H2ZFEJBbQYVjY4dkKc19iFoPEhWXTrV");
 
         let deposit_amount = 100;
         let leaf_index = 0;
@@ -422,7 +422,7 @@ mod tests {
             false
         );
 
-        let instruction = create_vault(token_mint, signer.pubkey(), 100, 100).unwrap();
+        let instruction = create_vault(token_mint, signer.pubkey(), 10, 10).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,

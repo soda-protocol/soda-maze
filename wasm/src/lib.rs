@@ -86,7 +86,7 @@ pub fn get_vault_info(vault_key: Pubkey, data: Uint8Array) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn gen_new_secret() -> String {
+pub fn gen_new_secret() -> JsValue {
     let secret = Fr::rand(&mut OsRng);
-    to_hex(&secret)
+    JsValue::from_str(&to_hex(&secret))
 }

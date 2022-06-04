@@ -35,9 +35,9 @@ export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, l
 */
 export function get_vault_info(vault_key: Pubkey, data: Uint8Array): any;
 /**
-* @returns {string}
+* @returns {any}
 */
-export function gen_new_secret(): string;
+export function gen_new_secret(): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -333,7 +333,7 @@ export interface InitOutput {
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => number;
   readonly get_vault_info: (a: number, b: number) => number;
-  readonly gen_new_secret: (a: number) => void;
+  readonly gen_new_secret: () => number;
   readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
