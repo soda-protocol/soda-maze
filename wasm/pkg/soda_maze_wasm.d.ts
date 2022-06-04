@@ -4,19 +4,6 @@
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} signer
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
-* @param {Array<any>} friends
-* @param {string} secret
-* @param {any} encryption_params
-* @param {Uint8Array} pk
-* @returns {any}
-*/
-export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string, encryption_params: any, pk: Uint8Array): any;
-/**
-* @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} signer
 * @param {BigInt} src_leaf_index
 * @param {BigInt} balance
 * @param {BigInt} dst_leaf_index
@@ -24,10 +11,20 @@ export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, l
 * @param {string} secret
 * @param {Array<any>} src_friends
 * @param {Array<any>} dst_friends
-* @param {Uint8Array} pk
 * @returns {any}
 */
-export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, secret: string, src_friends: Array<any>, dst_friends: Array<any>, pk: Uint8Array): any;
+export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, secret: string, src_friends: Array<any>, dst_friends: Array<any>): any;
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} signer
+* @param {BigInt} leaf_index
+* @param {BigInt} deposit_amount
+* @param {Array<any>} friends
+* @param {string} secret
+* @returns {any}
+*/
+export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string): any;
 /**
 * @param {Pubkey} vault_key
 * @param {Uint8Array} data
@@ -330,8 +327,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => number;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number) => number;
+  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly get_vault_info: (a: number, b: number) => number;
   readonly gen_new_secret: () => number;
   readonly __wbg_pubkey_free: (a: number) => void;

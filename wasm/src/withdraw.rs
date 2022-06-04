@@ -1,7 +1,6 @@
 use ark_ff::{BigInteger256, PrimeField};
 use ark_bn254::{Fr, Bn254};
-use ark_groth16::{Groth16, Proof, ProvingKey};
-use ark_serialize::CanonicalDeserialize;
+use ark_groth16::{Groth16, Proof};
 use js_sys::{Uint8Array, Array};
 use rand_core::OsRng;
 use wasm_bindgen::{JsValue, prelude::*};
@@ -95,7 +94,6 @@ pub fn gen_withdraw_proof(
     secret: String,
     src_friends: Array,
     dst_friends: Array,
-    pk: Uint8Array,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
@@ -136,7 +134,7 @@ pub fn gen_withdraw_proof(
 
     let withdraw_const_params = get_withdraw_const_params();
 
-    let pk: ProvingKey<Bn254> = CanonicalDeserialize::deserialize(&pk.to_vec()[..]).expect("failed to parse file");
+    let pk = get_withdraw_pk();
 
     log("Generating vanilla proof...");
 

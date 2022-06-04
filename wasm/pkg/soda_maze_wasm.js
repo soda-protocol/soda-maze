@@ -1,13 +1,38 @@
 
 let wasm;
 
+const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+
+cachedTextDecoder.decode();
+
+let cachegetUint8Memory0 = null;
+function getUint8Memory0() {
+    if (cachegetUint8Memory0 === null || cachegetUint8Memory0.buffer !== wasm.memory.buffer) {
+        cachegetUint8Memory0 = new Uint8Array(wasm.memory.buffer);
+    }
+    return cachegetUint8Memory0;
+}
+
+function getStringFromWasm0(ptr, len) {
+    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
+}
+
 const heap = new Array(32).fill(undefined);
 
 heap.push(undefined, null, true, false);
 
-function getObject(idx) { return heap[idx]; }
-
 let heap_next = heap.length;
+
+function addHeapObject(obj) {
+    if (heap_next === heap.length) heap.push(heap.length + 1);
+    const idx = heap_next;
+    heap_next = heap[idx];
+
+    heap[idx] = obj;
+    return idx;
+}
+
+function getObject(idx) { return heap[idx]; }
 
 function dropObject(idx) {
     if (idx < 36) return;
@@ -22,14 +47,6 @@ function takeObject(idx) {
 }
 
 let WASM_VECTOR_LEN = 0;
-
-let cachegetUint8Memory0 = null;
-function getUint8Memory0() {
-    if (cachegetUint8Memory0 === null || cachegetUint8Memory0.buffer !== wasm.memory.buffer) {
-        cachegetUint8Memory0 = new Uint8Array(wasm.memory.buffer);
-    }
-    return cachegetUint8Memory0;
-}
 
 const cachedTextEncoder = new TextEncoder('utf-8');
 
@@ -84,33 +101,16 @@ function passStringToWasm0(arg, malloc, realloc) {
     return ptr;
 }
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 let cachegetInt32Memory0 = null;
 function getInt32Memory0() {
     if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
         cachegetInt32Memory0 = new Int32Array(wasm.memory.buffer);
     }
     return cachegetInt32Memory0;
-}
-
-const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-
-cachedTextDecoder.decode();
-
-function getStringFromWasm0(ptr, len) {
-    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
-}
-
-function addHeapObject(obj) {
-    if (heap_next === heap.length) heap.push(heap.length + 1);
-    const idx = heap_next;
-    heap_next = heap[idx];
-
-    heap[idx] = obj;
-    return idx;
-}
-
-function isLikeNone(x) {
-    return x === undefined || x === null;
 }
 
 let cachegetFloat64Memory0 = null;
@@ -200,40 +200,6 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} signer
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
-* @param {Array<any>} friends
-* @param {string} secret
-* @param {any} encryption_params
-* @param {Uint8Array} pk
-* @returns {any}
-*/
-export function gen_deposit_proof(vault, mint, signer, leaf_index, deposit_amount, friends, secret, encryption_params, pk) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    _assertClass(mint, Pubkey);
-    var ptr1 = mint.ptr;
-    mint.ptr = 0;
-    _assertClass(signer, Pubkey);
-    var ptr2 = signer.ptr;
-    signer.ptr = 0;
-    uint64CvtShim[0] = leaf_index;
-    const low3 = u32CvtShim[0];
-    const high3 = u32CvtShim[1];
-    uint64CvtShim[0] = deposit_amount;
-    const low4 = u32CvtShim[0];
-    const high4 = u32CvtShim[1];
-    const ptr5 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(friends), ptr5, len5, addHeapObject(encryption_params), addHeapObject(pk));
-    return takeObject(ret);
-}
-
-/**
-* @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} signer
 * @param {BigInt} src_leaf_index
 * @param {BigInt} balance
 * @param {BigInt} dst_leaf_index
@@ -241,10 +207,9 @@ export function gen_deposit_proof(vault, mint, signer, leaf_index, deposit_amoun
 * @param {string} secret
 * @param {Array<any>} src_friends
 * @param {Array<any>} dst_friends
-* @param {Uint8Array} pk
 * @returns {any}
 */
-export function gen_withdraw_proof(vault, mint, signer, src_leaf_index, balance, dst_leaf_index, withdraw_amount, secret, src_friends, dst_friends, pk) {
+export function gen_withdraw_proof(vault, mint, signer, src_leaf_index, balance, dst_leaf_index, withdraw_amount, secret, src_friends, dst_friends) {
     _assertClass(vault, Pubkey);
     var ptr0 = vault.ptr;
     vault.ptr = 0;
@@ -268,7 +233,39 @@ export function gen_withdraw_proof(vault, mint, signer, src_leaf_index, balance,
     const high6 = u32CvtShim[1];
     const ptr7 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len7 = WASM_VECTOR_LEN;
-    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, low5, high5, low6, high6, ptr7, len7, addHeapObject(src_friends), addHeapObject(dst_friends), addHeapObject(pk));
+    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, low5, high5, low6, high6, ptr7, len7, addHeapObject(src_friends), addHeapObject(dst_friends));
+    return takeObject(ret);
+}
+
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} signer
+* @param {BigInt} leaf_index
+* @param {BigInt} deposit_amount
+* @param {Array<any>} friends
+* @param {string} secret
+* @returns {any}
+*/
+export function gen_deposit_proof(vault, mint, signer, leaf_index, deposit_amount, friends, secret) {
+    _assertClass(vault, Pubkey);
+    var ptr0 = vault.ptr;
+    vault.ptr = 0;
+    _assertClass(mint, Pubkey);
+    var ptr1 = mint.ptr;
+    mint.ptr = 0;
+    _assertClass(signer, Pubkey);
+    var ptr2 = signer.ptr;
+    signer.ptr = 0;
+    uint64CvtShim[0] = leaf_index;
+    const low3 = u32CvtShim[0];
+    const high3 = u32CvtShim[1];
+    uint64CvtShim[0] = deposit_amount;
+    const low4 = u32CvtShim[0];
+    const high4 = u32CvtShim[1];
+    const ptr5 = passStringToWasm0(secret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len5 = WASM_VECTOR_LEN;
+    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(friends), ptr5, len5);
     return takeObject(ret);
 }
 
@@ -1009,26 +1006,18 @@ async function init(input) {
     }
     const imports = {};
     imports.wbg = {};
+    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
+        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
+        return addHeapObject(ret);
+    };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
     };
     imports.wbg.__wbg_log_f436293c3666c84e = function(arg0, arg1) {
         console.log(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbindgen_json_serialize = function(arg0, arg1) {
-        const obj = getObject(arg1);
-        const ret = JSON.stringify(obj === undefined ? null : obj);
-        const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        getInt32Memory0()[arg0 / 4 + 1] = len0;
-        getInt32Memory0()[arg0 / 4 + 0] = ptr0;
-    };
     imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
         const ret = getStringFromWasm0(arg0, arg1);
-        return addHeapObject(ret);
-    };
-    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
-        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
         return addHeapObject(ret);
     };
     imports.wbg.__wbg_instruction_new = function(arg0) {

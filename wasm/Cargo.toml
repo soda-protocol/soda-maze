@@ -12,7 +12,6 @@ soda-maze-lib = { path = "../lib", package = "soda-maze-lib" }
 soda-maze-program = { path = "../program", package = "soda-maze-program" }
 ark-ff = "0.3.0"
 ark-std = "0.3.0"
-ark-ec = "0.3.0"
 ark-bn254 = "0.3.0"
 ark-groth16 = "0.3.0"
 ark-serialize = "0.3.0"
@@ -26,6 +25,7 @@ serde_json = "1.0.71"
 solana-program = "1.10.20"
 wasm-bindgen = { version = "0.2.76", features = ["serde-serialize"] }
 js-sys = "0.3.53"
+rust-embed = "6.4.0"
 console_error_panic_hook = "0.1.6"
 
 [dev-dependencies]

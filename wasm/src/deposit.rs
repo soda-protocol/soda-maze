@@ -1,7 +1,6 @@
 use ark_ff::{FpParameters, BigInteger256, PrimeField};
 use ark_bn254::{Fr, FrParameters, Bn254};
-use ark_groth16::{Groth16, Proof, ProvingKey};
-use ark_serialize::CanonicalDeserialize;
+use ark_groth16::{Groth16, Proof};
 use js_sys::{Uint8Array, Array};
 use num_bigint::BigUint;
 use rand_core::OsRng;
@@ -90,8 +89,6 @@ pub fn gen_deposit_proof(
     deposit_amount: u64,
     friends: Array,
     secret: String,
-    encryption_params: JsValue,
-    pk: Uint8Array,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
@@ -111,23 +108,21 @@ pub fn gen_deposit_proof(
 
     log("Processing const params...");
 
-    let encryption_params: RabinParameters = encryption_params.into_serde().expect("encryption params can not unpack");
-    let encryption_const_params = get_encryption_const_params(&encryption_params);
-    let deposit_const_params = get_deposit_const_params(encryption_const_params);
-
+    let encryption_const_params = get_encryption_const_params();
     let encryption = {
-        let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / encryption_params.bit_size;
-        if <FrParameters as FpParameters>::MODULUS_BITS as usize % encryption_params.bit_size != 0 {
+        let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / encryption_const_params.bit_size;
+        if <FrParameters as FpParameters>::MODULUS_BITS as usize % encryption_const_params.bit_size != 0 {
             leaf_len += 1;
         }
-        let padding_array = (0..encryption_params.modulus_len - leaf_len).into_iter().map(|_| {
+        let padding_array = (0..encryption_const_params.modulus_len - leaf_len).into_iter().map(|_| {
             use num_bigint_dig::RandBigInt;
-            let r = OsRng.gen_biguint(encryption_params.bit_size);
+            let r = OsRng.gen_biguint(encryption_const_params.bit_size);
             BigUint::from_bytes_le(&r.to_bytes_le())
         }).collect::<Vec<_>>();
         
         Some(EncryptionOriginInputs { padding_array })
     };
+    let deposit_const_params = get_deposit_const_params(encryption_const_params);
 
     let origin_inputs = DepositOriginInputs {
         leaf_index,
@@ -139,7 +134,7 @@ pub fn gen_deposit_proof(
     
     log("Processing pk...");
 
-    let pk: ProvingKey<Bn254> = CanonicalDeserialize::deserialize(&pk.to_vec()[..]).expect("failed to parse file");
+    let pk = get_deposit_pk();
 
     log("Generating vanilla proof...");
 
