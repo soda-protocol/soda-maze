@@ -136,27 +136,25 @@ pub fn gen_deposit_proof(
 
     let pk = get_deposit_pk();
 
-    // log("Generating vanilla proof...");
+    log("Generating vanilla proof...");
 
-    // let (pub_in, priv_in) =
-    //     DepositVanillaInstant::generate_vanilla_proof(&deposit_const_params, &origin_inputs)
-    //         .expect("generate vanilla proof failed");
+    let (pub_in, priv_in) =
+        DepositVanillaInstant::generate_vanilla_proof(&deposit_const_params, &origin_inputs)
+            .expect("generate vanilla proof failed");
 
-    // log("Generating snark proof...");
+    log("Generating snark proof...");
 
-    // let proof =
-    //     DepositInstant::generate_snark_proof(&mut OsRng, &deposit_const_params, &pub_in, &priv_in, &pk)
-    //         .expect("generate snark proof failed");
-    // drop(pk);
+    let proof =
+        DepositInstant::generate_snark_proof(&mut OsRng, &deposit_const_params, &pub_in, &priv_in, &pk)
+            .expect("generate snark proof failed");
+    drop(pk);
 
-    // log("Generating solana instructions...");
+    log("Generating solana instructions...");
 
-    // let res = ProofResult {
-    //     instructions: gen_deposit_instructions(vault, mint, signer, proof, pub_in),
-    //     output: (leaf_index, deposit_amount),
-    // };
-    // JsValue::from_serde(&res).expect("serde error")
-
-    JsValue::from_str("111")
+    let res = ProofResult {
+        instructions: gen_deposit_instructions(vault, mint, signer, proof, pub_in),
+        output: (leaf_index, deposit_amount),
+    };
+    JsValue::from_serde(&res).expect("serde error")
 }
 
