@@ -13,7 +13,7 @@ soda-maze-program = { path = "../program", package = "soda-maze-program" }
 ark-ff = "0.3.0"
 ark-std = "0.3.0"
 ark-bn254 = "0.3.0"
-ark-groth16 = "0.3.0"
+ark-groth16 = { version = "0.3.0", features = ["std"] }
 ark-serialize = "0.3.0"
 arkworks-utils = "0.4.20"
 num-bigint = "0.4.3"
@@ -34,9 +34,6 @@ wasm-bindgen-test = "0.3.26"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
-# [profile.release]
-# # Tell `rustc` to optimize for small code size.
-# opt-level = 3
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = 3
