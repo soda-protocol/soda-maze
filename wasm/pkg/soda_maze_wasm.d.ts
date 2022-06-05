@@ -15,6 +15,16 @@
 */
 export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, secret: string, src_friends: Array<any>, dst_friends: Array<any>): any;
 /**
+* @param {Pubkey} vault_key
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_vault_info(vault_key: Pubkey, data: Uint8Array): any;
+/**
+* @returns {any}
+*/
+export function gen_new_secret(): any;
+/**
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} signer
@@ -25,16 +35,6 @@ export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, 
 * @returns {any}
 */
 export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, signer: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string): any;
-/**
-* @param {Pubkey} vault_key
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_vault_info(vault_key: Pubkey, data: Uint8Array): any;
-/**
-* @returns {any}
-*/
-export function gen_new_secret(): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -328,9 +328,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number) => number;
-  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly get_vault_info: (a: number, b: number) => number;
   readonly gen_new_secret: () => number;
+  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
