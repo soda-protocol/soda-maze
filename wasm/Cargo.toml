@@ -13,7 +13,6 @@ ark-ff = "0.3.0"
 ark-std = "0.3.0"
 ark-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", features = ["std"] }
-arkworks-utils = "0.4.20"
 num-bigint = "0.4.3"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 rand_core = { version = "0.6.3", features = ["std"] }
@@ -27,7 +26,7 @@ rust-embed = "6.4.0"
 console_error_panic_hook = "0.1.6"
 soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
-soda-maze-keys = { path = "../tools/keys" }
+soda-maze-keys = { path = "../keys", features = ["std"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.26"

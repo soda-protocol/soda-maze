@@ -1,7 +1,7 @@
 lib/target
-bench/target
+bin/bench/target
+bin/gen-params/target
 program/target
 wasm/target
-tools/gen-params/target
-tools/keys/target
+keys/target
 *Cargo.lock
