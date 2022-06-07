@@ -8,13 +8,12 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use rand_core::OsRng;
 use js_sys::Uint8Array;
 use serde::{Serialize, Deserialize};
-use solana_program::instruction::Instruction;
 use wasm_bindgen::{JsValue, prelude::*};
+use solana_program::instruction::Instruction;
 use solana_program::pubkey::Pubkey;
 use soda_maze_program::{Packer, ID};
 use soda_maze_program::params::HEIGHT;
-use soda_maze_program::core::vault::Vault;
-use soda_maze_program::core::node::get_merkle_node_pda;
+use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda};
 
 #[wasm_bindgen]
 extern "C" {
