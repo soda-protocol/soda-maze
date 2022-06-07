@@ -11,8 +11,8 @@ rand_core = { path = "./rand_core-0.6.3" }
 borsh = "0.9.3"
 ark-ff = "0.3.0"
 ark-std = "0.3.0"
-ark-bn254 = { version = "0.3.0", optional = true }
-ark-groth16 = { version = "0.3.0", optional = true }
+ark-bn254 = "0.3.0"
+ark-groth16 = { version = "0.3.0", features = ["std"] }
 num-bigint = "0.4.3"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 rand_core = { version = "0.6.3", features = ["std"] }
@@ -26,7 +26,7 @@ rust-embed = "6.4.0"
 console_error_panic_hook = "0.1.6"
 soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
-soda-maze-keys = { path = "../keys", optional = true }
+soda-maze-keys = { path = "../keys" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.26"
@@ -37,6 +37,3 @@ crate-type = ["cdylib", "rlib"]
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = 3
-
-[features]
-default = ["ark-bn254/std", "ark-groth16/std", "soda-maze-keys/default"]
