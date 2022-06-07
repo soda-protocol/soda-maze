@@ -127,7 +127,7 @@ pub fn gen_deposit_proof(
     let origin_inputs = DepositOriginInputs {
         leaf_index,
         deposit_amount,
-        secret: from_hex(secret),
+        secret: Fr::new(BigInteger256::new(from_hex(secret))),
         friend_nodes,
         encryption,
     };
@@ -135,6 +135,7 @@ pub fn gen_deposit_proof(
     log("Processing pk...");
 
     let pk = get_deposit_pk();
+    let pk = pk.into();
 
     log("Generating vanilla proof...");
 
@@ -157,4 +158,3 @@ pub fn gen_deposit_proof(
     };
     JsValue::from_serde(&res).expect("serde error")
 }
-

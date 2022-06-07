@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::{path::PathBuf, fs::OpenOptions};
 use ark_ff::{FpParameters, PrimeField};
 use ark_std::{UniformRand, rand::SeedableRng};
-use ark_groth16::{ProvingKey, VerifyingKey};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read};
+use borsh::BorshDeserialize;
 use arkworks_utils::poseidon::PoseidonParameters;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
@@ -12,6 +12,7 @@ use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof
 use soda_maze_lib::vanilla::deposit::{DepositConstParams, DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
 use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublicInputs, EncryptionOriginInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
+use soda_maze_keys::{MazeProvingKey, MazeVerifyingKey};
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use rand_core::{CryptoRng, RngCore, OsRng};
@@ -89,12 +90,14 @@ fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
         .expect("failed to write to file");
 }
 
-fn read_from_file<De: CanonicalDeserialize>(path: &PathBuf) -> De {
-    let file = OpenOptions::new()
+fn read_from_file<De: BorshDeserialize>(path: &PathBuf) -> De {
+    let mut file = OpenOptions::new()
         .read(true)
         .open(path)
         .unwrap();
-    CanonicalDeserialize::deserialize(&file).expect("failed to parse file")
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).expect("read from file error");
+    BorshDeserialize::deserialize(&mut &buffer[..]).expect("failed to parse file")
 }
 
 fn from_hex<De: CanonicalDeserialize>(s: String) -> De {
@@ -351,7 +354,9 @@ fn main() {
                 friend_nodes,
                 encryption: rabin_orig_in,
             };
-            let pk = read_from_file::<ProvingKey<_>>(&pk_path);
+            
+            let pk = read_from_file::<MazeProvingKey>(&pk_path);
+            let pk = pk.into();
             let (pub_in, priv_in) =
                 DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
                     .expect("generate vanilla proof failed");
@@ -409,7 +414,9 @@ fn main() {
                 src_friend_nodes,
                 dst_friend_nodes,
             };
-            let pk = read_from_file::<ProvingKey<_>>(&pk_path);
+
+            let pk = read_from_file::<MazeProvingKey>(&pk_path);
+            let pk = pk.into();
             let (pub_in, priv_in)
                 = WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs).expect("generate vanilla proof failed");
 
@@ -436,7 +443,8 @@ fn main() {
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
+            let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
+            let vk = vk.into();
             let proof_data = read_json_from_file::<DepositProofData>(&proof_path);
 
             let proof = from_hex(proof_data.proof);
@@ -534,7 +542,8 @@ fn main() {
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let vk = read_from_file::<VerifyingKey<_>>(&vk_path);
+            let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
+            let vk = vk.into();
             let proof_data = read_json_from_file::<WithdrawProofData>(&proof_path);
 
             let proof = from_hex(proof_data.proof);

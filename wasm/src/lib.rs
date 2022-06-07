@@ -4,7 +4,7 @@ pub mod params;
 
 use ark_bn254::Fr;
 use ark_std::UniformRand;
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use borsh::{BorshSerialize, BorshDeserialize};
 use rand_core::OsRng;
 use js_sys::Uint8Array;
 use serde::{Serialize, Deserialize};
@@ -43,15 +43,14 @@ pub struct VaultInfo {
     pub friends: Vec<Pubkey>,
 }
 
-fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
-    let mut buf = Vec::new();
-    data.serialize(&mut buf).expect("serialize failed");
+fn to_hex<Se: BorshSerialize>(data: &Se) -> String {
+    let buf = data.try_to_vec().expect("serialize failed");
     hex::encode(buf)
 }
 
-pub fn from_hex<De: CanonicalDeserialize>(s: String) -> De {
+pub fn from_hex<De: BorshDeserialize>(s: String) -> De {
     let buf = hex::decode(s).expect("failed to parse hex string");
-    CanonicalDeserialize::deserialize(&buf[..]).expect("Canonical deserialize failed")
+    BorshDeserialize::deserialize(&mut &buf[..]).expect("Canonical deserialize failed")
 }
 
 #[wasm_bindgen]
@@ -88,5 +87,5 @@ pub fn get_vault_info(vault_key: Pubkey, data: Uint8Array) -> JsValue {
 #[wasm_bindgen]
 pub fn gen_new_secret() -> JsValue {
     let secret = Fr::rand(&mut OsRng);
-    JsValue::from_str(&to_hex(&secret))
+    JsValue::from_str(to_hex(&secret.0.0).as_str())
 }

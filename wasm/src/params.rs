@@ -1,15 +1,15 @@
-use ark_bn254::{Fr, Bn254};
-use ark_groth16::ProvingKey;
-use ark_serialize::CanonicalDeserialize;
+use ark_bn254::Fr;
 use num_bigint::BigUint;
+use borsh::BorshDeserialize;
+use serde::{Serialize, Deserialize};
+use rust_embed::RustEmbed;
 use soda_maze_program::params::HEIGHT;
 use soda_maze_lib::vanilla::hasher::FieldHasher;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use serde::{Serialize, Deserialize};
-use rust_embed::RustEmbed;
+use soda_maze_keys::MazeProvingKey;
 
 #[derive(RustEmbed)]
 #[folder = "resources/"]
@@ -41,14 +41,14 @@ pub fn get_encryption_const_params() -> EncryptionConstParams<Fr, PoseidonHasher
     }
 }
 
-pub fn get_deposit_pk() -> ProvingKey<Bn254> {
+pub fn get_deposit_pk() -> MazeProvingKey {
     let params = Params::get("pk-deposit").unwrap();
-    CanonicalDeserialize::deserialize(params.data.as_ref()).expect("failed to caninical deserialize pk-deposit")
+    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("failed to deserialize pk-deposit")
 }
 
-pub fn get_withdraw_pk() -> ProvingKey<Bn254> {
+pub fn get_withdraw_pk() -> MazeProvingKey {
     let params = Params::get("pk-withdraw").unwrap();
-    CanonicalDeserialize::deserialize(params.data.as_ref()).expect("failed to caninical deserialize pk-withdraw")
+    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("failed to deserialize pk-withdraw")
 }
 
 pub fn get_deposit_const_params(params: EncryptionConstParams<Fr, PoseidonHasher<Fr>>) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {

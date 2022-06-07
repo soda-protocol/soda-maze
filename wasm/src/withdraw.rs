@@ -127,7 +127,7 @@ pub fn gen_withdraw_proof(
         withdraw_amount,
         src_leaf_index,
         dst_leaf_index,
-        secret: from_hex(secret),
+        secret: Fr::new(BigInteger256::new(from_hex(secret))),
         src_friend_nodes,
         dst_friend_nodes,
     };
@@ -135,6 +135,7 @@ pub fn gen_withdraw_proof(
     let withdraw_const_params = get_withdraw_const_params();
 
     let pk = get_withdraw_pk();
+    let pk = pk.into();
 
     log("Generating vanilla proof...");
 

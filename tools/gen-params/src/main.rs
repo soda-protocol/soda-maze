@@ -1,9 +1,8 @@
-use std::fs::OpenOptions;
-use std::path::PathBuf;
+use std::{fs::OpenOptions, path::PathBuf, io::Write};
+use borsh::BorshSerialize;
 use ark_ff::PrimeField;
 use ark_ec::AffineCurve;
 use ark_groth16::PreparedVerifyingKey;
-use ark_serialize::{CanonicalSerialize, Write};
 use ark_crypto_primitives::snark::*;
 use rand_core::{CryptoRng, RngCore, SeedableRng, OsRng};
 use rand_xorshift::XorShiftRng;
@@ -17,6 +16,7 @@ use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, biguint_to_biguint_array};
+use soda_maze_keys::{MazeProvingKey, MazeVerifyingKey};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
@@ -54,7 +54,7 @@ fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
         .expect("failed to write to file");
 }
 
-fn write_to_file<Se: CanonicalSerialize>(path: &PathBuf, data: &Se) {
+fn write_to_file<Se: BorshSerialize>(path: &PathBuf, data: &Se) {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -360,11 +360,14 @@ fn main() {
             let (pk, vk) =
                 DepositInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
 
-            write_to_file(&pk_path, &pk);
-            write_to_file(&vk_path, &vk);
-
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
             write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
+
+            let pk = MazeProvingKey::from(pk);
+            let vk = MazeVerifyingKey::from(vk);
+
+            write_to_file(&pk_path, &pk);
+            write_to_file(&vk_path, &vk);
         }
         Opt::SetupWithdraw {
             height,
@@ -379,11 +382,14 @@ fn main() {
             let (pk, vk) =
                 WithdrawInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
 
-            write_to_file(&pk_path, &pk);
-            write_to_file(&vk_path, &vk);
-
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
             write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
+
+            let pk = MazeProvingKey::from(pk);
+            let vk = MazeVerifyingKey::from(vk);
+            
+            write_to_file(&pk_path, &pk);
+            write_to_file(&vk_path, &vk);
         }
     }
 }
