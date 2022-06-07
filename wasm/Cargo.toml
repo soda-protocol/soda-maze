@@ -9,9 +9,9 @@ rand_core = { path = "./rand_core-0.6.3" }
 
 [dependencies]
 borsh = "0.9.3"
-ark-ff = { version = "0.3.0", optional = true }
-ark-std = { version = "0.3.0", optional = true }
-ark-bn254 = { version = "0.3.0", optional = true }
+ark-ff = "0.3.0"
+ark-std = "0.3.0"
+ark-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", optional = true }
 num-bigint = "0.4.3"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
@@ -24,7 +24,7 @@ wasm-bindgen = { version = "0.2.76", features = ["serde-serialize"] }
 js-sys = "0.3.53"
 rust-embed = "6.4.0"
 console_error_panic_hook = "0.1.6"
-soda-maze-lib = { path = "../lib", optional = true }
+soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
 soda-maze-keys = { path = "../keys", optional = true }
 
@@ -39,11 +39,4 @@ crate-type = ["cdylib", "rlib"]
 opt-level = 3
 
 [features]
-default = [
-    "ark-ff/default",
-    "ark-std/default",
-    "ark-bn254/default",
-    "ark-groth16/std",
-    "soda-maze-lib/default",
-    "soda-maze-keys/default",
-]
+default = ["ark-groth16/std", "soda-maze-keys/default"]

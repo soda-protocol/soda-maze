@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.56"
-ark-r1cs-std = { version = "0.3.1", optional = true }
-arkworks-gadgets = { version = "0.4.20", optional = true }
-arkworks-utils = { version = "0.4.20", optional = true }
-ark-ff = { version = "0.3.0", optional = true }
-ark-relations = { version = "0.3.0", optional = true }
-ark-ec = { version = "0.3.0", optional = true }
-ark-std = { version = "0.3.0", optional = true }
-ark-crypto-primitives = { version = "0.3.0", optional = true }
+ark-r1cs-std = "0.3.1"
+arkworks-gadgets = "0.4.20"
+arkworks-utils = "0.4.20"
+ark-ff = "0.3.0"
+ark-relations = "0.3.0"
+ark-ec = "0.3.0"
+ark-std = "0.3.0"
+ark-crypto-primitives = "0.3.0"
 bitvec = "1.0.0"
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
@@ -25,34 +25,3 @@ lazy_static = "1.4.0"
 [dev-dependencies]
 ark-bn254 = "0.3.0"
 rand_core = { version = "0.6.3", features = ["std"] }
-
-[features]
-default = [
-    "ark-r1cs-std/default",
-    "arkworks-gadgets/default",
-    "arkworks-utils/default",
-    "ark-ff/default",
-    "ark-relations/default",
-    "ark-ec/default",
-    "ark-std/default",
-    "ark-crypto-primitives/default",
-]
-std = [
-    "ark-r1cs-std/std",
-    "arkworks-gadgets/std",
-    "arkworks-utils/std",
-    "ark-ff/std",
-    "ark-relations/std",
-    "ark-ec/std",
-    "ark-std/std",
-    "ark-crypto-primitives/std",
-]
-parallel = [
-    "ark-r1cs-std/parallel",
-    "arkworks-gadgets/parallel",
-    "arkworks-utils/parallel",
-    "ark-ff/parallel",
-    "ark-ec/parallel",
-    "ark-std/parallel",
-    "ark-crypto-primitives/parallel",
-]
