@@ -1,6 +1,6 @@
 use std::ops::Neg;
 use borsh::{BorshSerialize, BorshDeserialize};
-use num_traits::One;
+use num_traits::{One, Zero};
 
 use crate::params::{bn::{*, Bn254Parameters as BnParameters}, verify::PreparedVerifyingKey};
 use crate::bn::{BnParameters as Bn, TwistType, Field, doubling_step, addition_step, mul_by_char};
@@ -86,50 +86,60 @@ impl MillerLoop {
                     self.step = ComputeStep::Step1;
                 }
                 ComputeStep::Step1 => {
-                    if used_units + 155000 >= MAX_UNITS {
-                        break;
+                    if !self.proof.a.is_zero() && !self.proof.b.is_zero() {
+                        if used_units + 155000 >= MAX_UNITS {
+                            break;
+                        }
+                        let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
+                        ell(&mut self.f, &coeff, &self.proof.a);
+                        used_units += 155000;
                     }
-                    let coeff = doubling_step(&mut self.r, FQ_TWO_INV);
-                    ell(&mut self.f, &coeff, &self.proof.a);
-                    used_units += 155000;
-                    self.step = ComputeStep::Step2;
+                    self.step = ComputeStep::Step2
                 }
                 ComputeStep::Step2 => {
-                    if used_units + 90000 >= MAX_UNITS {
-                        break;
+                    if !self.prepared_input.is_zero() && !pvk.gamma_g2_neg_pc.is_zero() {
+                        if used_units + 90000 >= MAX_UNITS {
+                            break;
+                        }
+                        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+                        used_units += 90000;
                     }
-                    ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
-                    used_units += 90000;
                     self.step = ComputeStep::Step3;
                 }
                 ComputeStep::Step3 => {
-                    if used_units + 90000 >= MAX_UNITS {
-                        break;
+                    if !self.proof.c.is_zero() && !pvk.delta_g2_neg_pc.is_zero() {
+                        if used_units + 90000 >= MAX_UNITS {
+                            break;
+                        }
+                        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+                        self.coeff_index += 1;
+                        used_units += 90000;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
-                    self.coeff_index += 1;
-                    used_units += 90000;
                     self.step = ComputeStep::Step4;
                 }
                 ComputeStep::Step4 => {
                     let bit = ate_loop_count_inv[self.ate_index as usize];
                     match bit {
                         1 => {
-                            if used_units + 155000 >= MAX_UNITS {
-                                break;
+                            if !self.proof.a.is_zero() && !self.proof.b.is_zero() {
+                                if used_units + 155000 >= MAX_UNITS {
+                                    break;
+                                }
+                                let coeff = addition_step(&mut self.r, &self.proof.b);
+                                ell(&mut self.f, &coeff, &self.proof.a);
+                                used_units += 155000;
                             }
-                            let coeff = addition_step(&mut self.r, &self.proof.b);
-                            ell(&mut self.f, &coeff, &self.proof.a);
-                            used_units += 155000;
                             self.step = ComputeStep::Step5;
                         },
                         -1 => {
-                            if used_units + 155000 >= MAX_UNITS {
-                                break;
+                            if !self.proof.a.is_zero() && !self.proof.b.is_zero() {
+                                if used_units + 155000 >= MAX_UNITS {
+                                    break;
+                                }
+                                let coeff = addition_step(&mut self.r, &self.proof_b_neg);
+                                ell(&mut self.f, &coeff, &self.proof.a);
+                                used_units += 155000;
                             }
-                            let coeff = addition_step(&mut self.r, &self.proof_b_neg);
-                            ell(&mut self.f, &coeff, &self.proof.a);
-                            used_units += 155000;
                             self.step = ComputeStep::Step5;
                         },
                         _ => {
@@ -150,20 +160,24 @@ impl MillerLoop {
                     self.ate_index += 1;
                 }
                 ComputeStep::Step5 => {
-                    if used_units + 90000 >= MAX_UNITS {
-                        break;
+                    if !self.prepared_input.is_zero() && !pvk.gamma_g2_neg_pc.is_zero() {
+                        if used_units + 90000 >= MAX_UNITS {
+                            break;
+                        }
+                        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+                        used_units += 90000;
                     }
-                    ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
-                    used_units += 90000;
                     self.step = ComputeStep::Step6;
                 }
                 ComputeStep::Step6 => {
-                    if used_units + 90000 >= MAX_UNITS {
-                        break;
+                    if !self.proof.c.is_zero() && !pvk.delta_g2_neg_pc.is_zero() {
+                        if used_units + 90000 >= MAX_UNITS {
+                            break;
+                        }
+                        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+                        self.coeff_index += 1;
+                        used_units += 90000;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
-                    self.coeff_index += 1;
-                    used_units += 90000;
 
                     if (self.ate_index as usize) >= ate_loop_count_inv.len() - 1 {
                         // in Finalize
@@ -207,16 +221,28 @@ impl MillerLoopFinalize {
 
         q2.y = -q2.y;
 
-        let coeff = addition_step(&mut self.r, &q1);
-        ell(&mut self.f, &coeff, &self.proof.a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+        if !self.proof.a.is_zero() && !self.proof.b.is_zero() {
+            let coeff = addition_step(&mut self.r, &q1);
+            ell(&mut self.f, &coeff, &self.proof.a);
+        }
+        if !self.prepared_input.is_zero() && !pvk.gamma_g2_neg_pc.is_zero() {
+            ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+        }
+        if !self.proof.c.is_zero() && !pvk.delta_g2_neg_pc.is_zero() {
+            ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+        }
         self.coeff_index += 1;
 
-        let coeff = addition_step(&mut self.r, &q2);
-        ell(&mut self.f, &coeff, &self.proof.a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+        if !self.proof.a.is_zero() && !self.proof.b.is_zero() {
+            let coeff = addition_step(&mut self.r, &q2);
+            ell(&mut self.f, &coeff, &self.proof.a);
+        }
+        if !self.prepared_input.is_zero() && !pvk.gamma_g2_neg_pc.is_zero() {
+            ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+        }
+        if !self.proof.c.is_zero() && !pvk.delta_g2_neg_pc.is_zero() {
+            ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
+        }
 
         Program::FinalExponentEasyPart(FinalExponentEasyPart::new(self.f))
     }

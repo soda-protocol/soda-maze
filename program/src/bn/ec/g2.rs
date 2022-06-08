@@ -1,4 +1,3 @@
-
 use borsh::{BorshSerialize, BorshDeserialize};
 
 use crate::bn::{Fp2, Field};
@@ -7,8 +6,20 @@ use super::{BnParameters, ModelParameters, GroupAffine, GroupProjective, TwistTy
 
 pub type G2Affine<P> = GroupAffine<<P as BnParameters>::G2Parameters>;
 pub type G2Projective<P> = GroupProjective<<P as BnParameters>::G2Parameters>;
+pub type EllCoeff<F> = (F, F, F);
 
-pub(crate) type EllCoeff<F> = (F, F, F);
+#[derive(Clone, Copy)]
+pub struct G2Prepared<'a, F> {
+    pub ell_coeffs: &'a [EllCoeff<F>],
+    pub infinity: bool,
+}
+
+impl<'a, F> G2Prepared<'a, F> {
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.infinity
+    }
+}
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct G2HomProjective<P: BnParameters> {
