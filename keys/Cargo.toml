@@ -14,5 +14,4 @@ ark-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", default-features = false }
 
 [features]
-default = []
-parallel = ["ark-groth16/parallel"]
+default = ["ark-groth16/parallel"]
