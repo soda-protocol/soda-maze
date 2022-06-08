@@ -124,6 +124,11 @@ impl G2Affine254 {
     }
 }
 
+pub struct G2Prepared254<'a> {
+    pub ell_coeffs: &'a [EllCoeff<Fq2>],
+    pub infinity: bool,
+}
+
 pub type EllCoeffFq2 = EllCoeff<Fq2>;
 
 pub type Fqk254 = Fqk<Bn254Parameters>;

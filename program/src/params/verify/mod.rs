@@ -3,7 +3,7 @@ pub mod pvk_withdraw;
 
 use borsh::{BorshSerialize, BorshDeserialize};
 
-use crate::params::bn::{G1Projective254, G1Affine254, EllCoeffFq2, Fqk254};
+use crate::params::bn::{G1Projective254, G1Affine254, G2Prepared254, Fqk254};
 
 const DEPOSIT_INPUTS: usize = 37;
 
@@ -16,9 +16,9 @@ pub struct PreparedVerifyingKey<'a> {
     /// The element `e(alpha * G, beta * H)` in `E::GT`.
     pub alpha_g1_beta_g2: &'a Fqk254,
     /// The element `- gamma * H` in `E::G2`, prepared for use in pairings.
-    pub gamma_g2_neg_pc: &'a [EllCoeffFq2],
+    pub gamma_g2_neg_pc: &'a G2Prepared254<'a>,
     /// The element `- delta * H` in `E::G2`, prepared for use in pairings.
-    pub delta_g2_neg_pc: &'a [EllCoeffFq2],
+    pub delta_g2_neg_pc: &'a G2Prepared254<'a>,
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]

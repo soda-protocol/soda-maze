@@ -98,7 +98,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+                    ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
                     used_units += 90000;
                     self.step = ComputeStep::Step3;
                 }
@@ -106,7 +106,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
                     self.coeff_index += 1;
                     used_units += 90000;
                     self.step = ComputeStep::Step4;
@@ -153,7 +153,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
+                    ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
                     used_units += 90000;
                     self.step = ComputeStep::Step6;
                 }
@@ -161,7 +161,7 @@ impl MillerLoop {
                     if used_units + 90000 >= MAX_UNITS {
                         break;
                     }
-                    ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
+                    ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
                     self.coeff_index += 1;
                     used_units += 90000;
 
@@ -209,14 +209,14 @@ impl MillerLoopFinalize {
 
         let coeff = addition_step(&mut self.r, &q1);
         ell(&mut self.f, &coeff, &self.proof.a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
+        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
         self.coeff_index += 1;
 
         let coeff = addition_step(&mut self.r, &q2);
         ell(&mut self.f, &coeff, &self.proof.a);
-        ell(&mut self.f, &pvk.gamma_g2_neg_pc[self.coeff_index as usize], &self.prepared_input);
-        ell(&mut self.f, &pvk.delta_g2_neg_pc[self.coeff_index as usize], &self.proof.c);
+        ell(&mut self.f, &pvk.gamma_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.prepared_input);
+        ell(&mut self.f, &pvk.delta_g2_neg_pc.ell_coeffs[self.coeff_index as usize], &self.proof.c);
 
         Program::FinalExponentEasyPart(FinalExponentEasyPart::new(self.f))
     }
@@ -317,11 +317,11 @@ mod tests {
         )
     }
 
-    fn transform_g2_prepared(g: &[EllCoeffFq2]) -> ark_ec::bn::G2Prepared<ark_bn254::Parameters> {
+    fn transform_g2_prepared(g: &G2Prepared254) -> ark_ec::bn::G2Prepared<ark_bn254::Parameters> {
         use ark_bn254::{Fq, Fq2, Parameters};
         use ark_ec::bn::G2Prepared;
 
-        let ell_coeffs = g.iter().map(|(g1, g2, g3)| {
+        let ell_coeffs = g.ell_coeffs.iter().map(|(g1, g2, g3)| {
             (
                 Fq2::new(Fq::new(transform_biginteger(g1.c0.0)), Fq::new(transform_biginteger(g1.c1.0))),
                 Fq2::new(Fq::new(transform_biginteger(g2.c0.0)), Fq::new(transform_biginteger(g2.c1.0))),
@@ -331,7 +331,7 @@ mod tests {
 
         G2Prepared::<Parameters> {
             ell_coeffs,
-            infinity: false,
+            infinity: g.infinity,
         }
     }
 
