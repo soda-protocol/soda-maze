@@ -91,7 +91,7 @@ pub fn gen_deposit_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Generating params and datas...");
+    log("Preparing params and datas...");
 
     let ref nodes_hashes = get_default_node_hashes();
     let friend_nodes = friends.iter().enumerate().map(|(layer, friend)| {

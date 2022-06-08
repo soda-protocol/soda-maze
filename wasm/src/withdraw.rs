@@ -71,7 +71,7 @@ fn gen_withdraw_instructions(
     }).collect::<Vec<_>>();
 
     let finalize = finalize_withdraw(vault, mint, signer, pub_in.dst_leaf_index, nullifier)
-        .expect("finalize deposit failed");
+        .expect("finalize withdraw failed");
 
     Instructions {
         credential,
@@ -97,7 +97,7 @@ pub fn gen_withdraw_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Generating params and datas...");
+    log("Preparing params and datas...");
     
     let ref nodes_hashes = get_default_node_hashes();
     let src_friend_nodes = src_friends.iter().enumerate().map(|(layer, friend)| {
