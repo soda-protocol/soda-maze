@@ -97,8 +97,8 @@ pub fn gen_withdraw_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Preparing input datas...");
-
+    log("Generating params and datas...");
+    
     let ref nodes_hashes = get_default_node_hashes();
     let src_friend_nodes = src_friends.iter().enumerate().map(|(layer, friend)| {
         let data = Uint8Array::from(friend).to_vec();

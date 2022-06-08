@@ -91,7 +91,7 @@ pub fn gen_deposit_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Processing proof datas...");
+    log("Generating params and datas...");
 
     let ref nodes_hashes = get_default_node_hashes();
     let friend_nodes = friends.iter().enumerate().map(|(layer, friend)| {
@@ -104,8 +104,6 @@ pub fn gen_deposit_proof(
         }
     }).collect::<Vec<_>>();
     assert_eq!(friend_nodes.len(), HEIGHT, "invalid friends array length");
-
-    log("Processing const params...");
 
     let encryption_const_params = get_encryption_const_params();
     let encryption = {
@@ -130,8 +128,6 @@ pub fn gen_deposit_proof(
         friend_nodes,
         encryption,
     };
-    
-    log("Processing pk...");
 
     let pk = get_deposit_pk();
     let pk = pk.into();
