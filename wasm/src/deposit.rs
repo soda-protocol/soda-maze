@@ -23,7 +23,7 @@ type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadge
 fn gen_deposit_instructions(
     vault: Pubkey,
     mint: Pubkey,
-    signer: Pubkey,
+    owner: Pubkey,
     proof: Proof<Bn254>,
     pub_in: DepositPublicInputs<Fr>,
 ) -> Instructions {
@@ -32,11 +32,13 @@ fn gen_deposit_instructions(
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
     
+    let reset = reset_deposit_buffer_accounts(vault, owner).expect("reset deposit buffer accounts failed");
+
     let leaf = BigInteger256::new(pub_in.leaf.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
         BigInteger256::new(node.into_repr().0)
     }).collect::<Vec<_>>();
-    let credential = create_deposit_credential(vault, signer, pub_in.deposit_amount, leaf, Box::new(updating_nodes))
+    let credential = create_deposit_credential(vault, owner, pub_in.deposit_amount, leaf, Box::new(updating_nodes))
         .expect("create deposit credential failed");
 
     let commitment = pub_in.encryption.unwrap().cipher_field_array.into_iter().map(|c| {
@@ -60,17 +62,18 @@ fn gen_deposit_instructions(
         ),
     };
 
-    let verifier = create_deposit_verifier(vault, signer, Box::new(commitment), Box::new(proof))
+    let verifier = create_deposit_verifier(vault, owner, Box::new(commitment), Box::new(proof))
         .expect("create deposit verifier failed");
 
     let verify = (0..210).into_iter().map(|i| {
-        verify_proof(vault, signer, vec![i as u8]).expect("verify proof failed")
+        verify_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
     }).collect::<Vec<_>>();
 
-    let finalize = finalize_deposit(vault, mint, signer, pub_in.leaf_index, leaf)
+    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf)
         .expect("finalize deposit failed");
 
     Instructions {
+        reset,
         credential,
         verifier,
         verify,
@@ -83,7 +86,7 @@ fn gen_deposit_instructions(
 pub fn gen_deposit_proof(
     vault: Pubkey,
     mint: Pubkey,
-    signer: Pubkey,
+    owner: Pubkey,
     leaf_index: u64,
     deposit_amount: u64,
     friends: Array,
@@ -100,7 +103,7 @@ pub fn gen_deposit_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.unwrap_state().0)).expect("invalid fr repr")
+            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("invalid fr repr")
         }
     }).collect::<Vec<_>>();
     assert_eq!(friend_nodes.len(), HEIGHT, "invalid friends array length");
@@ -148,7 +151,7 @@ pub fn gen_deposit_proof(
     log("Generating solana instructions...");
 
     let res = ProofResult {
-        instructions: gen_deposit_instructions(vault, mint, signer, proof, pub_in),
+        instructions: gen_deposit_instructions(vault, mint, owner, proof, pub_in),
         output: (leaf_index, deposit_amount),
     };
     JsValue::from_serde(&res).expect("serde error")

@@ -17,6 +17,7 @@ pub struct Vault {
     pub index: u64,
     pub min_deposit: u64,
     pub min_withdraw: u64,
+    pub delegate_fee: u64,
 }
 
 #[inline]
@@ -58,6 +59,7 @@ impl Vault {
         seed: [u8; 1],
         min_deposit: u64,
         min_withdraw: u64,
+        delegate_fee: u64,
     ) -> Self {
         Self {
             is_initialized: true,
@@ -70,6 +72,7 @@ impl Vault {
             index: 0,
             min_deposit,
             min_withdraw,
+            delegate_fee,
         }
     }
 
@@ -105,10 +108,14 @@ impl Vault {
     pub fn check_withdraw(&self, withdraw_amount: u64) -> ProgramResult {
         if withdraw_amount < self.min_withdraw {
             msg!("Withdraw amount is less than minimum withdraw");
-            Err(MazeError::InvalidVanillaData.into())
-        } else {
-            Ok(())
+            return Err(MazeError::InvalidVanillaData.into());
         }
+        if withdraw_amount < self.delegate_fee {
+            msg!("Withdraw amount is less than delegate fee");
+            return Err(MazeError::InvalidVanillaData.into());
+        }
+
+        Ok(())
     }
 
     #[inline]
@@ -133,5 +140,5 @@ impl IsInitialized for Vault {
 }
 
 impl Packer for Vault {
-    const LEN: usize = 1 + 1 + 32 + 32 + 32 + 1 + 32 + 8 + 8 + 8;
+    const LEN: usize = 1 + 1 + 32 + 32 + 32 + 1 + 32 + 8 + 8 + 8 + 8;
 }

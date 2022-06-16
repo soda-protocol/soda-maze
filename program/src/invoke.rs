@@ -31,7 +31,7 @@ pub fn process_rent_refund<'a>(
 pub fn process_optimal_create_account<'a>(
     rent_info: &AccountInfo<'a>,
     target_account_info: &AccountInfo<'a>,
-    signer_info: &AccountInfo<'a>,
+    payer_info: &AccountInfo<'a>,
     system_program_info: &AccountInfo<'a>,
     owner: &Pubkey,
     data_len: usize,
@@ -62,12 +62,12 @@ pub fn process_optimal_create_account<'a>(
     if required_lamports > 0 {
         invoke_optionally_signed(
             &system_instruction::transfer(
-                signer_info.key,
+                payer_info.key,
                 target_account_info.key,
                 required_lamports,
             ),
             &[
-                signer_info.clone(),
+                payer_info.clone(),
                 target_account_info.clone(),
                 system_program_info.clone(),
             ],

@@ -7,18 +7,18 @@ use super::VanillaData;
 
 pub fn get_credential_pda<'a>(
     vault: &'a Pubkey,
-    signer: &'a Pubkey,
+    owner: &'a Pubkey,
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
-    let signer_ref = signer.as_ref();
+    let owner_ref = owner.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, signer_ref],
+        &[vault_ref, owner_ref],
         program_id,
     );
 
-    (key, (vault_ref, signer_ref, [seed]))
+    (key, (vault_ref, owner_ref, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]

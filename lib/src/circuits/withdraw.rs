@@ -81,7 +81,7 @@ where
             prev_root.clone(),
         )?;
 
-        // hash new back deposit data leaf: hash(rest_amount | secret_hash)
+        // hash new back deposit data leaf: hash(leaf_index | rest_amount | secret)
         let dst_leaf = FHG::hash_gadget(
             &leaf_params,
             &[dst_leaf_index.clone(), rest_amount, secret],

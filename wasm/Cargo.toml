@@ -27,6 +27,7 @@ console_error_panic_hook = "0.1.6"
 soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
 soda-maze-keys = { path = "../keys", default-features = false }
+spl-associated-token-account = { version = "1.0.3", features = [ "no-entrypoint" ] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.26"

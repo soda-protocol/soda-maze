@@ -1,7 +1,8 @@
+use borsh::{BorshSerialize, BorshDeserialize};
+use solana_program::program_pack::IsInitialized;
 use solana_program::pubkey::Pubkey;
 
-use crate::{params::HEIGHT, state::StateWrapper};
-use crate::bn::BigInteger256 as BigInteger;
+use crate::{Packer, params::HEIGHT, bn::BigInteger256 as BigInteger};
 use super::is_fr_valid;
 
 /////////////////// Binary Merkle Tree //////////////////////////
@@ -50,4 +51,27 @@ pub fn get_merkle_node_pda<'a>(
     (key, (vault_ref, layer_bytes, index_bytes, [seed]))
 }
 
-pub type MerkleNode = StateWrapper<BigInteger, 32>;
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct MerkleNode {
+    is_initialized: bool,
+    pub hash: BigInteger,
+}
+
+impl MerkleNode {
+    pub fn new(hash: BigInteger) -> Self {
+        MerkleNode {
+            is_initialized: true,
+            hash,
+        }
+    }
+}
+
+impl IsInitialized for MerkleNode {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Packer for MerkleNode {
+    const LEN: usize = 1 + 32;
+}

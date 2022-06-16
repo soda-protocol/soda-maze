@@ -1,9 +1,11 @@
 use std::cmp::Ordering;
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::program_pack::IsInitialized;
 use solana_program::pubkey::Pubkey;
 
-use crate::bn::BigInteger256;
+use crate::Packer;
+use crate::bn::{BigInteger256, BigInteger};
 use crate::params::rabin::{RABIN_MODULUS, RABIN_MODULUS_LEN};
-use crate::{state::StateWrapper, bn::BigInteger};
 use super::is_fr_valid;
 
 pub fn is_commitment_valid(commitment: &[BigInteger256]) -> bool {
@@ -25,9 +27,30 @@ pub fn is_commitment_valid(commitment: &[BigInteger256]) -> bool {
     false
 }
 
-const COMMITMENT_LEN: usize = 4 + 32 * RABIN_MODULUS_LEN;
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+pub struct Commitment {
+    is_initialized: bool,
+    pub cipher: Box<Vec<BigInteger256>>,
+}
 
-pub type Commitment = StateWrapper<Box<Vec<BigInteger256>>, COMMITMENT_LEN>;
+impl Commitment {
+    pub fn new(cipher: Box<Vec<BigInteger256>>) -> Self {
+        Commitment {
+            is_initialized: true,
+            cipher,
+        }
+    }
+}
+
+impl IsInitialized for Commitment {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Packer for Commitment {
+    const LEN: usize = 1 + 4 + 32 * RABIN_MODULUS_LEN;
+}
 
 pub fn get_commitment_pda<'a>(
     vault: &'a Pubkey,

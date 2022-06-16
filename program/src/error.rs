@@ -21,6 +21,8 @@ pub enum MazeError {
     UnmatchedAccounts,
     #[error("Vanilla proof data is invalid")]
     InvalidVanillaData,
+    #[error("Nullifier is invalid")]
+    InvalidNullifier,
     #[error("Proof is not verified")]
     ProofNotVerified,
     #[error("Pda pubkey is invalid")]
@@ -29,14 +31,14 @@ pub enum MazeError {
     InvalidAccountOwner,
     #[error("Authority is an invalid signer")]
     InvalidAuthority,
-    #[error("Invalid context status")]
-    InvalidContextStatus,
     #[error("Failed to unpack instruction data")]
     InstructionUnpackError,
     #[error("Lamport balance below rent-exempt threshold")]
     NotRentExempt,
     #[error("Account is not initialized")]
     NotInitialized,
+    #[error("Math operation overflow")]
+    Overflow,
 }
 
 impl From<MazeError> for ProgramError {

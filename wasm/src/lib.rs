@@ -23,6 +23,7 @@ extern "C" {
 
 #[derive(Serialize, Deserialize)]
 pub struct Instructions {
+    pub reset: Instruction,
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
@@ -39,6 +40,9 @@ pub struct ProofResult {
 pub struct VaultInfo {
     pub enable: bool,
     pub index: u64,
+    pub min_deposit: u64,
+    pub min_withdraw: u64,
+    pub delegate_fee: u64,
     pub friends: Vec<Pubkey>,
 }
 
@@ -78,6 +82,9 @@ pub fn get_vault_info(vault_key: Pubkey, data: Uint8Array) -> JsValue {
     let vault_info = VaultInfo {
         enable: vault.enable,
         index: vault.index,
+        min_deposit: vault.min_deposit,
+        min_withdraw: vault.min_withdraw,
+        delegate_fee: vault.delegate_fee,
         friends,
     };
     JsValue::from_serde(&vault_info).expect("serde error")

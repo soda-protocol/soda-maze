@@ -75,7 +75,7 @@ where
     pub fn synthesize(
         self,
         cs: ConstraintSystemRef<F>,
-        leaf_index_input: FpVar<F>,
+        leaf_index: FpVar<F>,
         leaf: FpVar<F>,
         root: FpVar<F>,
     ) -> Result<()> {
@@ -104,7 +104,7 @@ where
             .iter()
             .map(|(is_left, _)| is_left.clone())
             .collect::<Vec<_>>();
-        leaf_index_input.enforce_equal(&Boolean::le_bits_to_fp_var(&index_array)?)?;
+        leaf_index.enforce_equal(&Boolean::le_bits_to_fp_var(&index_array)?)?;
         
         // old root constrain
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(

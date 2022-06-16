@@ -34,7 +34,7 @@ where
         let leaf_params = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
         
         // alloc input
-        // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
+        // amount bit size of 64 can verify in contract, so no need constrain in circuit
         let deposit_amount = FpVar::new_input(cs.clone(), || Ok(F::from(self.deposit_amount)))?;
         let leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
         let leaf_input = FpVar::new_input(cs.clone(), || Ok(self.leaf))?;

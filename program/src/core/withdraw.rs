@@ -1,5 +1,5 @@
 use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::{msg, entrypoint::ProgramResult};
+use solana_program::{msg, pubkey::Pubkey, entrypoint::ProgramResult};
 
 use crate::params::{verify::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
@@ -7,6 +7,7 @@ use super::{is_fr_valid, VanillaData, credential::Credential, node::is_updating_
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
+    pub delegator: Pubkey,
     pub withdraw_amount: u64,
     pub nullifier: BigInteger,
     pub leaf_index: u64,
@@ -16,7 +17,9 @@ pub struct WithdrawVanillaData {
 }
 
 impl WithdrawVanillaData {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        delegator: Pubkey,
         withdraw_amount: u64,
         nullifier: BigInteger,
         leaf_index: u64,
@@ -25,6 +28,7 @@ impl WithdrawVanillaData {
         updating_nodes: Box<Vec<BigInteger>>,
     ) -> Self {
         Self {
+            delegator,
             withdraw_amount,
             nullifier,
             leaf_index,
@@ -37,7 +41,7 @@ impl WithdrawVanillaData {
 
 impl VanillaData for WithdrawVanillaData {
     const PROOF_TYPE: ProofType = ProofType::Withdraw;
-    const SIZE: usize = 8 + 32 + 8 + 32 + 32 + 4 + 32 * HEIGHT;
+    const SIZE: usize = 32 + 8 + 32 + 8 + 32 + 32 + 4 + 32 * HEIGHT;
 
     fn check_valid(&self) -> ProgramResult {
         if !is_fr_valid(&self.nullifier) {

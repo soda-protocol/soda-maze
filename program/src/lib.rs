@@ -8,7 +8,6 @@ pub mod instruction;
 pub mod processor;
 pub mod core;
 pub mod params;
-pub mod state;
 pub mod invoke;
 
 solana_program::declare_id!("CxdQFBMBvymks2TQxkpR98rzETngs6kkaqvcxX36hTi9");
