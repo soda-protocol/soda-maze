@@ -381,7 +381,7 @@ mod tests {
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
-    const VAULT: Pubkey = pubkey!("HrW9kiPVD8mydeNmv29YYFMZ2nTt588MUA4wgFxijWmG");
+    const VAULT: Pubkey = pubkey!("CmjhTLYzwUA73MdRkhLzEAmueUpz4p4oJavSiESyvt7r");
 
     #[test]
     fn test_instruction() {
@@ -455,7 +455,7 @@ mod tests {
         );
         let proof = Proof { a, b, c };
 
-        // let instruction = create_vault(token_mint, signer.pubkey(), 10, 10).unwrap();
+        // let instruction = create_vault(token_mint, signer.pubkey(), 10, 10, 2).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
@@ -474,21 +474,21 @@ mod tests {
 
         // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
 
-        // let instruction = reset_buffer_accounts(VAULT, signer.pubkey()).unwrap();
+        let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..210 {
-            let blockhash = client.get_latest_blockhash().unwrap();
-            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-            let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
-            let transaction = Transaction::new_signed_with_payer(
-                &[instruction],
-                Some(&signer.pubkey()),
-                &[&signer],
-                blockhash,
-            );
-            let res = client.send_transaction(&transaction).unwrap();
-            println!("{}", res);
-        }
+        // for _ in 0..210 {
+        //     let blockhash = client.get_latest_blockhash().unwrap();
+        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        //     let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+        //     let transaction = Transaction::new_signed_with_payer(
+        //         &[instruction],
+        //         Some(&signer.pubkey()),
+        //         &[&signer],
+        //         blockhash,
+        //     );
+        //     let res = client.send_transaction(&transaction).unwrap();
+        //     println!("{}", res);
+        // }
 
         // let instruction = finalize_deposit(
         //     VAULT,
@@ -498,13 +498,13 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        // let transaction = Transaction::new_signed_with_payer(
-        //     &[instruction],
-        //     Some(&signer.pubkey()),
-        //     &[&signer],
-        //     blockhash,
-        // );
-        // let res = client.send_transaction(&transaction).unwrap();
-        // println!("{}", res);
+        let transaction = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        );
+        let res = client.send_transaction(&transaction).unwrap();
+        println!("{}", res);
     }
 }
