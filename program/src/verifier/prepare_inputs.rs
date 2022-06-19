@@ -76,8 +76,6 @@ impl PrepareInputs {
 
 #[cfg(test)]
 mod tests {
-    use solana_program::pubkey::Pubkey;
-
     use crate::params::{bn::{G1Affine254, G2Affine254, G1Projective254}, verify::{PreparedVerifyingKey, ProofType}};
     use crate::{params::bn::{Fq, Fq2}, verifier::{Proof, program::Program}};
     use crate::bn::BigInteger256 as BigInteger;
@@ -160,7 +158,7 @@ mod tests {
         deposit_data.fill_commitment(Box::new(commitment)).unwrap();
 
         let public_inputs = deposit_data.clone().to_public_inputs();
-        let verifier = deposit_data.to_verifier(Pubkey::default(), Box::new(proof));
+        let verifier = deposit_data.to_verifier(Box::new(proof));
 
         (public_inputs, verifier.program)
     }

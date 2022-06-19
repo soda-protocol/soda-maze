@@ -9,7 +9,6 @@ pub mod credential;
 use std::fmt::Debug;
 use borsh::{BorshSerialize, BorshDeserialize};
 use solana_program::entrypoint::ProgramResult;
-use solana_program::pubkey::Pubkey;
 
 use crate::bn::{BigInteger256 as BigInteger, FpParameters};
 use crate::params::bn::FrParameters;
@@ -31,11 +30,7 @@ pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
 
     fn to_public_inputs(self) -> Box<Vec<BigInteger>>;
 
-    fn to_verifier(
-        self,
-        credential: Pubkey,
-        proof: Box<Proof>,
-    ) -> Verifier {
+    fn to_verifier(self, proof: Box<Proof>) -> Verifier {
         let public_inputs = self.to_public_inputs();
         let program = Program::PrepareInputs(PrepareInputs::new(
             Self::PVK,
@@ -43,6 +38,6 @@ pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
             proof,
         ));
 
-        Verifier::new(Self::PROOF_TYPE, credential, program)
+        Verifier::new(Self::PROOF_TYPE, program)
     }
 }

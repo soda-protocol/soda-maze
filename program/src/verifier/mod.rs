@@ -36,7 +36,6 @@ pub fn get_verifier_pda<'a>(
 pub struct Verifier {
     pub is_initialized: bool,
     pub proof_type: ProofType,
-    pub credential: Pubkey,
     pub program: Program,
 }
 
@@ -51,11 +50,10 @@ impl Packer for Verifier {
 }
 
 impl Verifier {
-    pub fn new(proof_type: ProofType, credential: Pubkey, program: Program) -> Self {
+    pub fn new(proof_type: ProofType, program: Program) -> Self {
         Self {
             is_initialized: true,
             proof_type,
-            credential,
             program,
         }
     }
@@ -67,7 +65,6 @@ impl Verifier {
         Self {
             is_initialized: self.is_initialized,
             proof_type: self.proof_type,
-            credential: self.credential,
             program,
         }
     }

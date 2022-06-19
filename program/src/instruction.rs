@@ -369,8 +369,11 @@ pub fn reset_withdraw_buffer_accounts(
 
 #[cfg(test)]
 mod tests {
-    use solana_program::pubkey::Pubkey;
-    use solana_sdk::{transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel}, signature::Keypair, signer::Signer, pubkey};
+    use solana_program::{pubkey::Pubkey, instruction::Instruction};
+    use solana_sdk::{
+        transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel},
+        signature::Keypair, signer::Signer, pubkey, compute_budget::{self, ComputeBudgetInstruction},
+    };
     use solana_client::rpc_client::RpcClient;
     use rand_core::{OsRng, RngCore};
     use ark_std::UniformRand;
@@ -472,23 +475,25 @@ mod tests {
         //     Box::new(proof),
         // ).unwrap();
 
-        // let instruction = verify_proof(VAULT, signer.pubkey()).unwrap();
+        // let instruction = verify_proof(VAULT, signer.pubkey(), vec![1]).unwrap();
 
-        let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
+        // let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        // for _ in 0..210 {
-        //     let blockhash = client.get_latest_blockhash().unwrap();
-        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-        //     let instruction = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
-        //     let transaction = Transaction::new_signed_with_payer(
-        //         &[instruction],
-        //         Some(&signer.pubkey()),
-        //         &[&signer],
-        //         blockhash,
-        //     );
-        //     let res = client.send_transaction(&transaction).unwrap();
-        //     println!("{}", res);
-        // }
+        for _ in 0..210 {
+            let blockhash = client.get_latest_blockhash().unwrap();
+            let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
+            let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
+            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+            let instruction_2 = verify_proof(VAULT, signer.pubkey(), padding).unwrap();
+            let transaction = Transaction::new_signed_with_payer(
+                &[instruction_1, instruction_2],
+                Some(&signer.pubkey()),
+                &[&signer],
+                blockhash,
+            );
+            let res = client.send_transaction(&transaction).unwrap();
+            println!("{:?}", res);
+        }
 
         // let instruction = finalize_deposit(
         //     VAULT,
@@ -498,13 +503,13 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        let transaction = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&signer.pubkey()),
-            &[&signer],
-            blockhash,
-        );
-        let res = client.send_transaction(&transaction).unwrap();
-        println!("{}", res);
+        // let transaction = Transaction::new_signed_with_payer(
+        //     &[instruction],
+        //     Some(&signer.pubkey()),
+        //     &[&signer],
+        //     blockhash,
+        // );
+        // let res = client.send_transaction(&transaction).unwrap();
+        // println!("{}", res);
     }
 }

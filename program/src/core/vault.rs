@@ -7,7 +7,7 @@ use crate::{params::root::DEFAULT_ROOT_HASH, Packer, error::MazeError};
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct Vault {
-    pub is_initialized: bool,
+    is_initialized: bool,
     pub enable: bool,
     pub admin: Pubkey,
     pub token_account: Pubkey,
