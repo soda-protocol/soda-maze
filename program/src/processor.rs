@@ -53,7 +53,8 @@ pub fn process_instruction(
         MazeInstruction::CreateWithdrawVerifier {
             proof,
         } => process_create_withdraw_verifier(program_id, accounts, proof),
-        MazeInstruction::VerifyProof => process_verify_proof(program_id, accounts),
+        MazeInstruction::VerifyDepositProof => process_verify_deposit_proof(program_id, accounts),
+        MazeInstruction::VerifyWithdrawProof => process_verify_withdraw_proof(program_id, accounts),
         MazeInstruction::FinalizeDeposit => process_finalize_deposit(program_id, accounts),
         MazeInstruction::FinalizeWithdraw => process_finalize_withdraw(program_id, accounts),
         MazeInstruction::ResetDepositAccounts => process_reset_deposit_buffer_accounts(program_id, accounts),
@@ -352,7 +353,43 @@ fn process_create_withdraw_verifier(
     verifier.initialize_to_account_info(verifier_info)
 }
 
-pub fn process_verify_proof(
+fn process_verify_deposit_proof(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    msg!("Verifying proof");
+
+    let accounts_iter = &mut accounts.iter();
+
+    let vault_info = next_account_info(accounts_iter)?;
+    let credential_info = next_account_info(accounts_iter)?;
+    let verifier_info = next_account_info(accounts_iter)?;
+
+    let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
+    vault.check_enable()?;
+
+    let credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
+    if &credential.vault != vault_info.key {
+        msg!("Vault in credential is invalid");
+        return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    // check consistency
+    vault.check_consistency(credential.vanilla_data.leaf_index, &credential.vanilla_data.prev_root)?;
+
+    let (verifier_key, _) = get_verifier_pda(
+        credential_info.key,
+        program_id,
+    );
+    if verifier_info.key != &verifier_key {
+        msg!("Verifier pubkey is invalid");
+        return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
+    let verifier = verifier.process();
+    verifier.pack_to_account_info(verifier_info)
+}
+
+fn process_verify_withdraw_proof(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
@@ -758,7 +795,7 @@ fn process_reset_withdraw_buffer_accounts(
 /////////////////////////////////////////////////// admin authority ///////////////////////////////////////////////////
 
 #[inline(never)]
-pub fn process_create_vault(
+fn process_create_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     min_deposit: u64,
