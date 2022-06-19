@@ -66,7 +66,7 @@ fn gen_deposit_instructions(
         .expect("create deposit verifier failed");
 
     let verify = (0..210).into_iter().map(|i| {
-        verify_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
+        verify_deposit_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
     }).collect::<Vec<_>>();
 
     let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf)

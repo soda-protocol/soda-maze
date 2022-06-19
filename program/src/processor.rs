@@ -1,7 +1,6 @@
 use borsh::BorshDeserialize;
-use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}, program_pack::Pack};
+use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
 use solana_program::entrypoint::ProgramResult;
-use spl_token::state::Account;
 
 use crate::{
     Packer,
@@ -565,15 +564,18 @@ fn process_finalize_withdraw(
 
     let system_program_info = next_account_info(accounts_iter)?;
     let token_program_info = next_account_info(accounts_iter)?;
+    let spl_associated_program_info = next_account_info(accounts_iter)?;
     let rent_info = next_account_info(accounts_iter)?;
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
     let nullifier_info = next_account_info(accounts_iter)?;
+    let token_mint_info = next_account_info(accounts_iter)?;
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let dst_token_account_info = next_account_info(accounts_iter)?;
     let delegator_token_account_info = next_account_info(accounts_iter)?;
     let vault_signer_info = next_account_info(accounts_iter)?;
+    let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
@@ -590,6 +592,10 @@ fn process_finalize_withdraw(
     let credential = WithdrawCredential::unpack_from_account_info(credential_info, program_id)?;
     if &credential.vault != vault_info.key {
         msg!("Vault in credential is invalid");
+        return Err(MazeError::UnmatchedAccounts.into());
+    }
+    if &credential.owner != owner_info.key {
+        msg!("Owner in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
     if &credential.vanilla_data.delegator != delegator_info.key {
@@ -634,12 +640,6 @@ fn process_finalize_withdraw(
     nullifier.used = true;
     nullifier.pack_to_account_info(nullifier_info)?;
 
-    let dst_token_account = Account::unpack(&dst_token_account_info.try_borrow_data()?)?;
-    if dst_token_account.owner != credential.owner {
-        msg!("Destination token account owner is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
-    }
-
     let merkle_path = gen_merkle_path_from_leaf_index(vault.index);
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
     let new_root = merkle_nodes.pop().unwrap();
@@ -676,6 +676,17 @@ fn process_finalize_withdraw(
     vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
+    process_create_associated_token_account(
+        rent_info,
+        token_mint_info,
+        dst_token_account_info,
+        delegator_info,
+        owner_info,
+        token_program_info,
+        system_program_info,
+        spl_associated_program_info,
+        &[],
+    )?;
     let withdraw_amount = credential.vanilla_data.withdraw_amount
         .checked_sub(vault.delegate_fee)
         .ok_or(MazeError::Overflow)?;
