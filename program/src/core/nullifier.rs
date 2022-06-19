@@ -27,7 +27,7 @@ impl IsInitialized for Nullifier {
 }
 
 impl Packer for Nullifier {
-    const LEN: usize = 1 + 1;
+    const LEN: usize = 1 + 32 + 1;
 }
 
 pub fn get_nullifier_pda<'a>(
