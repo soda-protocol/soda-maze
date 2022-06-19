@@ -88,7 +88,7 @@ fn gen_withdraw_instructions(
         .expect("create withdraw verifier failed");
 
     let verify = (0..170).into_iter().map(|i| {
-        verify_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
+        verify_withdraw_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
     }).collect::<Vec<_>>();
 
     let token_account = spl_associated_token_account::instruction::create_associated_token_account(
