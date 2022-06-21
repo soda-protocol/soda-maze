@@ -446,6 +446,10 @@ fn process_finalize_deposit(
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let owner_info = next_account_info(accounts_iter)?;
 
+    if !owner_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
         msg!("Token account in vault is invalid");
@@ -461,9 +465,6 @@ fn process_finalize_deposit(
     if &credential.owner != owner_info.key {
         msg!("Owner in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
-    }
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
     }
     vault.check_consistency(credential.vanilla_data.leaf_index, &credential.vanilla_data.prev_root)?;
 
@@ -578,6 +579,10 @@ fn process_finalize_withdraw(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
+    if !delegator_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
         msg!("Token account in vault is invalid");
@@ -601,9 +606,6 @@ fn process_finalize_withdraw(
     if &credential.vanilla_data.delegator != delegator_info.key {
         msg!("Delegator in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
-    }
-    if !delegator_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
     }
     // check if leaf index and root is matched
     vault.check_consistency(credential.vanilla_data.leaf_index, &credential.vanilla_data.prev_root)?;
