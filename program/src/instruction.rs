@@ -338,6 +338,7 @@ pub fn finalize_withdraw(
         AccountMeta::new(user_token_account, false),
         AccountMeta::new(delegator_token_account, false),
         AccountMeta::new_readonly(vault_signer, false),
+        AccountMeta::new(owner, false),
         AccountMeta::new(delegator, true),
     ];
     accounts.extend(nodes_accounts);
@@ -399,6 +400,7 @@ mod tests {
         transaction::Transaction, commitment_config::{CommitmentConfig, CommitmentLevel},
         signature::Keypair, signer::Signer, pubkey, compute_budget::{self, ComputeBudgetInstruction},
     };
+    use solana_address_lookup_table_program::instruction::create_lookup_table;
     use solana_client::rpc_client::RpcClient;
     use rand_core::{OsRng, RngCore};
     use ark_std::UniformRand;
@@ -410,6 +412,11 @@ mod tests {
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
     const VAULT: Pubkey = pubkey!("BW3Dxk7G5QZHcJZ7GUHaKVqd5J5aPoEXW4wxqUedBS9H");
+
+    #[test]
+    fn test_create_lookup_table() {
+
+    }
 
     #[test]
     fn test_instruction() {

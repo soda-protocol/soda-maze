@@ -25,6 +25,7 @@ ark-bn254 = "0.3.0"
 solana-program-test = "1.10.25"
 solana-sdk = "1.10.25"
 solana-client = "1.10.25"
+solana-address-lookup-table-program = "1.10.25"
 
 [lib]
 crate-type = ["cdylib", "lib"]

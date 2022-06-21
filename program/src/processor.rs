@@ -1,6 +1,7 @@
 use borsh::BorshDeserialize;
-use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
+use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}, program_pack::Pack};
 use solana_program::entrypoint::ProgramResult;
+use spl_token::state::Account;
 
 use crate::{
     Packer,
@@ -23,6 +24,7 @@ use crate::{
         process_rent_refund,
         process_optimal_create_account,
         process_create_associated_token_account,
+        process_transfer,
     },
 };
 
@@ -564,13 +566,11 @@ fn process_finalize_withdraw(
 
     let system_program_info = next_account_info(accounts_iter)?;
     let token_program_info = next_account_info(accounts_iter)?;
-    let spl_associated_program_info = next_account_info(accounts_iter)?;
     let rent_info = next_account_info(accounts_iter)?;
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
     let nullifier_info = next_account_info(accounts_iter)?;
-    let token_mint_info = next_account_info(accounts_iter)?;
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let dst_token_account_info = next_account_info(accounts_iter)?;
     let delegator_token_account_info = next_account_info(accounts_iter)?;
@@ -633,12 +633,14 @@ fn process_finalize_withdraw(
         msg!("Nullifier is not used");
         return Err(MazeError::InvalidNullifier.into());
     }
-    if &nullifier.owner != &credential.owner {
-        msg!("Nullifier owners are not matched");
-        return Err(MazeError::InvalidNullifier.into());
-    }
     nullifier.used = true;
     nullifier.pack_to_account_info(nullifier_info)?;
+
+    let dst_token_account = Account::unpack(&dst_token_account_info.try_borrow_data()?)?;
+    if &dst_token_account.owner != owner_info.key {
+        msg!("Destination token account owner is invalid");
+        return Err(MazeError::UnmatchedAccounts.into());
+    }
 
     let merkle_path = gen_merkle_path_from_leaf_index(vault.index);
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
@@ -676,17 +678,6 @@ fn process_finalize_withdraw(
     vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
-    process_create_associated_token_account(
-        rent_info,
-        token_mint_info,
-        dst_token_account_info,
-        delegator_info,
-        owner_info,
-        token_program_info,
-        system_program_info,
-        spl_associated_program_info,
-        &[],
-    )?;
     let withdraw_amount = credential.vanilla_data.withdraw_amount
         .checked_sub(vault.delegate_fee)
         .ok_or(MazeError::Overflow)?;
@@ -714,7 +705,9 @@ fn process_finalize_withdraw(
     // clear credential
     process_rent_refund(credential_info, delegator_info);
 
-    Ok(())
+    // transfer sol as fee from delegator to owner
+    const FEE: u64 = 10_000_000;
+    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)
 }
 
 fn process_reset_deposit_buffer_accounts(

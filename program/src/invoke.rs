@@ -26,6 +26,21 @@ pub fn process_rent_refund<'a>(
     **from_info.lamports.borrow_mut() = 0;
 }
 
+#[inline]
+pub fn process_transfer<'a>(
+    from_info: &AccountInfo<'a>,
+    to_info: &AccountInfo<'a>,
+    system_program_info: &AccountInfo<'a>,
+    signer_seeds: &[&[u8]],
+    lamports: u64,
+) -> ProgramResult {
+    invoke_optionally_signed(
+        &system_instruction::transfer(from_info.key, to_info.key, lamports),
+        &[from_info.clone(), to_info.clone(), system_program_info.clone()],
+        signer_seeds,
+    )
+}
+
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 pub fn process_optimal_create_account<'a>(
