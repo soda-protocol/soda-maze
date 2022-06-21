@@ -77,7 +77,7 @@ impl Program {
                 Err(MazeError::ProofNotVerified.into())
             }
         } else {
-            msg!("Proof Not Finished");
+            msg!("Proof Unfinished");
             Err(MazeError::ProofNotVerified.into())
         }
     }

@@ -36,16 +36,6 @@ pub struct ProofResult {
     pub output: (u64, u64),
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct VaultInfo {
-    pub enable: bool,
-    pub index: u64,
-    pub min_deposit: u64,
-    pub min_withdraw: u64,
-    pub delegate_fee: u64,
-    pub friends: Vec<Pubkey>,
-}
-
 fn to_hex<Se: BorshSerialize>(data: &Se) -> String {
     let buf = data.try_to_vec().expect("serialize failed");
     hex::encode(buf)
@@ -57,41 +47,40 @@ pub fn from_hex<De: BorshDeserialize>(s: String) -> De {
 }
 
 #[wasm_bindgen]
-pub fn get_vault_info(vault_key: Pubkey, data: Uint8Array) -> JsValue {
+pub fn get_vault_info(data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault_data = data.to_vec();
     let vault = Vault::unpack(&vault_data)
         .expect("vault data can not unpack");
+    JsValue::from_serde(&vault).expect("serde error")
+}
 
-    let friends = (0..HEIGHT)
+#[wasm_bindgen]
+pub fn get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: u64) -> JsValue {
+    console_error_panic_hook::set_once();
+
+    let neighbors = (0..HEIGHT)
         .into_iter()
         .map(|layer| {
-            let index = vault.index >> layer;
+            let index = leaf_index >> layer;
             let (layer, index) = if index % 2 == 0 {
                 (layer as u8, index + 1)
             } else {
                 (layer as u8, index - 1)
             };
-            let (friend, _) = get_merkle_node_pda(&vault_key, layer, index, &ID);
+            let (neighbor, _) = get_merkle_node_pda(&vault_key, layer, index, &ID);
             
-            friend
+            neighbor
         })
         .collect::<Vec<_>>();
-
-    let vault_info = VaultInfo {
-        enable: vault.enable,
-        index: vault.index,
-        min_deposit: vault.min_deposit,
-        min_withdraw: vault.min_withdraw,
-        delegate_fee: vault.delegate_fee,
-        friends,
-    };
-    JsValue::from_serde(&vault_info).expect("serde error")
+    JsValue::from_serde(&neighbors).expect("serde error")
 }
 
 #[wasm_bindgen]
 pub fn gen_new_secret() -> JsValue {
+    console_error_panic_hook::set_once();
+
     let secret = Fr::rand(&mut OsRng);
     JsValue::from_str(to_hex(&secret.0.0).as_str())
 }

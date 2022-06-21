@@ -4,6 +4,32 @@
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} owner
+* @param {BigInt} leaf_index
+* @param {BigInt} deposit_amount
+* @param {Array<any>} friends
+* @param {string} secret
+* @returns {any}
+*/
+export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string): any;
+/**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_vault_info(data: Uint8Array): any;
+/**
+* @param {Pubkey} vault_key
+* @param {BigInt} leaf_index
+* @returns {any}
+*/
+export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: BigInt): any;
+/**
+* @returns {any}
+*/
+export function gen_new_secret(): any;
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} mint
+* @param {Pubkey} owner
 * @param {Pubkey} delegator
 * @param {BigInt} src_leaf_index
 * @param {BigInt} balance
@@ -15,27 +41,6 @@
 * @returns {any}
 */
 export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, secret: string, src_friends: Array<any>, dst_friends: Array<any>): any;
-/**
-* @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} owner
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
-* @param {Array<any>} friends
-* @param {string} secret
-* @returns {any}
-*/
-export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, secret: string): any;
-/**
-* @param {Pubkey} vault_key
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_vault_info(vault_key: Pubkey, data: Uint8Array): any;
-/**
-* @returns {any}
-*/
-export function gen_new_secret(): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -328,11 +333,12 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
-  readonly get_vault_info: (a: number, b: number) => number;
+  readonly get_vault_info: (a: number) => number;
+  readonly get_merkle_neighbor_nodes: (a: number, b: number, c: number) => number;
   readonly gen_new_secret: () => number;
-  readonly __wbg_pubkey_free: (a: number) => void;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
+  readonly __wbg_instruction_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly systeminstruction_assign: (a: number, b: number) => number;
@@ -345,7 +351,9 @@ export interface InitOutput {
   readonly systeminstruction_advanceNonceAccount: (a: number, b: number) => number;
   readonly systeminstruction_withdrawNonceAccount: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly systeminstruction_authorizeNonceAccount: (a: number, b: number, c: number) => number;
-  readonly __wbg_instruction_free: (a: number) => void;
+  readonly __wbg_message_free: (a: number) => void;
+  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
+  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
   readonly pubkey_constructor: (a: number, b: number) => void;
   readonly pubkey_toString: (a: number, b: number) => void;
   readonly pubkey_isOnCurve: (a: number) => number;
@@ -354,18 +362,16 @@ export interface InitOutput {
   readonly pubkey_createWithSeed: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly pubkey_createProgramAddress: (a: number, b: number, c: number, d: number) => void;
   readonly pubkey_findProgramAddress: (a: number, b: number, c: number, d: number) => void;
+  readonly __wbg_pubkey_free: (a: number) => void;
   readonly solana_program_init: () => void;
-  readonly __wbg_instructions_free: (a: number) => void;
-  readonly instructions_constructor: () => number;
-  readonly instructions_push: (a: number, b: number) => void;
-  readonly __wbg_hash_free: (a: number) => void;
-  readonly __wbg_message_free: (a: number) => void;
-  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
-  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
   readonly hash_constructor: (a: number, b: number) => void;
   readonly hash_toString: (a: number, b: number) => void;
   readonly hash_equals: (a: number, b: number) => number;
   readonly hash_toBytes: (a: number, b: number) => void;
+  readonly __wbg_instructions_free: (a: number) => void;
+  readonly instructions_constructor: () => number;
+  readonly instructions_push: (a: number, b: number) => void;
+  readonly __wbg_hash_free: (a: number) => void;
   readonly __wbindgen_malloc: (a: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
