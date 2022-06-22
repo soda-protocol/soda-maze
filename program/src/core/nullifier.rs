@@ -31,17 +31,15 @@ impl Packer for Nullifier {
 }
 
 pub fn get_nullifier_pda<'a>(
-    vault: &'a Pubkey,
     nullifier: &BigInteger256,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], Vec<u8>, [u8; 1])) {
-    let vault_ref = vault.as_ref();
-    let nullifier_ref = nullifier.to_bytes_le();
+) -> (Pubkey, (Vec<u8>, [u8; 1])) {
+    let nullifier_vec = nullifier.to_bytes_le();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, &nullifier_ref],
+        &[&nullifier_vec],
         program_id,
     );
 
-    (key, (vault_ref, nullifier_ref, [seed]))
+    (key, (nullifier_vec, [seed]))
 }

@@ -1,0 +1,50 @@
+use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Serialize, Deserialize};
+use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
+
+use crate::Packer;
+
+pub fn get_utxo_pda<'a>(
+    utxo_key: &'a [u8],
+    program_id: &Pubkey,
+) -> (Pubkey, (&'a [u8], [u8; 1])) {
+    let (key, seed) = Pubkey::find_program_address(
+        &[utxo_key],
+        program_id,
+    );
+
+    (key, (utxo_key, [seed]))
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub enum Amount {
+    Origin(u64),
+    Cipher([u8; 16]),
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+pub struct UTXO {
+    is_initialized: bool,
+    pub index: u64,
+    pub amount: Amount,
+}
+
+impl UTXO {
+    pub fn new(index: u64, amount: Amount) -> Self {
+        Self {
+            is_initialized: true,
+            index,
+            amount,
+        }
+    }
+}
+
+impl IsInitialized for UTXO {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Packer for UTXO {
+    const LEN: usize = 1 + 8 + 1 + 16;
+}

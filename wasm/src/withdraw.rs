@@ -6,15 +6,13 @@ use js_sys::{Uint8Array, Array};
 use rand_core::OsRng;
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::{pubkey::Pubkey, instruction::Instruction};
-use soda_maze_program::Packer;
-use soda_maze_program::params::HEIGHT;
-use soda_maze_program::core::node::MerkleNode;
+use soda_maze_program::{Packer, params::HEIGHT, core::node::MerkleNode};
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, from_hex};
+use crate::log;
 use crate::params::*;
 
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -43,12 +41,17 @@ fn gen_withdraw_instructions(
     delegator: Pubkey,
     proof: Proof<Bn254>,
     pub_in: WithdrawPublicInputs<Fr>,
+    sig: &[u8],
+    utxo_id: u64,
+    balance: u64,
 ) -> Instructions {
     use soda_maze_program::bn::BigInteger256;
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
-    
+    use solana_program::hash::hash;
+    use easy_aes::{full_encrypt, BLOCK, Keys};
+
     let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
     let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
@@ -97,8 +100,25 @@ fn gen_withdraw_instructions(
         &mint,
     );
 
-    let finalize = finalize_withdraw(vault, mint, owner, delegator, pub_in.dst_leaf_index, nullifier)
-        .expect("finalize withdraw failed");
+    let seed = hash(sig);
+    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[..16]).expect("invalid key")));
+    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[16..]).expect("invalid key")));
+    let mut block = BLOCK::new(u128::from(balance).to_le_bytes());
+    full_encrypt(&mut block, &key1);
+    full_encrypt(&mut block, &key2);
+
+    let utxo_key = hash(&[sig, &utxo_id.to_le_bytes()].concat());
+
+    let finalize = finalize_withdraw(
+        vault,
+        mint,
+        owner,
+        delegator,
+        pub_in.dst_leaf_index,
+        nullifier,
+        utxo_key.to_bytes(),
+        block.stringify_block(),
+    ).expect("finalize withdraw failed");
 
     Instructions {
         reset,
@@ -121,14 +141,18 @@ pub fn gen_withdraw_proof(
     balance: u64,
     dst_leaf_index: u64,
     withdraw_amount: u64,
-    secret: String,
+    sig: Uint8Array,
     src_friends: Array,
     dst_friends: Array,
+    utxo_id: u64,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
     log("Preparing params and datas...");
     
+    let sig = sig.to_vec();
+    let secret = Fr::from_le_bytes_mod_order(&sig);
+
     let ref nodes_hashes = get_default_node_hashes();
     let src_friend_nodes = src_friends.iter().enumerate().map(|(layer, friend)| {
         let data = Uint8Array::from(friend).to_vec();
@@ -157,7 +181,7 @@ pub fn gen_withdraw_proof(
         withdraw_amount,
         src_leaf_index,
         dst_leaf_index,
-        secret: Fr::new(BigInteger256::new(from_hex(secret))),
+        secret,
         src_friend_nodes,
         dst_friend_nodes,
     };
@@ -182,7 +206,7 @@ pub fn gen_withdraw_proof(
     log("Generating solana instructions...");
 
     let res = ProofResult {
-        instructions: gen_withdraw_instructions(vault, mint, owner, delegator, proof, pub_in),
+        instructions: gen_withdraw_instructions(vault, mint, owner, delegator, proof, pub_in, &sig, utxo_id, balance - withdraw_amount),
         output: (dst_leaf_index, balance - withdraw_amount),
     };
     JsValue::from_serde(&res).expect("serde error")

@@ -8,11 +8,12 @@ edition = "2021"
 rand_core = { path = "./rand_core-0.6.3" }
 
 [dependencies]
-borsh = "0.9.3"
 ark-ff = "0.3.0"
 ark-std = "0.3.0"
 ark-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", default-features = false }
+borsh = "0.9.3"
+easy_aes = "0.1.5"
 num-bigint = "0.4.3"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 rand_core = { version = "0.6.3", features = ["std"] }

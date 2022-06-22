@@ -14,7 +14,7 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, from_hex, Instructions, ProofResult};
+use crate::{log, Instructions};
 use crate::params::*;
 
 type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -26,12 +26,15 @@ fn gen_deposit_instructions(
     owner: Pubkey,
     proof: Proof<Bn254>,
     pub_in: DepositPublicInputs<Fr>,
+    sig: &[u8],
+    utxo_id: u64,
 ) -> Instructions {
     use soda_maze_program::bn::BigInteger256;
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
-    
+    use solana_program::hash::hash;
+
     let reset = reset_deposit_buffer_accounts(vault, owner).expect("reset deposit buffer accounts failed");
 
     let leaf = BigInteger256::new(pub_in.leaf.into_repr().0);
@@ -69,7 +72,9 @@ fn gen_deposit_instructions(
         verify_deposit_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
     }).collect::<Vec<_>>();
 
-    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf)
+    let utxo_key = hash(&[sig, &utxo_id.to_le_bytes()].concat());
+
+    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf, utxo_key.to_bytes())
         .expect("finalize deposit failed");
 
     Instructions {
@@ -90,11 +95,15 @@ pub fn gen_deposit_proof(
     leaf_index: u64,
     deposit_amount: u64,
     friends: Array,
-    secret: String,
+    sig: Uint8Array,
+    utxo_id: u64,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
     log("Preparing params and datas...");
+
+    let sig = sig.to_vec();
+    let secret = Fr::from_le_bytes_mod_order(&sig);
 
     let ref nodes_hashes = get_default_node_hashes();
     let friend_nodes = friends.iter().enumerate().map(|(layer, friend)| {
@@ -127,7 +136,7 @@ pub fn gen_deposit_proof(
     let origin_inputs = DepositOriginInputs {
         leaf_index,
         deposit_amount,
-        secret: Fr::new(BigInteger256::new(from_hex(secret))),
+        secret,
         friend_nodes,
         encryption,
     };
@@ -150,9 +159,6 @@ pub fn gen_deposit_proof(
 
     log("Generating solana instructions...");
 
-    let res = ProofResult {
-        instructions: gen_deposit_instructions(vault, mint, owner, proof, pub_in),
-        output: (leaf_index, deposit_amount),
-    };
-    JsValue::from_serde(&res).expect("serde error")
+    let instructions = gen_deposit_instructions(vault, mint, owner, proof, pub_in, &sig, utxo_id);
+    JsValue::from_serde(&instructions).expect("serde error")
 }

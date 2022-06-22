@@ -53,17 +53,15 @@ impl Packer for Commitment {
 }
 
 pub fn get_commitment_pda<'a>(
-    vault: &'a Pubkey,
     leaf: &BigInteger256,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], Vec<u8>, [u8; 1])) {
-    let vault_ref = vault.as_ref();
-    let leaf_ref = leaf.to_bytes_le();
+) -> (Pubkey, (Vec<u8>, [u8; 1])) {
+    let leaf_vec = leaf.to_bytes_le();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, &leaf_ref],
+        &[&leaf_vec],
         program_id,
     );
 
-    (key, (vault_ref, leaf_ref, [seed]))
+    (key, (leaf_vec, [seed]))
 }

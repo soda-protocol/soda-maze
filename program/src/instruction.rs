@@ -12,11 +12,12 @@ use crate::{
         commitment::get_commitment_pda,
         vault::{get_vault_pda, get_vault_authority_pda},
         node::{get_merkle_node_pda, gen_merkle_path_from_leaf_index},
-    }, error::MazeError,
+    }, error::MazeError, store::utxo::get_utxo_pda,
 };
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum MazeInstruction {
+    ResetDepositAccounts,
     CreateDepositCredential {
         deposit_amount: u64,
         leaf: BigInteger,
@@ -26,9 +27,13 @@ pub enum MazeInstruction {
         commitment: Box<Vec<BigInteger>>,
         proof: Box<Proof>,
     },
+    VerifyDepositProof,
+    FinalizeDeposit {
+        utxo_key: [u8; 32],
+    },
+    ResetWithdrawAccounts,
     CreateWithdrawCredential {
         withdraw_amount: u64,
-        owner: Pubkey,
         nullifier: BigInteger,
         leaf: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
@@ -36,12 +41,11 @@ pub enum MazeInstruction {
     CreateWithdrawVerifier {
         proof: Box<Proof>,
     },
-    VerifyDepositProof,
     VerifyWithdrawProof,
-    FinalizeDeposit,
-    FinalizeWithdraw,
-    ResetDepositAccounts,
-    ResetWithdrawAccounts,
+    FinalizeWithdraw {
+        utxo_key: [u8; 32],
+        balance_cipher: [u8; 16],
+    },
     // 128 ~
     CreateVault {
         min_deposit: u64,
@@ -93,6 +97,26 @@ pub fn control_vault(vault: Pubkey, admin: Pubkey, enable: bool) -> Result<Instr
         accounts: vec![
             AccountMeta::new(vault, false),
             AccountMeta::new_readonly(admin, true),
+        ],
+        data,
+    })
+}
+
+pub fn reset_deposit_buffer_accounts(
+    vault: Pubkey,
+    owner: Pubkey,
+) -> Result<Instruction, MazeError> {
+    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
+    let (verifier, _) = get_verifier_pda(&credential, &ID);
+
+    let data = MazeInstruction::ResetDepositAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
+
+    Ok(Instruction {
+        program_id: ID,
+        accounts: vec![
+            AccountMeta::new(credential, false),
+            AccountMeta::new(verifier, false),
+            AccountMeta::new(owner, true),
         ],
         data,
     })
@@ -154,6 +178,99 @@ pub fn create_deposit_verifier(
     })
 }
 
+pub fn verify_deposit_proof(vault: Pubkey, owner: Pubkey, padding: Vec<u8>) -> Result<Instruction, MazeError> {
+    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
+    let (verifier, _) = get_verifier_pda(&credential, &ID);
+
+    let mut data = MazeInstruction::VerifyDepositProof.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
+    data.extend(padding);
+
+    Ok(Instruction {
+        program_id: ID,
+        accounts: vec![
+            AccountMeta::new_readonly(vault, false),
+            AccountMeta::new_readonly(credential, false),
+            AccountMeta::new(verifier, false),
+        ],
+        data,
+    })
+}
+
+pub fn finalize_deposit(
+    vault: Pubkey,
+    token_mint: Pubkey,
+    owner: Pubkey,
+    leaf_index: u64,
+    leaf: BigInteger,
+    utxo_key: [u8; 32],
+) -> Result<Instruction, MazeError> {
+    let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
+    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
+    let (verifier, _) = get_verifier_pda(&credential, &ID);
+    let (commitment, _) = get_commitment_pda(&leaf, &ID);
+    let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
+    let user_token_account = get_associated_token_address(&owner, &token_mint);
+    let (utxo_pubkey, _) = get_utxo_pda(&utxo_key, &ID);
+
+    let merkle_path = gen_merkle_path_from_leaf_index(leaf_index);
+    let nodes_accounts = merkle_path.into_iter().map(|(layer, index)| {
+        let (node, _) = get_merkle_node_pda(
+            &vault,
+            layer,
+            index,
+            &ID,
+        );
+        AccountMeta::new(node, false)
+    }).collect::<Vec<_>>();
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(spl_token::ID, false),
+        AccountMeta::new_readonly(sysvar::rent::ID, false),
+        AccountMeta::new(vault, false),
+        AccountMeta::new(credential, false),
+        AccountMeta::new(verifier, false),
+        AccountMeta::new(commitment, false),
+        AccountMeta::new(user_token_account, false),
+        AccountMeta::new(vault_token_account, false),
+        AccountMeta::new(owner, true),
+        AccountMeta::new(utxo_pubkey, false),
+    ];
+    accounts.extend(nodes_accounts);
+
+    let data = MazeInstruction::FinalizeDeposit {
+        utxo_key,
+    }.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
+
+    Ok(Instruction {
+        program_id: ID,
+        accounts,
+        data,
+    })
+}
+
+pub fn reset_withdraw_buffer_accounts(
+    vault: Pubkey,
+    owner: Pubkey,
+    delegator: Pubkey,
+) -> Result<Instruction, MazeError> {
+    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
+    let (verifier, _) = get_verifier_pda(&credential, &ID);
+
+    let data = MazeInstruction::ResetWithdrawAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
+
+    Ok(Instruction {
+        program_id: ID,
+        accounts: vec![
+            AccountMeta::new(credential, false),
+            AccountMeta::new(verifier, false),
+            AccountMeta::new_readonly(owner, true),
+            AccountMeta::new(delegator, true),
+        ],
+        data,
+    })
+}
+
 pub fn create_withdraw_credential(
     vault: Pubkey,
     owner: Pubkey,
@@ -164,11 +281,10 @@ pub fn create_withdraw_credential(
     updating_nodes: Box<Vec<BigInteger>>,
 ) -> Result<Instruction, MazeError> {
     let (credential, _) = get_credential_pda(&vault, &owner, &ID);
-    let (nullifier_key, _) = get_nullifier_pda(&vault, &nullifier, &ID);
+    let (nullifier_key, _) = get_nullifier_pda(&nullifier, &ID);
 
     let data = MazeInstruction::CreateWithdrawCredential {
         withdraw_amount,
-        owner,
         nullifier,
         leaf,
         updating_nodes,
@@ -182,6 +298,7 @@ pub fn create_withdraw_credential(
             AccountMeta::new_readonly(vault, false),
             AccountMeta::new(credential, false),
             AccountMeta::new(nullifier_key, false),
+            AccountMeta::new_readonly(owner, true),
             AccountMeta::new(delegator, true),
         ],
         data,
@@ -209,25 +326,8 @@ pub fn create_withdraw_verifier(
             AccountMeta::new_readonly(vault, false),
             AccountMeta::new_readonly(credential, false),
             AccountMeta::new(verifier, false),
+            AccountMeta::new_readonly(owner, true),
             AccountMeta::new(delegator, true),
-        ],
-        data,
-    })
-}
-
-pub fn verify_deposit_proof(vault: Pubkey, owner: Pubkey, padding: Vec<u8>) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-
-    let mut data = MazeInstruction::VerifyDepositProof.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-    data.extend(padding);
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts: vec![
-            AccountMeta::new_readonly(vault, false),
-            AccountMeta::new_readonly(credential, false),
-            AccountMeta::new(verifier, false),
         ],
         data,
     })
@@ -251,54 +351,7 @@ pub fn verify_withdraw_proof(vault: Pubkey, owner: Pubkey, padding: Vec<u8>) -> 
     })
 }
 
-pub fn finalize_deposit(
-    vault: Pubkey,
-    token_mint: Pubkey,
-    owner: Pubkey,
-    leaf_index: u64,
-    leaf: BigInteger,
-) -> Result<Instruction, MazeError> {
-    let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
-    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-    let (commitment, _) = get_commitment_pda(&vault, &leaf, &ID);
-    let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
-    let user_token_account = get_associated_token_address(&owner, &token_mint);
-
-    let merkle_path = gen_merkle_path_from_leaf_index(leaf_index);
-    let nodes_accounts = merkle_path.into_iter().map(|(layer, index)| {
-        let (node, _) = get_merkle_node_pda(
-            &vault,
-            layer,
-            index,
-            &ID,
-        );
-        AccountMeta::new(node, false)
-    }).collect::<Vec<_>>();
-
-    let mut accounts = vec![
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(spl_token::ID, false),
-        AccountMeta::new_readonly(sysvar::rent::ID, false),
-        AccountMeta::new(vault, false),
-        AccountMeta::new(credential, false),
-        AccountMeta::new(verifier, false),
-        AccountMeta::new(commitment, false),
-        AccountMeta::new(user_token_account, false),
-        AccountMeta::new(vault_token_account, false),
-        AccountMeta::new(owner, true),
-    ];
-    accounts.extend(nodes_accounts);
-
-    let data = MazeInstruction::FinalizeDeposit.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts,
-        data,
-    })
-}
-
+#[allow(clippy::too_many_arguments)]
 pub fn finalize_withdraw(
     vault: Pubkey,
     token_mint: Pubkey,
@@ -306,11 +359,13 @@ pub fn finalize_withdraw(
     delegator: Pubkey,
     leaf_index: u64,
     nullifier: BigInteger,
+    utxo_key: [u8; 32],
+    balance_cipher: [u8; 16],
 ) -> Result<Instruction, MazeError> {
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let (credential, _) = get_credential_pda(&vault, &owner, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
-    let (nullifier, _) = get_nullifier_pda(&vault, &nullifier, &ID);
+    let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
     let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
     let user_token_account = get_associated_token_address(&owner, &token_mint);
     let delegator_token_account = get_associated_token_address(&delegator, &token_mint);
@@ -343,52 +398,14 @@ pub fn finalize_withdraw(
     ];
     accounts.extend(nodes_accounts);
 
-    let data = MazeInstruction::FinalizeWithdraw.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
+    let data = MazeInstruction::FinalizeWithdraw {
+        utxo_key,
+        balance_cipher,
+    }.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
 
     Ok(Instruction {
         program_id: ID,
         accounts,
-        data,
-    })
-}
-
-pub fn reset_deposit_buffer_accounts(
-    vault: Pubkey,
-    owner: Pubkey,
-) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-
-    let data = MazeInstruction::ResetDepositAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts: vec![
-            AccountMeta::new(credential, false),
-            AccountMeta::new(verifier, false),
-            AccountMeta::new(owner, true),
-        ],
-        data,
-    })
-}
-
-pub fn reset_withdraw_buffer_accounts(
-    vault: Pubkey,
-    owner: Pubkey,
-    delegator: Pubkey,
-) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_credential_pda(&vault, &owner, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-
-    let data = MazeInstruction::ResetWithdrawAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts: vec![
-            AccountMeta::new(credential, false),
-            AccountMeta::new(verifier, false),
-            AccountMeta::new(delegator, true),
-        ],
         data,
     })
 }

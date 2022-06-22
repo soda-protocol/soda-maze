@@ -3,22 +3,30 @@ pub mod withdraw;
 pub mod params;
 
 use ark_bn254::Fr;
-use ark_std::UniformRand;
-use borsh::{BorshSerialize, BorshDeserialize};
-use rand_core::OsRng;
+use ark_ff::PrimeField;
 use js_sys::Uint8Array;
 use serde::{Serialize, Deserialize};
+use easy_aes::{full_decrypt, BLOCK, Keys};
+use soda_maze_program::core::nullifier::Nullifier;
 use wasm_bindgen::{JsValue, prelude::*};
-use solana_program::instruction::Instruction;
-use solana_program::pubkey::Pubkey;
+use solana_program::{instruction::Instruction, pubkey::Pubkey};
+use solana_program::hash::hash;
 use soda_maze_program::{Packer, ID};
 use soda_maze_program::params::HEIGHT;
+use soda_maze_program::store::utxo::{UTXO, Amount, get_utxo_pda};
 use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda};
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Utxo {
+    index: u64,
+    amount: u64,
+    nullifier: Pubkey,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -30,29 +38,25 @@ pub struct Instructions {
     pub finalize: Instruction,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ProofResult {
-    pub instructions: Instructions,
-    pub output: (u64, u64),
-}
+fn get_nullifier_pubkey(index: u64, secret: Fr) -> Pubkey {
+    use soda_maze_lib::params::poseidon::get_poseidon_bn254_for_nullifier;
+    use soda_maze_lib::vanilla::hasher::{FieldHasher, poseidon::PoseidonHasher};
+    use soda_maze_program::bn::BigInteger256;
+    use soda_maze_program::core::nullifier::get_nullifier_pda;
 
-fn to_hex<Se: BorshSerialize>(data: &Se) -> String {
-    let buf = data.try_to_vec().expect("serialize failed");
-    hex::encode(buf)
-}
+    let ref params = get_poseidon_bn254_for_nullifier();
+    let nullifier = PoseidonHasher::hash(params, &[Fr::from(index), secret]).expect("poseidon hash error");
+    let nullifier = BigInteger256::new(nullifier.into_repr().0);
+    let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
 
-pub fn from_hex<De: BorshDeserialize>(s: String) -> De {
-    let buf = hex::decode(s).expect("failed to parse hex string");
-    BorshDeserialize::deserialize(&mut &buf[..]).expect("Canonical deserialize failed")
+    nullifier
 }
 
 #[wasm_bindgen]
 pub fn get_vault_info(data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
-    let vault_data = data.to_vec();
-    let vault = Vault::unpack(&vault_data)
-        .expect("vault data can not unpack");
+    let vault = Vault::unpack(&data.to_vec()).expect("vault data can not unpack");
     JsValue::from_serde(&vault).expect("serde error")
 }
 
@@ -78,9 +82,63 @@ pub fn get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: u64) -> JsValue 
 }
 
 #[wasm_bindgen]
-pub fn gen_new_secret() -> JsValue {
+pub fn get_utxo_keys(sig: Uint8Array, num: u64) -> JsValue {
     console_error_panic_hook::set_once();
 
-    let secret = Fr::rand(&mut OsRng);
-    JsValue::from_str(to_hex(&secret.0.0).as_str())
+    let sig = &sig.to_vec()[..];
+    let pubkeys = (0..num).map(|id| {
+        let key = hash(&[sig, &id.to_le_bytes()].concat());
+        let (pubkey, _) = get_utxo_pda(key.as_ref(), &ID);
+        pubkey
+    }).collect::<Vec<_>>();
+
+    JsValue::from_serde(&pubkeys).expect("serde error")
+}
+
+#[wasm_bindgen]
+pub fn parse_utxo(sig: Uint8Array, utxo: Uint8Array) -> JsValue {
+    console_error_panic_hook::set_once();
+
+    let sig = sig.to_vec();
+    let utxo = UTXO::unpack(&utxo.to_vec())
+        .expect("UTXO data can not unpack");
+    let amount = match utxo.amount {
+        Amount::Cipher(cipher) => {
+            let seed = hash(&sig);
+
+            let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[..16]).expect("invalid key")));
+            let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[16..]).expect("invalid key")));
+
+            let mut block = BLOCK::new(cipher);
+            full_decrypt(&mut block, &key1);
+            full_decrypt(&mut block, &key2);
+
+            u128::from_le_bytes(block.stringify_block()) as u64
+        }
+        Amount::Origin(amount) => amount,
+    };
+    let secret = Fr::from_le_bytes_mod_order(&sig);
+    let nullifier = get_nullifier_pubkey(utxo.index, secret);
+
+    let utxo = Utxo {
+        index: utxo.index,
+        amount,
+        nullifier,
+    };
+
+    JsValue::from_serde(&utxo).expect("serde error")
+}
+
+#[wasm_bindgen]
+pub fn get_nullifier(data: Uint8Array) -> JsValue {
+    console_error_panic_hook::set_once();
+
+    let data = data.to_vec();
+    let used = if data.is_empty() {
+        false
+    } else {
+        let nullifier = Nullifier::unpack(&data.to_vec()).expect("invalid nullifier");
+        nullifier.used
+    };
+    JsValue::from_bool(used)
 }
