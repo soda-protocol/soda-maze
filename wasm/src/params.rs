@@ -27,8 +27,8 @@ pub fn get_encryption_const_params() -> EncryptionConstParams<Fr, PoseidonHasher
     use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
 
     let params = Params::get("rabin-param.json").unwrap();
-    let params: RabinParameters = serde_json::from_reader(params.data.as_ref()).expect("failed to parse rabin-param.json");
-    let modulus = hex::decode(&params.modulus).expect("modulus is an invalid hex string");
+    let params: RabinParameters = serde_json::from_reader(params.data.as_ref()).expect("Error: failed to parse rabin-param.json");
+    let modulus = hex::decode(&params.modulus).expect("Error: modulus is an invalid hex string");
     let modulus = BigUint::from_bytes_le(&modulus);
     let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
 
@@ -43,12 +43,12 @@ pub fn get_encryption_const_params() -> EncryptionConstParams<Fr, PoseidonHasher
 
 pub fn get_deposit_pk() -> MazeProvingKey {
     let params = Params::get("pk-deposit").unwrap();
-    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("failed to deserialize pk-deposit")
+    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("Error: failed to deserialize pk-deposit")
 }
 
 pub fn get_withdraw_pk() -> MazeProvingKey {
     let params = Params::get("pk-withdraw").unwrap();
-    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("failed to deserialize pk-withdraw")
+    BorshDeserialize::deserialize(&mut params.data.as_ref()).expect("Error: failed to deserialize pk-withdraw")
 }
 
 pub fn get_deposit_const_params(params: EncryptionConstParams<Fr, PoseidonHasher<Fr>>) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
@@ -85,7 +85,7 @@ pub fn get_default_node_hashes() -> Vec<Fr> {
         .for_each(|_| {
             nodes.push(hash);
             hash = PoseidonHasher::hash_two(params, hash, hash)
-                .expect("poseidon hash error");
+                .expect("Error: poseidon hash error");
         });
 
     nodes

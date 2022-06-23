@@ -77,7 +77,7 @@ where
             pub_in.prev_root,
             pub_in.update_nodes.clone(),
             priv_in.secret,
-            priv_in.friend_nodes.clone(),
+            priv_in.neighbor_nodes.clone(),
             encryption,
         )
     }
@@ -138,8 +138,8 @@ where
             pub_in.prev_root,
             pub_in.dst_leaf,
             pub_in.update_nodes.clone(),
-            priv_in.src_friend_nodes.clone(),
-            priv_in.dst_friend_nodes.clone(),
+            priv_in.src_neighbor_nodes.clone(),
+            priv_in.dst_neighbor_nodes.clone(),
         )
     }
 }

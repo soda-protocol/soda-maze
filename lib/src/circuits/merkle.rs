@@ -8,7 +8,7 @@ use super::FieldHasherGadget;
 
 fn gen_merkle_path_gadget<F, FH, FHG>(
     inner_params: &FHG::ParametersVar,
-    friends: &[(Boolean<F>, FpVar<F>)],
+    neighbors: &[(Boolean<F>, FpVar<F>)],
     leaf_hash: FpVar<F>,
 ) -> Result<Vec<FpVar<F>>>
 where
@@ -18,18 +18,18 @@ where
 {
     // Check levels between leaf level and root.
     let mut previous_hash = leaf_hash;
-    friends
+    neighbors
         .iter()
-        .map(|(is_left, friend_hash)| {
+        .map(|(is_left, neighbor_hash)| {
             let left_hash = FpVar::conditionally_select(
                 is_left,
-                friend_hash,
+                neighbor_hash,
                 &previous_hash,
             )?;
             let right_hash = FpVar::conditionally_select(
                 is_left,
                 &previous_hash,
-                friend_hash,
+                neighbor_hash,
             )?;
 
             previous_hash = FHG::hash_two_gadget(inner_params, left_hash, right_hash)?;
@@ -45,7 +45,7 @@ where
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    friend_nodes: Vec<(bool, F)>,
+    neighbor_nodes: Vec<(bool, F)>,
     update_nodes: Vec<F>,
 	inner_params: Rc<FH::Parameters>,
     _h: PhantomData<FHG>,
@@ -58,14 +58,14 @@ where
     FHG: FieldHasherGadget<F, FH>, 
 {
     pub fn new(
-        friend_nodes: Vec<(bool, F)>,
+        neighbor_nodes: Vec<(bool, F)>,
         update_nodes: Vec<F>,
         inner_params: FH::Parameters,
     ) -> Self {
-        assert_eq!(friend_nodes.len(), update_nodes.len(), "friend nodes length should equals to update nodes length");
+        assert_eq!(neighbor_nodes.len(), update_nodes.len(), "neighbor nodes length should equals to update nodes length");
 
         Self {
-            friend_nodes,
+            neighbor_nodes,
             update_nodes,
             inner_params: Rc::new(inner_params),
             _h: Default::default(),
@@ -88,11 +88,11 @@ where
             .map(|node| FpVar::new_input(cs.clone(), || Ok(node)))
             .collect::<Result<Vec<_>>>()?;
         // alloc witness var
-        let friends = self.friend_nodes
+        let neighbors = self.neighbor_nodes
             .into_iter()
             .map(|(is_left, node)| {
                 let is_left = Boolean::new_witness(cs.clone(), || Ok(is_left))?;
-                // friend node can be alloc as public, but no need to do it here
+                // neighbor node can be alloc as public, but no need to do it here
                 let node = FpVar::new_witness(cs.clone(), || Ok(node))?;
 
                 Ok((is_left, node))
@@ -100,7 +100,7 @@ where
             .collect::<Result<Vec<_>>>()?;
 
         // leaf index constrain
-        let index_array = friends
+        let index_array = neighbors
             .iter()
             .map(|(is_left, _)| is_left.clone())
             .collect::<Vec<_>>();
@@ -109,7 +109,7 @@ where
         // old root constrain
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(
             &inner_params,
-            &friends,
+            &neighbors,
             FHG::empty_hash_var(),
         )?;
         merkle_paths.last().unwrap().enforce_equal(&root)?;
@@ -117,7 +117,7 @@ where
         // leaf change
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(
             &inner_params,
-            &friends,
+            &neighbors,
             leaf,
         )?;
         // new paths should restrain to input
@@ -134,7 +134,7 @@ where
     FH: FieldHasher<F>,
     FHG: FieldHasherGadget<F, FH>,
 {
-    friend_nodes: Vec<(bool, F)>,
+    neighbor_nodes: Vec<(bool, F)>,
 	inner_params: Rc<FH::Parameters>,
     _h: PhantomData<FHG>,
 }
@@ -146,11 +146,11 @@ where
     FHG: FieldHasherGadget<F, FH>,
 {
     pub fn new(
-        friend_nodes: Vec<(bool, F)>,
+        neighbor_nodes: Vec<(bool, F)>,
         inner_params: FH::Parameters,
     ) -> Self {
         Self {
-            friend_nodes,
+            neighbor_nodes,
             inner_params: Rc::new(inner_params),
             _h: Default::default(),
         }
@@ -167,7 +167,7 @@ where
         // alloc constants
         let inner_params = FHG::ParametersVar::new_constant(cs.clone(), self.inner_params)?;
         // alloc witness var
-        let friends = self.friend_nodes
+        let neighbors = self.neighbor_nodes
             .into_iter()
             .map(|(is_left, node)| {
                 let is_left = Boolean::new_witness(cs.clone(), || Ok(is_left))?;
@@ -178,7 +178,7 @@ where
             .collect::<Result<Vec<_>>>()?;
 
         // leaf index
-        let index_array = friends
+        let index_array = neighbors
             .iter()
             .map(|(is_left, _)| is_left.clone())
             .collect::<Vec<_>>();
@@ -186,7 +186,7 @@ where
 
         let merkle_paths = gen_merkle_path_gadget::<_, _, FHG>(
             &inner_params,
-            &friends,
+            &neighbors,
             leaf,
         )?;
         // old root should restrain to input
@@ -210,13 +210,13 @@ mod tests {
 
     const HEIGHT: u8 = 27;
 
-    fn get_random_merkle_friends(rng: &mut StdRng) -> Vec<(bool, Fr)> {
-        let mut friend_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
+    fn get_random_merkle_neighbors(rng: &mut StdRng) -> Vec<(bool, Fr)> {
+        let mut neighbor_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
         for _ in 0..(HEIGHT - 1) {
-            friend_nodes.push((bool::rand(rng), Fr::rand(rng)));
+            neighbor_nodes.push((bool::rand(rng), Fr::rand(rng)));
         }
 
-        friend_nodes
+        neighbor_nodes
     }
 
     #[test]
@@ -224,18 +224,18 @@ mod tests {
         let rng = &mut test_rng();
         let inner_params = setup_params_x3_3::<Fr>(Curve::Bn254);
         let leaf = Fr::rand(rng);
-        let friend_nodes = get_random_merkle_friends(rng);
-        let index_iter = friend_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
+        let neighbor_nodes = get_random_merkle_neighbors(rng);
+        let index_iter = neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
         let index = BitVec::<u8>::from_iter(index_iter)
             .load_le::<u64>();
         let merkle_path = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &inner_params,
-            &friend_nodes,
+            &neighbor_nodes,
             leaf.clone(),
         ).unwrap();
         let root = merkle_path.last().unwrap().clone();
         let existance = LeafExistance::<_, _, PoseidonHasherGadget<Fr>>::new(
-            friend_nodes,
+            neighbor_nodes,
             inner_params,
         );
 
@@ -253,24 +253,24 @@ mod tests {
     fn test_add_new_leaf() {
         let rng = &mut test_rng();
         let params = setup_params_x3_3(Curve::Bn254);
-        let friend_nodes = get_random_merkle_friends(rng);
-        let index_iter = friend_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
+        let neighbor_nodes = get_random_merkle_neighbors(rng);
+        let index_iter = neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
         let index = BitVec::<u8>::from_iter(index_iter)
             .load_le::<u64>();
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &params,
-            &friend_nodes,
+            &neighbor_nodes,
             PoseidonHasher::empty_hash(),
         ).unwrap();
         let prev_root = update_nodes.last().unwrap().clone();
         let new_leaf = Fr::rand(rng);
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &params,
-            &friend_nodes,
+            &neighbor_nodes,
             new_leaf.clone(),
         ).unwrap();
         let add_new_leaf = AddNewLeaf::<_, _, PoseidonHasherGadget<Fr>>::new(
-            friend_nodes,
+            neighbor_nodes,
             update_nodes,
             params,
         );

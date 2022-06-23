@@ -218,18 +218,18 @@ impl<'a> MerkleTree<'a> {
         }
     }
 
-    fn get_friends(&self, index: u64) -> Vec<Fr> {
+    fn get_neighbors(&self, index: u64) -> Vec<Fr> {
         (0..self.height)
             .into_iter()
             .map(|layer| {
                 let index = index >> layer;
-                let friend = if (index & 1) == 1 {
+                let neighbor = if (index & 1) == 1 {
                     self.tree.get(&(layer, index - 1)).unwrap_or_else(|| &self.blank[layer])
                 } else {
                     self.tree.get(&(layer, index + 1)).unwrap_or_else(|| &self.blank[layer])
                 };
 
-                *friend
+                *neighbor
             })
             .collect()
     }
@@ -242,11 +242,11 @@ impl<'a> MerkleTree<'a> {
                 self.tree.insert((layer, index), hash);
 
                 if (index & 1) == 1 {
-                    let friend = self.tree.get(&(layer, index - 1)).unwrap_or_else(|| &self.blank[layer]);
-                    hash = PoseidonHasher::hash_two(self.params, *friend, hash).expect("poseidon hash error");
+                    let neighbor = self.tree.get(&(layer, index - 1)).unwrap_or_else(|| &self.blank[layer]);
+                    hash = PoseidonHasher::hash_two(self.params, *neighbor, hash).expect("poseidon hash error");
                 } else {
-                    let friend = self.tree.get(&(layer, index + 1)).unwrap_or_else(|| &self.blank[layer]);
-                    hash = PoseidonHasher::hash_two(self.params, hash, *friend).expect("poseidon hash error");
+                    let neighbor = self.tree.get(&(layer, index + 1)).unwrap_or_else(|| &self.blank[layer]);
+                    hash = PoseidonHasher::hash_two(self.params, hash, *neighbor).expect("poseidon hash error");
                 }
             });
     }
@@ -345,13 +345,13 @@ fn main() {
             
             let secret = Fr::rand(&mut OsRng);
             let merkle_tree = MerkleTree::new(height, &const_params.inner_params);
-            let friend_nodes = merkle_tree.blank.clone();
+            let neighbor_nodes = merkle_tree.blank.clone();
 
             let origin_inputs = DepositOriginInputs {
                 leaf_index,
                 deposit_amount,
                 secret,
-                friend_nodes,
+                neighbor_nodes,
                 encryption: rabin_orig_in,
             };
             
@@ -402,8 +402,8 @@ fn main() {
                 &[Fr::from(src_index), Fr::from(balance), secret],
             ).expect("hash failed");
             merkle_tree.add_leaf(src_index, src_leaf);
-            let src_friend_nodes = merkle_tree.get_friends(src_index);
-            let dst_friend_nodes = merkle_tree.get_friends(dst_index);
+            let src_neighbor_nodes = merkle_tree.get_neighbors(src_index);
+            let dst_neighbor_nodes = merkle_tree.get_neighbors(dst_index);
 
             let origin_inputs = WithdrawOriginInputs {
                 balance,
@@ -411,8 +411,8 @@ fn main() {
                 src_leaf_index: src_index,
                 dst_leaf_index: dst_index,
                 secret,
-                src_friend_nodes,
-                dst_friend_nodes,
+                src_neighbor_nodes,
+                dst_neighbor_nodes,
             };
 
             let pk = read_from_file::<MazeProvingKey>(&pk_path);

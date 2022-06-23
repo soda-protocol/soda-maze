@@ -202,12 +202,12 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @param {Pubkey} owner
 * @param {BigInt} leaf_index
 * @param {BigInt} deposit_amount
-* @param {Array<any>} friends
+* @param {Array<any>} neighbors
 * @param {Uint8Array} sig
-* @param {BigInt} utxo_id
+* @param {BigInt} nonce
 * @returns {any}
 */
-export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount, friends, sig, utxo_id) {
+export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount, neighbors, sig, nonce) {
     _assertClass(vault, Pubkey);
     var ptr0 = vault.ptr;
     vault.ptr = 0;
@@ -223,10 +223,10 @@ export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount
     uint64CvtShim[0] = deposit_amount;
     const low4 = u32CvtShim[0];
     const high4 = u32CvtShim[1];
-    uint64CvtShim[0] = utxo_id;
+    uint64CvtShim[0] = nonce;
     const low5 = u32CvtShim[0];
     const high5 = u32CvtShim[1];
-    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(friends), addHeapObject(sig), low5, high5);
+    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(neighbors), addHeapObject(sig), low5, high5);
     return takeObject(ret);
 }
 
@@ -240,12 +240,12 @@ export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount
 * @param {BigInt} dst_leaf_index
 * @param {BigInt} withdraw_amount
 * @param {Uint8Array} sig
-* @param {Array<any>} src_friends
-* @param {Array<any>} dst_friends
-* @param {BigInt} utxo_id
+* @param {Array<any>} src_neighbors
+* @param {Array<any>} dst_neighbors
+* @param {BigInt} nonce
 * @returns {any}
 */
-export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_friends, dst_friends, utxo_id) {
+export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
     _assertClass(vault, Pubkey);
     var ptr0 = vault.ptr;
     vault.ptr = 0;
@@ -270,10 +270,10 @@ export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index
     uint64CvtShim[0] = withdraw_amount;
     const low7 = u32CvtShim[0];
     const high7 = u32CvtShim[1];
-    uint64CvtShim[0] = utxo_id;
+    uint64CvtShim[0] = nonce;
     const low8 = u32CvtShim[0];
     const high8 = u32CvtShim[1];
-    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_friends), addHeapObject(dst_friends), low8, high8);
+    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_neighbors), addHeapObject(dst_neighbors), low8, high8);
     return takeObject(ret);
 }
 

@@ -6,12 +6,12 @@
 * @param {Pubkey} owner
 * @param {BigInt} leaf_index
 * @param {BigInt} deposit_amount
-* @param {Array<any>} friends
+* @param {Array<any>} neighbors
 * @param {Uint8Array} sig
-* @param {BigInt} utxo_id
+* @param {BigInt} nonce
 * @returns {any}
 */
-export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, friends: Array<any>, sig: Uint8Array, utxo_id: BigInt): any;
+export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, neighbors: Array<any>, sig: Uint8Array, nonce: BigInt): any;
 /**
 * @param {Pubkey} vault
 * @param {Pubkey} mint
@@ -22,12 +22,12 @@ export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, le
 * @param {BigInt} dst_leaf_index
 * @param {BigInt} withdraw_amount
 * @param {Uint8Array} sig
-* @param {Array<any>} src_friends
-* @param {Array<any>} dst_friends
-* @param {BigInt} utxo_id
+* @param {Array<any>} src_neighbors
+* @param {Array<any>} dst_neighbors
+* @param {BigInt} nonce
 * @returns {any}
 */
-export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, sig: Uint8Array, src_friends: Array<any>, dst_friends: Array<any>, utxo_id: BigInt): any;
+export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: BigInt): any;
 /**
 * @param {Uint8Array} data
 * @returns {any}

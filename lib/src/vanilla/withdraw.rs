@@ -24,8 +24,8 @@ pub struct WithdrawOriginInputs<F: PrimeField> {
     pub src_leaf_index: u64,
     pub dst_leaf_index: u64,
     pub secret: F,
-    pub src_friend_nodes: Vec<F>,
-    pub dst_friend_nodes: Vec<F>,
+    pub src_neighbor_nodes: Vec<F>,
+    pub dst_neighbor_nodes: Vec<F>,
 }
 
 #[derive(Clone)]
@@ -42,8 +42,8 @@ pub struct WithdrawPublicInputs<F: PrimeField> {
 pub struct WithdrawPrivateInputs<F: PrimeField> {
     pub balance: u64,
     pub secret: F,
-    pub src_friend_nodes: Vec<(bool, F)>,
-    pub dst_friend_nodes: Vec<(bool, F)>,
+    pub src_neighbor_nodes: Vec<(bool, F)>,
+    pub dst_neighbor_nodes: Vec<(bool, F)>,
     pub src_leaf_index: u64,
     pub src_leaf: F,
 }
@@ -67,9 +67,9 @@ where
             &[F::from(src_leaf_index), F::from(balance), secret],
         ).map_err(|e| anyhow!("hash error: {}", e))?;
 
-        let src_friend_nodes = vec![FH::empty_hash(); params.height];
-        let mut dst_friend_nodes = vec![FH::empty_hash(); params.height];
-        dst_friend_nodes[0] = leaf;
+        let src_neighbor_nodes = vec![FH::empty_hash(); params.height];
+        let mut dst_neighbor_nodes = vec![FH::empty_hash(); params.height];
+        dst_neighbor_nodes[0] = leaf;
 
         let origin_inputs = WithdrawOriginInputs {
             balance,
@@ -77,8 +77,8 @@ where
             src_leaf_index,
             dst_leaf_index: src_leaf_index + 1,
             secret,
-            src_friend_nodes,
-            dst_friend_nodes,
+            src_neighbor_nodes,
+            dst_neighbor_nodes,
         };
 
         Self::generate_vanilla_proof(params, &origin_inputs)
@@ -88,14 +88,14 @@ where
         params: &WithdrawConstParams<F, FH>,
         orig_in: &WithdrawOriginInputs<F>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        assert_eq!(orig_in.src_friend_nodes.len(), params.height);
-        assert_eq!(orig_in.dst_friend_nodes.len(), params.height);
+        assert_eq!(orig_in.src_neighbor_nodes.len(), params.height);
+        assert_eq!(orig_in.dst_neighbor_nodes.len(), params.height);
         assert!(orig_in.dst_leaf_index < (1 << params.height));
         assert!(orig_in.src_leaf_index < orig_in.dst_leaf_index);
         assert!(orig_in.withdraw_amount > 0);
         assert!(orig_in.balance >= orig_in.withdraw_amount);
 
-        let src_friend_nodes = orig_in.src_friend_nodes
+        let src_neighbor_nodes = orig_in.src_neighbor_nodes
             .iter()
             .enumerate()
             .map(|(layer, node)| {
@@ -104,7 +104,7 @@ where
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let dst_friend_nodes = orig_in.dst_friend_nodes
+        let dst_neighbor_nodes = orig_in.dst_neighbor_nodes
             .iter()
             .enumerate()
             .map(|(layer, node)| {
@@ -122,7 +122,7 @@ where
             &params.leaf_params,
             &[F::from(orig_in.src_leaf_index), F::from(orig_in.balance), orig_in.secret],
         ).unwrap();
-        let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &src_friend_nodes, src_leaf)
+        let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &src_neighbor_nodes, src_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
             .unwrap()
@@ -132,7 +132,7 @@ where
             &params.leaf_params,
             &[F::from(orig_in.dst_leaf_index), F::from(rest_amount), orig_in.secret],
         ).unwrap();
-        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &dst_friend_nodes, dst_leaf)
+        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &dst_neighbor_nodes, dst_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
         let pub_in = WithdrawPublicInputs {
@@ -146,8 +146,8 @@ where
         let priv_in = WithdrawPrivateInputs {
             balance: orig_in.balance,
             secret: orig_in.secret,
-            src_friend_nodes,
-            dst_friend_nodes,
+            src_neighbor_nodes,
+            dst_neighbor_nodes,
             src_leaf_index: orig_in.src_leaf_index,
             src_leaf,
         };

@@ -112,8 +112,8 @@ where
         prev_root: F,
         dst_leaf: F,
         update_nodes: Vec<F>,
-        src_friend_nodes: Vec<(bool, F)>,
-        dst_friend_nodes: Vec<(bool, F)>,
+        src_neighbor_nodes: Vec<(bool, F)>,
+        dst_neighbor_nodes: Vec<(bool, F)>,
     ) -> Self {
         Self {
             nullifier_params: Rc::new(nullifier_params),
@@ -127,11 +127,11 @@ where
             prev_root,
             dst_leaf,
             src_proof: LeafExistance::new(
-                src_friend_nodes,
+                src_neighbor_nodes,
                 inner_params.clone(),
             ),
             dst_proof: AddNewLeaf::new(
-                dst_friend_nodes,
+                dst_neighbor_nodes,
                 update_nodes,
                 inner_params,
             ),
@@ -155,13 +155,13 @@ mod tests {
 
     const HEIGHT: u8 = 24;
 
-    fn get_random_merkle_friends<R: Rng + ?Sized>(rng: &mut R) -> Vec<(bool, Fr)> {
-        let mut friend_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
+    fn get_random_merkle_neighbors<R: Rng + ?Sized>(rng: &mut R) -> Vec<(bool, Fr)> {
+        let mut neighbor_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
         for _ in 0..(HEIGHT - 1) {
-            friend_nodes.push((bool::rand(rng), Fr::rand(rng)));
+            neighbor_nodes.push((bool::rand(rng), Fr::rand(rng)));
         }
 
-        friend_nodes
+        neighbor_nodes
     }
 
     fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
@@ -172,17 +172,17 @@ mod tests {
         let secret = Fr::rand(rng);
         let rest_amount = deposit_amount.saturating_sub(withdraw_amount);
 
-        let mut src_friend_nodes = get_random_merkle_friends(rng);
-        src_friend_nodes[0] = (false, PoseidonHasher::empty_hash());
-        let index_iter = src_friend_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
+        let mut src_neighbor_nodes = get_random_merkle_neighbors(rng);
+        src_neighbor_nodes[0] = (false, PoseidonHasher::empty_hash());
+        let index_iter = src_neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
         let src_index = BitVec::<u8>::from_iter(index_iter).load_le::<u64>();
         let src_leaf = PoseidonHasher::hash(
             &leaf_params,
             &[Fr::from(src_index), Fr::from(deposit_amount), secret],
         ).unwrap();
 
-        let mut dst_friend_nodes = src_friend_nodes.clone();
-        dst_friend_nodes[0] = (true, src_leaf);
+        let mut dst_neighbor_nodes = src_neighbor_nodes.clone();
+        dst_neighbor_nodes[0] = (true, src_leaf);
         let dst_index = src_index + 1;
         let dst_leaf = PoseidonHasher::hash(
             &leaf_params,
@@ -196,7 +196,7 @@ mod tests {
 
         let prev_root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &inner_params,
-            &src_friend_nodes,
+            &src_neighbor_nodes,
             src_leaf,
         )
         .unwrap()
@@ -206,7 +206,7 @@ mod tests {
 
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &inner_params,
-            &dst_friend_nodes,
+            &dst_neighbor_nodes,
             dst_leaf,
         ).unwrap();
 
@@ -223,8 +223,8 @@ mod tests {
             prev_root,
             dst_leaf,
             update_nodes,
-            src_friend_nodes,
-            dst_friend_nodes,
+            src_neighbor_nodes,
+            dst_neighbor_nodes,
         );
 
         let cs = ConstraintSystem::<_>::new_ref();

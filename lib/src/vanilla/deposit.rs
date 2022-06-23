@@ -25,7 +25,7 @@ pub struct DepositOriginInputs<F: PrimeField> {
     pub leaf_index: u64,
     pub deposit_amount: u64,
     pub secret: F,
-    pub friend_nodes: Vec<F>,
+    pub neighbor_nodes: Vec<F>,
     pub encryption: Option<EncryptionOriginInputs>,
 }
 
@@ -42,7 +42,7 @@ pub struct DepositPublicInputs<F: PrimeField> {
 #[derive(Clone)]
 pub struct DepositPrivateInputs<F: PrimeField> {
     pub secret: F,
-    pub friend_nodes: Vec<(bool, F)>,
+    pub neighbor_nodes: Vec<(bool, F)>,
     pub encryption: Option<EncryptionPrivateInputs>,
 }
 
@@ -65,7 +65,7 @@ where
             leaf_index: 0,
             deposit_amount: 1,
             secret: F::zero(),
-            friend_nodes: vec![FH::empty_hash(); params.height],
+            neighbor_nodes: vec![FH::empty_hash(); params.height],
             encryption: enc_orig_in,
         };
 
@@ -76,11 +76,11 @@ where
         params: &DepositConstParams<F, FH>,
         orig_in: &DepositOriginInputs<F>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        assert_eq!(orig_in.friend_nodes.len(), params.height);
+        assert_eq!(orig_in.neighbor_nodes.len(), params.height);
         assert!(orig_in.leaf_index < (1 << params.height));
         assert!(orig_in.deposit_amount > 0, "deposit amount must be greater than 0");
 
-        let friend_nodes = orig_in.friend_nodes
+        let neighbor_nodes = orig_in.neighbor_nodes
             .iter()
             .enumerate()
             .map(|(layer, node)| {
@@ -93,12 +93,12 @@ where
             &[F::from(orig_in.leaf_index), F::from(orig_in.deposit_amount), orig_in.secret],
         ).map_err(|e| anyhow!("hash error: {}", e))?;
 
-        let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes, FH::empty_hash())
+        let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &neighbor_nodes, FH::empty_hash())
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
             .unwrap()
             .clone();
-        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &friend_nodes, leaf)
+        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &neighbor_nodes, leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
         let encryption = params.encryption
@@ -124,7 +124,7 @@ where
         };
         let priv_in = DepositPrivateInputs {
             secret: orig_in.secret,
-            friend_nodes,
+            neighbor_nodes,
             encryption: enc_priv_in,
         };
 

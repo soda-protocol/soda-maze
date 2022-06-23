@@ -76,7 +76,7 @@ where
         prev_root: F,
         update_nodes: Vec<F>,
         secret: F,
-        friend_nodes: Vec<(bool, F)>,
+        neighbor_nodes: Vec<(bool, F)>,
         encrption: Option<RabinEncryption<F, FH, FHG>>,
     ) -> Self {
         Self {
@@ -87,7 +87,7 @@ where
             prev_root,
             secret,
             proof: AddNewLeaf::new(
-                friend_nodes,
+                neighbor_nodes,
                 update_nodes,
                 inner_params,
             ),
@@ -110,13 +110,13 @@ mod tests {
 
     const HEIGHT: u8 = 27;
 
-    fn get_random_merkle_friends(rng: &mut StdRng) -> Vec<(bool, Fr)> {
-        let mut friend_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
+    fn get_random_merkle_neighbors(rng: &mut StdRng) -> Vec<(bool, Fr)> {
+        let mut neighbor_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
         for _ in 0..(HEIGHT - 1) {
-            friend_nodes.push((bool::rand(rng), Fr::rand(rng)));
+            neighbor_nodes.push((bool::rand(rng), Fr::rand(rng)));
         }
 
-        friend_nodes
+        neighbor_nodes
     }
 
     #[test]
@@ -129,8 +129,8 @@ mod tests {
         let secret = Fr::rand(rng);
 
         let amount_fp = Fr::from(amount);
-        let friend_nodes = get_random_merkle_friends(rng);
-        let index_iter = friend_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
+        let neighbor_nodes = get_random_merkle_neighbors(rng);
+        let index_iter = neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
         let index = BitVec::<u8>::from_iter(index_iter)
             .load_le::<u64>();
         let leaf = PoseidonHasher::hash(
@@ -140,7 +140,7 @@ mod tests {
 
         let prev_root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &inner_params,
-            &friend_nodes,
+            &neighbor_nodes,
             PoseidonHasher::empty_hash(),
         )
         .unwrap()
@@ -150,7 +150,7 @@ mod tests {
         
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
             &inner_params,
-            &friend_nodes,
+            &neighbor_nodes,
             leaf.clone(),
         ).unwrap();
 
@@ -163,7 +163,7 @@ mod tests {
             prev_root,
             update_nodes,
             secret,
-            friend_nodes,
+            neighbor_nodes,
             None,
         );
 

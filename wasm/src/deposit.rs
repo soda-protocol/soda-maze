@@ -5,7 +5,8 @@ use js_sys::{Uint8Array, Array};
 use num_bigint::BigUint;
 use rand_core::OsRng;
 use wasm_bindgen::{JsValue, prelude::*};
-use solana_program::pubkey::Pubkey;
+use serde::{Serialize, Deserialize};
+use solana_program::{pubkey::Pubkey, instruction::Instruction};
 use soda_maze_program::{Packer, params::HEIGHT};
 use soda_maze_program::core::node::MerkleNode;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
@@ -14,11 +15,20 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, Instructions};
+use crate::{log, from_sig_to_secret};
 use crate::params::*;
 
 type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
 type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+
+#[derive(Serialize, Deserialize)]
+struct Instructions {
+    pub reset: Instruction,
+    pub credential: Instruction,
+    pub verifier: Instruction,
+    pub verify: Vec<Instruction>,
+    pub finalize: Instruction,
+}
 
 fn gen_deposit_instructions(
     vault: Pubkey,
@@ -27,7 +37,7 @@ fn gen_deposit_instructions(
     proof: Proof<Bn254>,
     pub_in: DepositPublicInputs<Fr>,
     sig: &[u8],
-    utxo_id: u64,
+    nonce: u64,
 ) -> Instructions {
     use soda_maze_program::bn::BigInteger256;
     use soda_maze_program::verifier::Proof;
@@ -35,14 +45,14 @@ fn gen_deposit_instructions(
     use soda_maze_program::instruction::*;
     use solana_program::hash::hash;
 
-    let reset = reset_deposit_buffer_accounts(vault, owner).expect("reset deposit buffer accounts failed");
+    let reset = reset_deposit_buffer_accounts(vault, owner).expect("Error: reset deposit buffer accounts failed");
 
     let leaf = BigInteger256::new(pub_in.leaf.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
         BigInteger256::new(node.into_repr().0)
     }).collect::<Vec<_>>();
     let credential = create_deposit_credential(vault, owner, pub_in.deposit_amount, leaf, Box::new(updating_nodes))
-        .expect("create deposit credential failed");
+        .expect("Error: create deposit credential failed");
 
     let commitment = pub_in.encryption.unwrap().cipher_field_array.into_iter().map(|c| {
         BigInteger256::new(c.into_repr().0)
@@ -66,16 +76,16 @@ fn gen_deposit_instructions(
     };
 
     let verifier = create_deposit_verifier(vault, owner, Box::new(commitment), Box::new(proof))
-        .expect("create deposit verifier failed");
+        .expect("Error: create deposit verifier failed");
 
     let verify = (0..210).into_iter().map(|i| {
-        verify_deposit_proof(vault, owner, vec![i as u8]).expect("verify proof failed")
+        verify_deposit_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 
-    let utxo_key = hash(&[sig, &utxo_id.to_le_bytes()].concat());
+    let utxo_key = hash(&[sig, &nonce.to_le_bytes()].concat());
 
     let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf, utxo_key.to_bytes())
-        .expect("finalize deposit failed");
+        .expect("Error: finalize deposit failed");
 
     Instructions {
         reset,
@@ -92,30 +102,31 @@ pub fn gen_deposit_proof(
     vault: Pubkey,
     mint: Pubkey,
     owner: Pubkey,
-    leaf_index: u64,
+    leaf_index: u64, // from vault info
     deposit_amount: u64,
-    friends: Array,
+    neighbors: Array, // get_merkle_neighbor_nodes(vault, leaf_index)
     sig: Uint8Array,
-    utxo_id: u64,
+    nonce: u64,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
     log("Preparing params and datas...");
 
     let sig = sig.to_vec();
-    let secret = Fr::from_le_bytes_mod_order(&sig);
+    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+    let secret = from_sig_to_secret(&sig);
 
     let ref nodes_hashes = get_default_node_hashes();
-    let friend_nodes = friends.iter().enumerate().map(|(layer, friend)| {
-        let data = Uint8Array::from(friend).to_vec();
+    let neighbor_nodes = neighbors.iter().enumerate().map(|(layer, neighbor)| {
+        let data = Uint8Array::from(neighbor).to_vec();
         if data.is_empty() {
             nodes_hashes[layer]
         } else {
-            let node = MerkleNode::unpack(&data).expect("node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("invalid fr repr")
+            let node = MerkleNode::unpack(&data).expect("Error: merkle node data can not unpack");
+            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid fr repr")
         }
     }).collect::<Vec<_>>();
-    assert_eq!(friend_nodes.len(), HEIGHT, "invalid friends array length");
+    assert_eq!(neighbor_nodes.len(), HEIGHT, "Error: invalid neighbors array length");
 
     let encryption_const_params = get_encryption_const_params();
     let encryption = {
@@ -137,7 +148,7 @@ pub fn gen_deposit_proof(
         leaf_index,
         deposit_amount,
         secret,
-        friend_nodes,
+        neighbor_nodes,
         encryption,
     };
 
@@ -148,17 +159,17 @@ pub fn gen_deposit_proof(
 
     let (pub_in, priv_in) =
         DepositVanillaInstant::generate_vanilla_proof(&deposit_const_params, &origin_inputs)
-            .expect("generate vanilla proof failed");
+            .expect("Error: generate vanilla proof failed");
 
     log("Generating snark proof...");
 
     let proof =
         DepositInstant::generate_snark_proof(&mut OsRng, &deposit_const_params, &pub_in, &priv_in, &pk)
-            .expect("generate snark proof failed");
+            .expect("Error: generate snark proof failed");
     drop(pk);
 
     log("Generating solana instructions...");
 
-    let instructions = gen_deposit_instructions(vault, mint, owner, proof, pub_in, &sig, utxo_id);
-    JsValue::from_serde(&instructions).expect("serde error")
+    let instructions = gen_deposit_instructions(vault, mint, owner, proof, pub_in, &sig, nonce);
+    JsValue::from_serde(&instructions).expect("Error: serde instructions error")
 }
