@@ -25,6 +25,7 @@ struct Instructions {
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
     pub token_account: Instruction,
+    pub utxo: Instruction,
     pub finalize: Instruction,
 }
 
@@ -44,6 +45,7 @@ fn gen_withdraw_instructions(
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
+    use soda_maze_program::store::utxo::Amount;
     use solana_program::hash::hash;
     use easy_aes::{full_encrypt, BLOCK, Keys};
 
@@ -103,6 +105,12 @@ fn gen_withdraw_instructions(
     full_encrypt(&mut block, &key2);
 
     let utxo_key = hash(&[sig, &nonce.to_le_bytes()].concat());
+    let utxo = store_utxo(
+        owner,
+        utxo_key.to_bytes(),
+        pub_in.dst_leaf_index,
+        Amount::Cipher(block.stringify_block()),
+    ).expect("Error: store utxo failed");
 
     let finalize = finalize_withdraw(
         vault,
@@ -111,8 +119,6 @@ fn gen_withdraw_instructions(
         delegator,
         pub_in.dst_leaf_index,
         nullifier,
-        utxo_key.to_bytes(),
-        block.stringify_block(),
     ).expect("Error: finalize withdraw failed");
 
     Instructions {
@@ -121,6 +127,7 @@ fn gen_withdraw_instructions(
         verifier,
         verify,
         token_account,
+        utxo,
         finalize,
     }
 }

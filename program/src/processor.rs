@@ -47,9 +47,7 @@ pub fn process_instruction(
             proof,
         } => process_create_deposit_verifier(program_id, accounts, commitment, proof),
         MazeInstruction::VerifyDepositProof => process_verify_deposit_proof(program_id, accounts),
-        MazeInstruction::FinalizeDeposit {
-            utxo_key,
-        } => process_finalize_deposit(program_id, accounts, utxo_key),
+        MazeInstruction::FinalizeDeposit => process_finalize_deposit(program_id, accounts),
         MazeInstruction::ResetWithdrawAccounts => process_reset_withdraw_buffer_accounts(program_id, accounts),
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
@@ -61,10 +59,12 @@ pub fn process_instruction(
             proof,
         } => process_create_withdraw_verifier(program_id, accounts, proof),
         MazeInstruction::VerifyWithdrawProof => process_verify_withdraw_proof(program_id, accounts),
-        MazeInstruction::FinalizeWithdraw {
+        MazeInstruction::FinalizeWithdraw => process_finalize_withdraw(program_id, accounts),
+        MazeInstruction::StoreUtxo {
             utxo_key,
-            balance_cipher,
-        } => process_finalize_withdraw(program_id, accounts, utxo_key, balance_cipher),
+            leaf_index,
+            amount,
+        } => process_store_utxo(program_id, accounts, utxo_key, leaf_index, amount),
         MazeInstruction::CreateVault {
             min_deposit,
             min_withdraw,
@@ -285,7 +285,6 @@ fn process_verify_deposit_proof(
 fn process_finalize_deposit(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    utxo_key: [u8; 32],
 ) -> ProgramResult {
     msg!("Finalizing deposit");
 
@@ -301,7 +300,6 @@ fn process_finalize_deposit(
     let src_token_account_info = next_account_info(accounts_iter)?;
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let owner_info = next_account_info(accounts_iter)?;
-    let utxo_info = next_account_info(accounts_iter)?;
 
     if !owner_info.is_signer {
         return Err(MazeError::InvalidAuthority.into());
@@ -407,24 +405,7 @@ fn process_finalize_deposit(
     // clear credential
     process_rent_refund(credential_info, owner_info);
 
-    // store uxto on chain
-    let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo_key, program_id);
-    if &utxo_pubkey != utxo_info.key {
-        msg!("UTXO pubkey is invalid");
-        return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    process_optimal_create_account(
-        rent_info,
-        utxo_info,
-        owner_info,
-        system_program_info,
-        program_id,
-        UTXO::LEN,
-        &[],
-        &[seed_1, &seed_2],
-    )?;
-    let utxo = UTXO::new(credential.vanilla_data.leaf_index, Amount::Origin(credential.vanilla_data.deposit_amount));
-    utxo.initialize_to_account_info(utxo_info)
+    Ok(())
 }
 
 /////////////////////////////////// Withdraw Actions ////////////////////////////////////////
@@ -682,8 +663,6 @@ fn process_verify_withdraw_proof(
 fn process_finalize_withdraw(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    utxo_key: [u8; 32],
-    balance_cipher: [u8; 16],
 ) -> ProgramResult {
     msg!("Finalizing withdraw");
 
@@ -702,7 +681,6 @@ fn process_finalize_withdraw(
     let vault_signer_info = next_account_info(accounts_iter)?;
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
-    let utxo_info = next_account_info(accounts_iter)?;
 
     if !owner_info.is_signer {
         msg!("Owner is not a signer");
@@ -833,7 +811,24 @@ fn process_finalize_withdraw(
 
     // transfer sol as fee from delegator to owner
     const FEE: u64 = 10_000_000;
-    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)?;
+    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)
+}
+
+fn process_store_utxo(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    utxo_key: [u8; 32],
+    leaf_index: u64,
+    amount: Amount,
+) -> ProgramResult {
+    msg!("Store balance cipher");
+
+    let accounts_iter = &mut accounts.iter();
+
+    let system_program_info = next_account_info(accounts_iter)?;
+    let rent_info = next_account_info(accounts_iter)?;
+    let payer_info = next_account_info(accounts_iter)?;
+    let utxo_info = next_account_info(accounts_iter)?;
 
     // store uxto on chain
     let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo_key, program_id);
@@ -844,14 +839,14 @@ fn process_finalize_withdraw(
     process_optimal_create_account(
         rent_info,
         utxo_info,
-        owner_info,
+        payer_info,
         system_program_info,
         program_id,
         UTXO::LEN,
         &[],
         &[seed_1, &seed_2],
     )?;
-    let utxo = UTXO::new(credential.vanilla_data.leaf_index, Amount::Cipher(balance_cipher));
+    let utxo = UTXO::new(leaf_index, amount);
     utxo.initialize_to_account_info(utxo_info)
 }
 

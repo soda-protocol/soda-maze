@@ -27,6 +27,7 @@ struct Instructions {
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
+    pub utxo: Instruction,
     pub finalize: Instruction,
 }
 
@@ -43,6 +44,7 @@ fn gen_deposit_instructions(
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
+    use soda_maze_program::store::utxo::Amount;
     use solana_program::hash::hash;
 
     let reset = reset_deposit_buffer_accounts(vault, owner).expect("Error: reset deposit buffer accounts failed");
@@ -83,8 +85,14 @@ fn gen_deposit_instructions(
     }).collect::<Vec<_>>();
 
     let utxo_key = hash(&[sig, &nonce.to_le_bytes()].concat());
+    let utxo = store_utxo(
+        owner,
+        utxo_key.to_bytes(),
+        pub_in.leaf_index,
+        Amount::Origin(pub_in.deposit_amount),
+    ).expect("Error: store utxo failed");
 
-    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf, utxo_key.to_bytes())
+    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf)
         .expect("Error: finalize deposit failed");
 
     Instructions {
@@ -92,6 +100,7 @@ fn gen_deposit_instructions(
         credential,
         verifier,
         verify,
+        utxo,
         finalize,
     }
 }
