@@ -12,7 +12,7 @@ pub fn get_deposit_credential_pda<'a>(
     vault: &'a Pubkey,
     owner: &'a Pubkey,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], &'a [u8], &'static [u8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
     let owner_ref = owner.as_ref();
 
@@ -21,14 +21,14 @@ pub fn get_deposit_credential_pda<'a>(
         program_id,
     );
 
-    (key, (vault_ref, owner_ref, DEPOSIT_TAG, [seed]))
+    (key, (vault_ref, DEPOSIT_TAG, owner_ref, [seed]))
 }
 
 pub fn get_withdraw_credential_pda<'a>(
     vault: &'a Pubkey,
     owner: &'a Pubkey,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], &'a [u8], &'static [u8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
     let owner_ref = owner.as_ref();
 
@@ -37,7 +37,7 @@ pub fn get_withdraw_credential_pda<'a>(
         program_id,
     );
 
-    (key, (vault_ref, owner_ref, WITHDRAW_TAG, [seed]))
+    (key, (vault_ref, WITHDRAW_TAG, owner_ref, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
