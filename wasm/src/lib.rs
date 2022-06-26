@@ -91,8 +91,8 @@ pub fn get_utxo_keys(sig: Uint8Array, num: u64) -> JsValue {
 
     let sig = &sig.to_vec()[..];
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
-    let pubkeys = (0..num).map(|id| {
-        let key = hash(&[sig, &id.to_le_bytes()].concat());
+    let pubkeys = (0..num).map(|nonce| {
+        let key = hash(&[sig, &nonce.to_le_bytes()].concat());
         let (pubkey, _) = get_utxo_pda(key.as_ref(), &ID);
         pubkey
     }).collect::<Vec<_>>();

@@ -5,20 +5,39 @@ use solana_program::pubkey::Pubkey;
 use crate::Packer;
 use super::VanillaData;
 
-pub fn get_credential_pda<'a>(
+const DEPOSIT_TAG: &[u8] = &[0];
+const WITHDRAW_TAG: &[u8] = &[1];
+
+pub fn get_deposit_credential_pda<'a>(
     vault: &'a Pubkey,
     owner: &'a Pubkey,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], &'a [u8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], &'a [u8], &'static [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
     let owner_ref = owner.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, owner_ref],
+        &[vault_ref, &DEPOSIT_TAG, owner_ref],
         program_id,
     );
 
-    (key, (vault_ref, owner_ref, [seed]))
+    (key, (vault_ref, owner_ref, DEPOSIT_TAG, [seed]))
+}
+
+pub fn get_withdraw_credential_pda<'a>(
+    vault: &'a Pubkey,
+    owner: &'a Pubkey,
+    program_id: &Pubkey,
+) -> (Pubkey, (&'a [u8], &'a [u8], &'static [u8], [u8; 1])) {
+    let vault_ref = vault.as_ref();
+    let owner_ref = owner.as_ref();
+
+    let (key, seed) = Pubkey::find_program_address(
+        &[vault_ref, &WITHDRAW_TAG, owner_ref],
+        program_id,
+    );
+
+    (key, (vault_ref, owner_ref, WITHDRAW_TAG, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]

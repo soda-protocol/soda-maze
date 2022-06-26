@@ -14,7 +14,7 @@ use crate::{
         VanillaData,
         nullifier::{get_nullifier_pda, Nullifier},
         commitment::{get_commitment_pda, Commitment},
-        credential::get_credential_pda,
+        credential::{get_deposit_credential_pda, get_withdraw_credential_pda},
         deposit::{DepositCredential, DepositVanillaData},
         withdraw::{WithdrawCredential, WithdrawVanillaData},
         vault::{Vault, get_vault_pda, get_vault_authority_pda},
@@ -146,7 +146,7 @@ fn process_create_deposit_credential(
     vault.check_enable()?;
     vault.check_deposit(deposit_amount)?;
 
-    let (credential_key, (seed_1, seed_2, seed_3)) = get_credential_pda(
+    let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_deposit_credential_pda(
         vault_info.key,
         owner_info.key,
         program_id,
@@ -163,7 +163,7 @@ fn process_create_deposit_credential(
         program_id,
         DepositCredential::LEN,
         &[],
-        &[seed_1, seed_2, &seed_3],
+        &[seed_1, seed_2, seed_3, &seed_4],
     )?;
     let credential = DepositCredential::new(
         *vault_info.key,
@@ -489,7 +489,7 @@ fn process_create_withdraw_credential(
     vault.check_enable()?;
     vault.check_withdraw(withdraw_amount)?;
 
-    let (credential_key, (seed_1, seed_2, seed_3)) = get_credential_pda(
+    let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_withdraw_credential_pda(
         vault_info.key,
         owner_info.key,
         program_id,
@@ -506,7 +506,7 @@ fn process_create_withdraw_credential(
         program_id,
         WithdrawCredential::LEN,
         &[],
-        &[seed_1, seed_2, &seed_3],
+        &[seed_1, seed_2, seed_3, &seed_4],
     )?;
     let credential = WithdrawCredential::new(
         *vault_info.key,
