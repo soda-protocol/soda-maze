@@ -390,7 +390,7 @@ pub fn finalize_withdraw(
         AccountMeta::new(user_token_account, false),
         AccountMeta::new(delegator_token_account, false),
         AccountMeta::new_readonly(vault_signer, false),
-        AccountMeta::new(owner, false),
+        // AccountMeta::new(owner, false),
         AccountMeta::new(delegator, true),
     ];
     accounts.extend(nodes_accounts);
