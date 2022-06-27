@@ -804,14 +804,16 @@ fn process_finalize_withdraw(
         vault.delegate_fee,
     )?;
 
+    // transfer sol as fee from delegator to owner
+    const FEE: u64 = 10_000_000;
+    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)?;
+
     // clear verifier
     process_rent_refund(verifier_info, delegator_info);
     // clear credential
     process_rent_refund(credential_info, delegator_info);
 
-    // transfer sol as fee from delegator to owner
-    const FEE: u64 = 10_000_000;
-    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)
+    Ok(())
 }
 
 fn process_store_utxo(
