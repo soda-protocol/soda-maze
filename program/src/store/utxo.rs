@@ -25,15 +25,15 @@ pub enum Amount {
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct UTXO {
     is_initialized: bool,
-    pub index: u64,
+    pub leaf_index: u64,
     pub amount: Amount,
 }
 
 impl UTXO {
-    pub fn new(index: u64, amount: Amount) -> Self {
+    pub fn new(leaf_index: u64, amount: Amount) -> Self {
         Self {
             is_initialized: true,
-            index,
+            leaf_index,
             amount,
         }
     }

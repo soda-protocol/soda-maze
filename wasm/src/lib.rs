@@ -24,7 +24,7 @@ extern "C" {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Utxo {
-    index: u64,
+    leaf_index: u64,
     amount: u64,
     nullifier: Pubkey,
 }
@@ -42,14 +42,14 @@ pub fn from_sig_to_secret(sig: &[u8]) -> Fr {
     Fr::from_repr(BigInteger256::new(secret)).unwrap()
 }
 
-fn get_nullifier_pubkey(index: u64, secret: Fr) -> Pubkey {
+fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
     use soda_maze_lib::params::poseidon::get_poseidon_bn254_for_nullifier;
     use soda_maze_lib::vanilla::hasher::{FieldHasher, poseidon::PoseidonHasher};
     use soda_maze_program::bn::BigInteger256;
     use soda_maze_program::core::nullifier::get_nullifier_pda;
 
     let ref params = get_poseidon_bn254_for_nullifier();
-    let nullifier = PoseidonHasher::hash(params, &[Fr::from(index), secret]).expect("Error: poseidon hash error");
+    let nullifier = PoseidonHasher::hash(params, &[Fr::from(leaf_index), secret]).expect("Error: poseidon hash error");
     let nullifier = BigInteger256::new(nullifier.into_repr().0);
     let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
 
@@ -123,10 +123,10 @@ pub fn parse_utxo(sig: Uint8Array, utxo: Uint8Array) -> JsValue {
         Amount::Origin(amount) => amount,
     };
     let secret = from_sig_to_secret(&sig);
-    let nullifier = get_nullifier_pubkey(utxo.index, secret);
+    let nullifier = get_nullifier_pubkey(utxo.leaf_index, secret);
 
     let utxo = Utxo {
-        index: utxo.index,
+        leaf_index: utxo.leaf_index,
         amount,
         nullifier,
     };
