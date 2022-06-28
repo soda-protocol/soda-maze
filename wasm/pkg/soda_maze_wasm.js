@@ -231,6 +231,71 @@ export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount
 }
 
 /**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_vault_info(data) {
+    const ret = wasm.get_vault_info(addHeapObject(data));
+    return takeObject(ret);
+}
+
+/**
+* @param {Pubkey} vault_key
+* @param {BigInt} leaf_index
+* @returns {any}
+*/
+export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
+    _assertClass(vault_key, Pubkey);
+    var ptr0 = vault_key.ptr;
+    vault_key.ptr = 0;
+    uint64CvtShim[0] = leaf_index;
+    const low1 = u32CvtShim[0];
+    const high1 = u32CvtShim[1];
+    const ret = wasm.get_merkle_neighbor_nodes(ptr0, low1, high1);
+    return takeObject(ret);
+}
+
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {BigInt} num
+* @returns {any}
+*/
+export function get_utxo_keys(sig, vault, num) {
+    _assertClass(vault, Pubkey);
+    var ptr0 = vault.ptr;
+    vault.ptr = 0;
+    uint64CvtShim[0] = num;
+    const low1 = u32CvtShim[0];
+    const high1 = u32CvtShim[1];
+    const ret = wasm.get_utxo_keys(addHeapObject(sig), ptr0, low1, high1);
+    return takeObject(ret);
+}
+
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {Uint8Array} utxo
+* @returns {any}
+*/
+export function parse_utxo(sig, vault, utxo) {
+    _assertClass(vault, Pubkey);
+    var ptr0 = vault.ptr;
+    vault.ptr = 0;
+    const ret = wasm.parse_utxo(addHeapObject(sig), ptr0, addHeapObject(utxo));
+    return takeObject(ret);
+}
+
+/**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_nullifier(data) {
+    const ret = wasm.get_nullifier(addHeapObject(data));
+    return takeObject(ret);
+}
+
+/**
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} owner
@@ -274,63 +339,6 @@ export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index
     const low8 = u32CvtShim[0];
     const high8 = u32CvtShim[1];
     const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_neighbors), addHeapObject(dst_neighbors), low8, high8);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_vault_info(data) {
-    const ret = wasm.get_vault_info(addHeapObject(data));
-    return takeObject(ret);
-}
-
-/**
-* @param {Pubkey} vault_key
-* @param {BigInt} leaf_index
-* @returns {any}
-*/
-export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
-    _assertClass(vault_key, Pubkey);
-    var ptr0 = vault_key.ptr;
-    vault_key.ptr = 0;
-    uint64CvtShim[0] = leaf_index;
-    const low1 = u32CvtShim[0];
-    const high1 = u32CvtShim[1];
-    const ret = wasm.get_merkle_neighbor_nodes(ptr0, low1, high1);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} sig
-* @param {BigInt} num
-* @returns {any}
-*/
-export function get_utxo_keys(sig, num) {
-    uint64CvtShim[0] = num;
-    const low0 = u32CvtShim[0];
-    const high0 = u32CvtShim[1];
-    const ret = wasm.get_utxo_keys(addHeapObject(sig), low0, high0);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} sig
-* @param {Uint8Array} utxo
-* @returns {any}
-*/
-export function parse_utxo(sig, utxo) {
-    const ret = wasm.parse_utxo(addHeapObject(sig), addHeapObject(utxo));
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_nullifier(data) {
-    const ret = wasm.get_nullifier(addHeapObject(data));
     return takeObject(ret);
 }
 

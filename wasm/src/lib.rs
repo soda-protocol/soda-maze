@@ -6,7 +6,7 @@ use ark_bn254::Fr;
 use ark_ff::{PrimeField, BigInteger256};
 use js_sys::Uint8Array;
 use serde::{Serialize, Deserialize};
-use easy_aes::{full_decrypt, BLOCK, Keys};
+use easy_aes::{full_decrypt, full_encrypt, BLOCK, Keys};
 use soda_maze_program::core::nullifier::Nullifier;
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::pubkey::Pubkey;
@@ -29,19 +29,6 @@ struct Utxo {
     nullifier: Pubkey,
 }
 
-pub fn from_sig_to_secret(sig: &[u8]) -> Fr {
-    let mut hash = hash(sig).to_bytes();
-    // strip 3 last bits to make sure secret is in Fr
-    hash[31] &= 0b0001_1111;
-    let secret = [
-        u64::from_le_bytes([hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]]),
-        u64::from_le_bytes([hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]]),
-        u64::from_le_bytes([hash[16], hash[17], hash[18], hash[19], hash[20], hash[21], hash[22], hash[23]]),
-        u64::from_le_bytes([hash[24], hash[25], hash[26], hash[27], hash[28], hash[29], hash[30], hash[31]]),
-    ];
-    Fr::from_repr(BigInteger256::new(secret)).unwrap()
-}
-
 fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
     use soda_maze_lib::params::poseidon::get_poseidon_bn254_for_nullifier;
     use soda_maze_lib::vanilla::hasher::{FieldHasher, poseidon::PoseidonHasher};
@@ -54,6 +41,47 @@ fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
     let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
 
     nullifier
+}
+
+pub fn encrypt_balance(sig: &[u8], vault: &Pubkey, balance: u64) -> [u8; 16] {
+    let key = hash(&[sig, vault.as_ref()].concat()).to_bytes();
+    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[..16]).unwrap()));
+    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[16..]).unwrap()));
+
+    let mut block = BLOCK::new(u128::from(balance).to_le_bytes());
+    full_encrypt(&mut block, &key1);
+    full_encrypt(&mut block, &key2);
+    block.stringify_block()
+}
+
+pub fn decrypt_balance(sig: &[u8], vault: &Pubkey, cipher: [u8; 16]) -> u64 {
+    let key = hash(&[sig, vault.as_ref()].concat()).to_bytes();
+    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[..16]).unwrap()));
+    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[16..]).unwrap()));
+
+    let mut block = BLOCK::new(cipher);
+    full_decrypt(&mut block, &key2);
+    full_decrypt(&mut block, &key1);
+    u128::from_le_bytes(block.stringify_block()) as u64
+}
+
+pub fn gen_secret(sig: &[u8], vault: &Pubkey) -> Fr {
+    let preimage = &[sig, vault.as_ref()].concat();
+    let mut secret = hash(preimage).to_bytes();
+    // strip 3 last bits to make sure secret is in Fr
+    secret[31] &= 0b0001_1111;
+    let secret = [
+        u64::from_le_bytes([secret[0], secret[1], secret[2], secret[3], secret[4], secret[5], secret[6], secret[7]]),
+        u64::from_le_bytes([secret[8], secret[9], secret[10], secret[11], secret[12], secret[13], secret[14], secret[15]]),
+        u64::from_le_bytes([secret[16], secret[17], secret[18], secret[19], secret[20], secret[21], secret[22], secret[23]]),
+        u64::from_le_bytes([secret[24], secret[25], secret[26], secret[27], secret[28], secret[29], secret[30], secret[31]]),
+    ];
+    Fr::from_repr(BigInteger256::new(secret)).unwrap()
+}
+
+pub fn gen_utxo_key(sig: &[u8], vault: &Pubkey, nonce: u64) -> [u8; 32] {
+    let key = hash(&[sig, vault.as_ref(), &nonce.to_le_bytes()].concat());
+    key.to_bytes()
 }
 
 #[wasm_bindgen]
@@ -86,13 +114,14 @@ pub fn get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: u64) -> JsValue 
 }
 
 #[wasm_bindgen]
-pub fn get_utxo_keys(sig: Uint8Array, num: u64) -> JsValue {
+pub fn get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: u64) -> JsValue {
     console_error_panic_hook::set_once();
 
     let sig = &sig.to_vec()[..];
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+
     let pubkeys = (0..num).map(|nonce| {
-        let key = hash(&[sig, &nonce.to_le_bytes()].concat());
+        let key = gen_utxo_key(sig, &vault, nonce);
         let (pubkey, _) = get_utxo_pda(key.as_ref(), &ID);
         pubkey
     }).collect::<Vec<_>>();
@@ -101,28 +130,19 @@ pub fn get_utxo_keys(sig: Uint8Array, num: u64) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn parse_utxo(sig: Uint8Array, utxo: Uint8Array) -> JsValue {
+pub fn parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let sig = sig.to_vec();
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+
     let utxo = UTXO::unpack(&utxo.to_vec())
         .expect("Error: UTXO data can not unpack");
     let amount = match utxo.amount {
-        Amount::Cipher(cipher) => {
-            let seed = hash(&sig);
-            let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[..16]).unwrap()));
-            let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[16..]).unwrap()));
-
-            let mut block = BLOCK::new(cipher);
-            full_decrypt(&mut block, &key1);
-            full_decrypt(&mut block, &key2);
-
-            u128::from_le_bytes(block.stringify_block()) as u64
-        }
+        Amount::Cipher(cipher) => decrypt_balance(&sig, &vault, cipher),
         Amount::Origin(amount) => amount,
     };
-    let secret = from_sig_to_secret(&sig);
+    let secret = gen_secret(&sig, &vault);
     let nullifier = get_nullifier_pubkey(utxo.leaf_index, secret);
 
     let utxo = Utxo {

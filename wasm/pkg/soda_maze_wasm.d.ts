@@ -13,6 +13,36 @@
 */
 export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, neighbors: Array<any>, sig: Uint8Array, nonce: BigInt): any;
 /**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_vault_info(data: Uint8Array): any;
+/**
+* @param {Pubkey} vault_key
+* @param {BigInt} leaf_index
+* @returns {any}
+*/
+export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: BigInt): any;
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {BigInt} num
+* @returns {any}
+*/
+export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: BigInt): any;
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {Uint8Array} utxo
+* @returns {any}
+*/
+export function parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array): any;
+/**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_nullifier(data: Uint8Array): any;
+/**
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} owner
@@ -28,34 +58,6 @@ export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, le
 * @returns {any}
 */
 export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: BigInt): any;
-/**
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_vault_info(data: Uint8Array): any;
-/**
-* @param {Pubkey} vault_key
-* @param {BigInt} leaf_index
-* @returns {any}
-*/
-export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: BigInt): any;
-/**
-* @param {Uint8Array} sig
-* @param {BigInt} num
-* @returns {any}
-*/
-export function get_utxo_keys(sig: Uint8Array, num: BigInt): any;
-/**
-* @param {Uint8Array} sig
-* @param {Uint8Array} utxo
-* @returns {any}
-*/
-export function parse_utxo(sig: Uint8Array, utxo: Uint8Array): any;
-/**
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_nullifier(data: Uint8Array): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -349,12 +351,12 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => number;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
   readonly get_vault_info: (a: number) => number;
   readonly get_merkle_neighbor_nodes: (a: number, b: number, c: number) => number;
-  readonly get_utxo_keys: (a: number, b: number, c: number) => number;
-  readonly parse_utxo: (a: number, b: number) => number;
+  readonly get_utxo_keys: (a: number, b: number, c: number, d: number) => number;
+  readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
   readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;

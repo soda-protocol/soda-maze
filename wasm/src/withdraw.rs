@@ -12,7 +12,7 @@ use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, from_sig_to_secret};
+use crate::{log, gen_secret, encrypt_balance, gen_utxo_key};
 use crate::params::*;
 
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -46,8 +46,6 @@ fn gen_withdraw_instructions(
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
     use soda_maze_program::store::utxo::Amount;
-    use solana_program::hash::hash;
-    use easy_aes::{full_encrypt, BLOCK, Keys};
 
     let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
     let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
@@ -97,19 +95,13 @@ fn gen_withdraw_instructions(
         &mint,
     );
 
-    let seed = hash(sig);
-    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[..16]).unwrap()));
-    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&seed.as_ref()[16..]).unwrap()));
-    let mut block = BLOCK::new(u128::from(balance).to_le_bytes());
-    full_encrypt(&mut block, &key1);
-    full_encrypt(&mut block, &key2);
-
-    let utxo_key = hash(&[sig, &nonce.to_le_bytes()].concat());
+    let cipher = encrypt_balance(sig, &vault, balance);
+    let utxo_key = gen_utxo_key(sig, &vault, nonce);
     let utxo = store_utxo(
         owner,
-        utxo_key.to_bytes(),
+        utxo_key,
         pub_in.dst_leaf_index,
-        Amount::Cipher(block.stringify_block()),
+        Amount::Cipher(cipher),
     ).expect("Error: store utxo failed");
 
     let finalize = finalize_withdraw(
@@ -154,7 +146,7 @@ pub fn gen_withdraw_proof(
     
     let sig = sig.to_vec();
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
-    let secret = from_sig_to_secret(&sig);
+    let secret = gen_secret(&sig, &vault);
 
     let ref nodes_hashes = get_default_node_hashes();
     let src_neighbor_nodes = src_neighbors.iter().enumerate().map(|(layer, neighbor)| {

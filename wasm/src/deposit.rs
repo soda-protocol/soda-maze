@@ -15,7 +15,7 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, from_sig_to_secret};
+use crate::{log, gen_secret, gen_utxo_key};
 use crate::params::*;
 
 type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
@@ -45,7 +45,6 @@ fn gen_deposit_instructions(
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
     use soda_maze_program::store::utxo::Amount;
-    use solana_program::hash::hash;
 
     let reset = reset_deposit_buffer_accounts(vault, owner).expect("Error: reset deposit buffer accounts failed");
 
@@ -84,10 +83,10 @@ fn gen_deposit_instructions(
         verify_deposit_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 
-    let utxo_key = hash(&[sig, &nonce.to_le_bytes()].concat());
+    let utxo_key = gen_utxo_key(sig, &vault, nonce);
     let utxo = store_utxo(
         owner,
-        utxo_key.to_bytes(),
+        utxo_key,
         pub_in.leaf_index,
         Amount::Origin(pub_in.deposit_amount),
     ).expect("Error: store utxo failed");
@@ -123,7 +122,7 @@ pub fn gen_deposit_proof(
 
     let sig = sig.to_vec();
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
-    let secret = from_sig_to_secret(&sig);
+    let secret = gen_secret(&sig, &vault);
 
     let ref nodes_hashes = get_default_node_hashes();
     let neighbor_nodes = neighbors.iter().enumerate().map(|(layer, neighbor)| {
