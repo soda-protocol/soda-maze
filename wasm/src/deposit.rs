@@ -15,7 +15,8 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::{log, gen_secret, gen_utxo_key};
+use crate::log;
+use crate::utils::*;
 use crate::params::*;
 
 type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;

@@ -823,7 +823,7 @@ fn process_store_utxo(
     leaf_index: u64,
     amount: Amount,
 ) -> ProgramResult {
-    msg!("Store balance cipher");
+    msg!("Store utxo");
 
     let accounts_iter = &mut accounts.iter();
 
