@@ -52,7 +52,7 @@ pub fn get_vault_info(data: Uint8Array) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: u64) -> JsValue {
+pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> JsValue {
     console_error_panic_hook::set_once();
 
     let neighbors = (0..HEIGHT)
@@ -73,7 +73,7 @@ pub fn get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: u64) -> JsValue 
 }
 
 #[wasm_bindgen]
-pub fn get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: u64) -> JsValue {
+pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> JsValue {
     console_error_panic_hook::set_once();
 
     let sig = &sig.to_vec()[..];
@@ -89,7 +89,7 @@ pub fn get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: u64) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array) -> JsValue {
+pub fn parse_utxo(sig: Uint8Array, vault: &Pubkey, utxo: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let sig = sig.to_vec();
