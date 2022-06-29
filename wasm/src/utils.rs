@@ -27,8 +27,7 @@ pub fn decrypt_balance(sig: &[u8], vault: &Pubkey, cipher: [u8; 16]) -> u64 {
 }
 
 pub fn gen_secret(sig: &[u8], vault: &Pubkey) -> Fr {
-    let preimage = &[sig, vault.as_ref()].concat();
-    let mut secret = hash(preimage).to_bytes();
+    let mut secret = hash(&[sig, vault.as_ref()].concat()).to_bytes();
     // strip 3 last bits to make sure secret is in Fr
     secret[31] &= 0b0001_1111;
     let secret = [
