@@ -48,6 +48,10 @@ fn gen_withdraw_instructions(
     use soda_maze_program::instruction::*;
     use soda_maze_program::store::utxo::Amount;
 
+    // debug log
+    log(format!("sig = {:?}", sig).as_str());
+    log(format!("balance = {}", balance).as_str());
+
     let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
     let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
@@ -210,7 +214,7 @@ pub fn gen_withdraw_proof(
         pub_in,
         &sig,
         nonce,
-        balance - withdraw_amount,
+        balance.checked_sub(withdraw_amount).expect("Error: withdraw amount is greater than balance"),
     );
     JsValue::from_serde(&instructions).expect("Error: serde instructions error")
 }

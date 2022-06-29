@@ -43,3 +43,22 @@ pub fn gen_utxo_key(sig: &[u8], vault: &Pubkey, nonce: u64) -> [u8; 32] {
     let key = hash(&[sig, vault.as_ref(), &nonce.to_le_bytes()].concat());
     key.to_bytes()
 }
+
+#[cfg(test)]
+mod tests {
+    use solana_sdk::pubkey;
+
+    use super::{encrypt_balance, decrypt_balance};
+
+    #[test]
+    fn test_encrypt_balance() {
+        let sig = [240,216,117,240,182,7,202,232,195,55,124,100,227,85,238,54,136,253,116,157,255,221,124,116,236,250,132,87,92,97,70,76,34,183,248,5,17,141,147,24,156,139,198,166,60,44,6,158,166,148,47,87,98,12,254,132,62,115,71,210,58,157,61,3];
+        let vault = pubkey!("BW3Dxk7G5QZHcJZ7GUHaKVqd5J5aPoEXW4wxqUedBS9H");
+        let balance = 7000000;
+
+        let cipher = encrypt_balance(&sig, &vault, balance);
+        println!("{:x?}", &cipher);
+        let amount = decrypt_balance(&sig, &vault, cipher);
+        println!("{:?}", amount);
+    }
+}

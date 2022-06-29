@@ -453,11 +453,6 @@ mod tests {
     const VAULT: Pubkey = pubkey!("BW3Dxk7G5QZHcJZ7GUHaKVqd5J5aPoEXW4wxqUedBS9H");
 
     #[test]
-    fn test_create_lookup_table() {
-
-    }
-
-    #[test]
     fn test_instruction() {
         let client = RpcClient::new_with_commitment(DEVNET, CommitmentConfig {
             commitment: CommitmentLevel::Processed,
