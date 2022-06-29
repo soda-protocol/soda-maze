@@ -214,7 +214,7 @@ pub fn gen_withdraw_proof(
         pub_in,
         &sig,
         nonce,
-        balance.checked_sub(withdraw_amount).expect("Error: withdraw amount is greater than balance"),
+        balance - withdraw_amount,
     );
     JsValue::from_serde(&instructions).expect("Error: serde instructions error")
 }

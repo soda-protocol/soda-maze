@@ -1,29 +1,29 @@
+use aes::{Aes256Enc, Aes256Dec};
+use aes::cipher::{generic_array::GenericArray, KeyInit, BlockEncrypt, BlockDecrypt};
 use ark_bn254::Fr;
 use ark_ff::{PrimeField, BigInteger256};
-use easy_aes::{full_decrypt, full_encrypt, BLOCK, Keys};
+use num_traits::ToPrimitive;
 use solana_program::pubkey::Pubkey;
 use solana_program::hash::hash;
 
-pub fn encrypt_balance(sig: &[u8], vault: &Pubkey, balance: u64) -> [u8; 16] {
+pub fn encrypt_balance(sig: &[u8], vault: &Pubkey, balance: u64) -> u128 {
     let key = hash(&[sig, vault.as_ref()].concat()).to_bytes();
-    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[..16]).unwrap()));
-    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[16..]).unwrap()));
-
-    let mut block = BLOCK::new(u128::from(balance).to_le_bytes());
-    full_encrypt(&mut block, &key1);
-    full_encrypt(&mut block, &key2);
-    block.stringify_block()
+    let key = GenericArray::from(key);
+    let encryptor = Aes256Enc::new(&key);
+    let mut block = GenericArray::from((balance as u128).to_le_bytes());
+    encryptor.encrypt_block(&mut block);
+    u128::from_le_bytes(<[u8; 16]>::try_from(block.as_ref()).unwrap())
 }
 
-pub fn decrypt_balance(sig: &[u8], vault: &Pubkey, cipher: [u8; 16]) -> u64 {
+pub fn decrypt_balance(sig: &[u8], vault: &Pubkey, cipher: u128) -> u64 {
     let key = hash(&[sig, vault.as_ref()].concat()).to_bytes();
-    let key1 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[..16]).unwrap()));
-    let key2 = Keys::from(BLOCK::new(<[u8; 16]>::try_from(&key.as_ref()[16..]).unwrap()));
-
-    let mut block = BLOCK::new(cipher);
-    full_decrypt(&mut block, &key2);
-    full_decrypt(&mut block, &key1);
-    u128::from_le_bytes(block.stringify_block()) as u64
+    let key = GenericArray::from(key);
+    let decryptor = Aes256Dec::new(&key);
+    let mut block = GenericArray::from(cipher.to_le_bytes());
+    decryptor.decrypt_block(&mut block);
+    u128::from_le_bytes(<[u8; 16]>::try_from(block.as_ref()).unwrap())
+        .to_u64()
+        .expect("Error: invalid balance cipher")
 }
 
 pub fn gen_secret(sig: &[u8], vault: &Pubkey) -> Fr {
@@ -57,7 +57,6 @@ mod tests {
         let balance = 7000000;
 
         let cipher = encrypt_balance(&sig, &vault, balance);
-        println!("{:x?}", &cipher);
         let amount = decrypt_balance(&sig, &vault, cipher);
         println!("{:?}", amount);
     }

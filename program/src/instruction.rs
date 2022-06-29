@@ -445,7 +445,7 @@ mod tests {
     use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit};
-    use crate::{core::vault::Vault, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::reset_deposit_buffer_accounts};
+    use crate::{core::vault::Vault, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::reset_deposit_buffer_accounts, store::utxo::UTXO};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
@@ -457,6 +457,10 @@ mod tests {
         let client = RpcClient::new_with_commitment(DEVNET, CommitmentConfig {
             commitment: CommitmentLevel::Processed,
         });
+
+        let data = client.get_account_data(&pubkey!("Zs6MsAm7gZzrMhf3qz7jTkNpJ5oj6HxKdUhBFDnajUq")).unwrap();
+        let utxo = UTXO::unpack(&data).unwrap();
+        println!("{:x?}", utxo.amount);
 
         let blockhash = client.get_latest_blockhash().unwrap();
         let signer = Keypair::from_base58_string(USER_KEYPAIR);
@@ -543,21 +547,21 @@ mod tests {
 
         // let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..207 {
-            let blockhash = client.get_latest_blockhash().unwrap();
-            let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
-            let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
-            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-            let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
-            let transaction = Transaction::new_signed_with_payer(
-                &[instruction_1, instruction_2],
-                Some(&signer.pubkey()),
-                &[&signer],
-                blockhash,
-            );
-            let res = client.send_transaction(&transaction).unwrap();
-            println!("{:?}", res);
-        }
+        // for _ in 0..207 {
+        //     let blockhash = client.get_latest_blockhash().unwrap();
+        //     let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
+        //     let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
+        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        //     let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
+        //     let transaction = Transaction::new_signed_with_payer(
+        //         &[instruction_1, instruction_2],
+        //         Some(&signer.pubkey()),
+        //         &[&signer],
+        //         blockhash,
+        //     );
+        //     let res = client.send_transaction(&transaction).unwrap();
+        //     println!("{:?}", res);
+        // }
 
         // let instruction = finalize_deposit(
         //     VAULT,

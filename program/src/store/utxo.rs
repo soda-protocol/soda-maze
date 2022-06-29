@@ -19,7 +19,7 @@ pub fn get_utxo_pda<'a>(
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum Amount {
     Origin(u64),
-    Cipher([u8; 16]),
+    Cipher(u128),
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
