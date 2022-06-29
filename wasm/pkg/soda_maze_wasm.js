@@ -246,12 +246,10 @@ export function get_vault_info(data) {
 */
 export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
     _assertClass(vault_key, Pubkey);
-    var ptr0 = vault_key.ptr;
-    vault_key.ptr = 0;
     uint64CvtShim[0] = leaf_index;
-    const low1 = u32CvtShim[0];
-    const high1 = u32CvtShim[1];
-    const ret = wasm.get_merkle_neighbor_nodes(ptr0, low1, high1);
+    const low0 = u32CvtShim[0];
+    const high0 = u32CvtShim[1];
+    const ret = wasm.get_merkle_neighbor_nodes(vault_key.ptr, low0, high0);
     return takeObject(ret);
 }
 
@@ -263,12 +261,10 @@ export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
 */
 export function get_utxo_keys(sig, vault, num) {
     _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
     uint64CvtShim[0] = num;
-    const low1 = u32CvtShim[0];
-    const high1 = u32CvtShim[1];
-    const ret = wasm.get_utxo_keys(addHeapObject(sig), ptr0, low1, high1);
+    const low0 = u32CvtShim[0];
+    const high0 = u32CvtShim[1];
+    const ret = wasm.get_utxo_keys(addHeapObject(sig), vault.ptr, low0, high0);
     return takeObject(ret);
 }
 
@@ -280,9 +276,7 @@ export function get_utxo_keys(sig, vault, num) {
 */
 export function parse_utxo(sig, vault, utxo) {
     _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    const ret = wasm.parse_utxo(addHeapObject(sig), ptr0, addHeapObject(utxo));
+    const ret = wasm.parse_utxo(addHeapObject(sig), vault.ptr, addHeapObject(utxo));
     return takeObject(ret);
 }
 
