@@ -481,9 +481,9 @@ fn process_create_withdraw_credential(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    // if !owner_info.is_signer {
+    //     return Err(MazeError::InvalidAuthority.into());
+    // }
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -577,9 +577,9 @@ fn process_create_withdraw_verifier(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    // if !owner_info.is_signer {
+    //     return Err(MazeError::InvalidAuthority.into());
+    // }
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -682,10 +682,10 @@ fn process_finalize_withdraw(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
-    if !owner_info.is_signer {
-        msg!("Owner is not a signer");
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    // if !owner_info.is_signer {
+    //     msg!("Owner is not a signer");
+    //     return Err(MazeError::InvalidAuthority.into());
+    // }
 
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
