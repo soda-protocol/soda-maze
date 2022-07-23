@@ -263,7 +263,7 @@ pub fn reset_withdraw_buffer_accounts(
         accounts: vec![
             AccountMeta::new(credential, false),
             AccountMeta::new(verifier, false),
-            AccountMeta::new_readonly(owner, true),
+            AccountMeta::new_readonly(owner, false),
             AccountMeta::new(delegator, true),
         ],
         data,

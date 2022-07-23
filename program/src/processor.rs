@@ -423,9 +423,9 @@ fn process_reset_withdraw_buffer_accounts(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    // if !owner_info.is_signer {
+    //     return Err(MazeError::InvalidAuthority.into());
+    // }
 
     if credential_info.try_data_is_empty()? {
         return Ok(());
