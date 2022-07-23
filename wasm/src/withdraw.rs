@@ -103,7 +103,7 @@ fn gen_withdraw_instructions(
     let cipher = encrypt_balance(sig, &vault, balance);
     let utxo_key = gen_utxo_key(sig, &vault, nonce);
     let utxo = store_utxo(
-        owner,
+        delegator,
         utxo_key,
         pub_in.dst_leaf_index,
         Amount::Cipher(cipher),
