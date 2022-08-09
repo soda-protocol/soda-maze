@@ -1,6 +1,7 @@
 lib/target
 bin/bench/target
 bin/gen-params/target
+bin/eye/target
 program/target
 wasm/target
 keys/target
