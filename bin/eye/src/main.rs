@@ -24,7 +24,7 @@ use soda_maze_program::ID;
 use soda_maze_program::core::{node::get_merkle_node_pda, commitment::get_commitment_pda};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature};
-use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr, FrParameters};
@@ -114,29 +114,22 @@ fn main() {
         CommitmentConfig::finalized(),
     );
     let sig = Signature::from_str(&args.signature).expect("invalid signature");
-    client.get_transaction(&sig, UiTransactionEncoding::JsonParsed)
+    let tx = client.get_transaction(&sig, UiTransactionEncoding::JsonParsed)
+        .expect("get transaction error");
+    match tx.transaction.transaction {
+        EncodedTransaction::Json(tx_data) => {
+            match tx_data.message {
+                UiMessage::Parsed(message) => {
 
+                }
+                UiMessage::Raw(message) => {
 
-    let matches = Command::new("Soda Maze Eye")
-        .version("0.1")
-        .arg(
-            Arg::with_name("url")
-                .short('u')
-                .help("Solana rpc url")
-                .default_value("https://api.devnet.solana.com")
-        )
-        .arg(
-            Arg::with_name("vault")
-                .short('v')
-                .help("Vault pubkey")
-                .required(true)
-        )
-        .arg(
-            Arg::with_name("index")
-                .short('i')
-                .help("Leaf node index in Merkle tree")
-                .required(true)
-        );
+                }
+            }
+        }
+        _ => panic!("invalid transaction type"),
+    };
+
     
     
 
