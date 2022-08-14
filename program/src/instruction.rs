@@ -528,7 +528,7 @@ mod tests {
         );
         let proof = Proof { a, b, c };
 
-        // let instruction = create_vault(token_mint, signer.pubkey(), 10, 10, 2).unwrap();
+        let instruction = create_vault(token_mint, signer.pubkey(), 10, 10, 2).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
@@ -571,13 +571,15 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        // let transaction = Transaction::new_signed_with_payer(
-        //     &[instruction],
-        //     Some(&signer.pubkey()),
-        //     &[&signer],
-        //     blockhash,
-        // );
-        // let res = client.send_transaction(&transaction).unwrap();
-        // println!("{}", res);
+        
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        );
+        let res = client.send_transaction(&transaction).unwrap();
+        println!("{}", res);
     }
 }

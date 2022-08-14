@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 soda-maze-lib = { path = "../../lib" }
-soda-maze-keys = { path = "../../keys" }
+soda-maze-types = { path = "../../types" }
 borsh = "0.9.3"
 structopt = { version = "0.3", default-features = false }
 ark-std = "0.3.0"
@@ -24,8 +24,6 @@ num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 hex = "0.4.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.71"
 
 [features]
 default = ["bn254", "groth16", "poseidon"]

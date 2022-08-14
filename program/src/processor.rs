@@ -25,7 +25,7 @@ use crate::{
         process_rent_refund,
         process_optimal_create_account,
         process_create_associated_token_account,
-        // process_transfer,
+        process_transfer,
     },
 };
 
@@ -423,10 +423,6 @@ fn process_reset_withdraw_buffer_accounts(
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
-    // if !owner_info.is_signer {
-    //     return Err(MazeError::InvalidAuthority.into());
-    // }
-
     if credential_info.try_data_is_empty()? {
         return Ok(());
     }
@@ -480,10 +476,6 @@ fn process_create_withdraw_credential(
     let nullifier_info = next_account_info(accounts_iter)?;
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
-
-    // if !owner_info.is_signer {
-    //     return Err(MazeError::InvalidAuthority.into());
-    // }
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -576,10 +568,6 @@ fn process_create_withdraw_verifier(
     let verifier_info = next_account_info(accounts_iter)?;
     let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
-
-    // if !owner_info.is_signer {
-    //     return Err(MazeError::InvalidAuthority.into());
-    // }
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -679,13 +667,8 @@ fn process_finalize_withdraw(
     let dst_token_account_info = next_account_info(accounts_iter)?;
     let delegator_token_account_info = next_account_info(accounts_iter)?;
     let vault_signer_info = next_account_info(accounts_iter)?;
-    // let owner_info = next_account_info(accounts_iter)?;
+    let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
-
-    // if !owner_info.is_signer {
-    //     msg!("Owner is not a signer");
-    //     return Err(MazeError::InvalidAuthority.into());
-    // }
 
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
@@ -703,10 +686,10 @@ fn process_finalize_withdraw(
         msg!("Vault in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
-    // if &credential.owner != owner_info.key {
-    //     msg!("Owner in credential is invalid");
-    //     return Err(MazeError::UnmatchedAccounts.into());
-    // }
+    if &credential.owner != owner_info.key {
+        msg!("Owner in credential is invalid");
+        return Err(MazeError::UnmatchedAccounts.into());
+    }
     if &credential.vanilla_data.delegator != delegator_info.key {
         msg!("Delegator in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
@@ -742,14 +725,14 @@ fn process_finalize_withdraw(
     nullifier.pack_to_account_info(nullifier_info)?;
 
     let dst_token_account = Account::unpack(&dst_token_account_info.try_borrow_data()?)?;
-    // if &dst_token_account.owner != owner_info.key {
-    //     msg!("Destination token account owner is invalid");
-    //     return Err(MazeError::UnmatchedAccounts.into());
-    // }
-    if &dst_token_account.owner != &credential.owner {
+    if &dst_token_account.owner != owner_info.key {
         msg!("Destination token account owner is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
+    // if &dst_token_account.owner != &credential.owner {
+    //     msg!("Destination token account owner is invalid");
+    //     return Err(MazeError::UnmatchedAccounts.into());
+    // }
 
     let merkle_path = gen_merkle_path_from_leaf_index(vault.index);
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
@@ -808,9 +791,9 @@ fn process_finalize_withdraw(
         vault.delegate_fee,
     )?;
 
-    // // transfer sol as fee from delegator to owner
-    // const FEE: u64 = 10_000_000;
-    // process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)?;
+    // transfer sol as fee from delegator to owner
+    const FEE: u64 = 10_000_000;
+    process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)?;
 
     // clear verifier
     process_rent_refund(verifier_info, delegator_info);

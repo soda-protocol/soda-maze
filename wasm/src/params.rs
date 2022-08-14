@@ -9,7 +9,7 @@ use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use soda_maze_keys::MazeProvingKey;
+use soda_maze_types::keys::MazeProvingKey;
 
 #[derive(RustEmbed)]
 #[folder = "resources/"]

@@ -12,12 +12,13 @@ use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof
 use soda_maze_lib::vanilla::deposit::{DepositConstParams, DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
 use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublicInputs, EncryptionOriginInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
-use soda_maze_keys::{MazeProvingKey, MazeVerifyingKey};
+use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
+use soda_maze_types::params::{RabinParameters, JsonParser};
 use structopt::StructOpt;
 use num_bigint::BigUint;
 use rand_core::{CryptoRng, RngCore, OsRng};
 use rand_xorshift::XorShiftRng;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr, FrParameters};
@@ -43,14 +44,6 @@ type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
 type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
 
 #[derive(Serialize, Deserialize)]
-struct RabinParameters {
-    modulus: String,
-    modulus_len: usize,
-    bit_size: usize,
-    cipher_batch: usize,
-}
-
-#[derive(Serialize, Deserialize)]
 struct DepositProofData {
     deposit_amount: u64,
     prev_root: String,
@@ -60,6 +53,8 @@ struct DepositProofData {
     cipher_array: Option<Vec<String>>,
     proof: String,
 }
+
+impl JsonParser for DepositProofData {}
 
 #[derive(Serialize, Deserialize)]
 struct WithdrawProofData {
@@ -72,23 +67,7 @@ struct WithdrawProofData {
     proof: String,
 }
 
-fn read_json_from_file<De: DeserializeOwned>(path: &PathBuf) -> De {
-    let file = OpenOptions::new()
-        .read(true)
-        .open(path)
-        .unwrap();
-    serde_json::from_reader(&file).expect("failed to parse file")
-}
-
-fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(path)
-        .unwrap();
-    serde_json::to_writer_pretty(&mut file, data)
-        .expect("failed to write to file");
-}
+impl JsonParser for WithdrawProofData {}
 
 fn read_from_file<De: BorshDeserialize>(path: &PathBuf) -> De {
     let mut file = OpenOptions::new()
@@ -319,7 +298,7 @@ fn main() {
             let start_time = std::time::SystemTime::now();
 
             let const_params = rabin_path.as_ref().map(|rabin_path| {
-                let params: RabinParameters = read_json_from_file(rabin_path);
+                let params = RabinParameters::from_file(&rabin_path).expect("read rabin params from file error");
                 get_encryption_const_params(params)
             });
             let const_params = get_deposit_const_params(
@@ -328,7 +307,7 @@ fn main() {
             );
 
             let rabin_orig_in = rabin_path.map(|rabin_path| {
-                let params: RabinParameters = read_json_from_file(&rabin_path);
+                let params = RabinParameters::from_file(&rabin_path).expect("read rabin params from file error");
                 let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / params.bit_size;
                 if <FrParameters as FpParameters>::MODULUS_BITS as usize % params.bit_size != 0 {
                     leaf_len += 1;
@@ -377,7 +356,7 @@ fn main() {
                 cipher_array,
                 proof: to_hex(&proof),
             };
-            write_json_to_file(&proof_path, &proof_data);
+            proof_data.to_file(&proof_path).expect("write proof data to file error");
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);
@@ -432,7 +411,7 @@ fn main() {
                 update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
                 proof: to_hex(&proof),
             };
-            write_json_to_file(&proof_path, &proof_data);
+            proof_data.to_file(&proof_path).expect("write proof data to file error");
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("proof time: {:?}", duration);
@@ -445,7 +424,7 @@ fn main() {
 
             let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
             let vk = vk.into();
-            let proof_data = read_json_from_file::<DepositProofData>(&proof_path);
+            let proof_data = DepositProofData::from_file(&proof_path).expect("read proof data from file error");
 
             let proof = from_hex(proof_data.proof);
             let cipher_field_array = proof_data.cipher_array
@@ -544,7 +523,7 @@ fn main() {
 
             let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
             let vk = vk.into();
-            let proof_data = read_json_from_file::<WithdrawProofData>(&proof_path);
+            let proof_data = WithdrawProofData::from_file(&proof_path).expect("read proof data from file error");
 
             let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {

@@ -34,11 +34,11 @@ pub struct EncryptionPrivateInputs {
 pub fn gen_origin_inputs<F: PrimeField, FH: FieldHasher<F>>(
     params: &EncryptionConstParams<F, FH>,
 ) -> EncryptionOriginInputs {
-    let mut leaf_len = F::Params::MODULUS_BITS as usize / params.bit_size;
+    let mut nullifier_len = F::Params::MODULUS_BITS as usize / params.bit_size;
     if F::Params::MODULUS_BITS as usize % params.bit_size != 0 {
-        leaf_len += 1;
+        nullifier_len += 1;
     }
-    let padding_array = vec![BigUint::from(0u64); params.modulus_len - leaf_len];
+    let padding_array = vec![BigUint::from(0u64); params.modulus_len - nullifier_len];
     
     EncryptionOriginInputs { padding_array }
 }

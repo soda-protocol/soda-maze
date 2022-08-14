@@ -1,145 +1,202 @@
-use anyhow::{anyhow, Result};
-use std::collections::BTreeMap;
 use std::str::FromStr;
-use std::{path::PathBuf, fs::OpenOptions};
-use ark_ff::{FpParameters, PrimeField};
-use ark_std::{UniformRand, rand::SeedableRng};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read};
-use borsh::BorshDeserialize;
-use clap::{Parser, Command, Arg, value_t};
-use arkworks_utils::poseidon::PoseidonParameters;
-use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
-use soda_maze_lib::vanilla::hasher::FieldHasher;
-use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
-use soda_maze_lib::vanilla::deposit::{DepositConstParams, DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
-use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublicInputs, EncryptionOriginInputs};
-use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
-use soda_maze_keys::{MazeProvingKey, MazeVerifyingKey};
+use std::path::PathBuf;
+use ark_ff::{FpParameters, BigInteger256, PrimeField};
+use ark_bn254::Fr;
+use num_integer::Integer;
 use num_bigint::BigUint;
-use rand_core::{CryptoRng, RngCore, OsRng};
-use rand_xorshift::XorShiftRng;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
-use soda_maze_program::ID;
-use soda_maze_program::core::{node::get_merkle_node_pda, commitment::get_commitment_pda};
+use num_bigint_dig::{Sign, BigInt as BigIntDig};
+use clap::Parser;
+use soda_maze_lib::vanilla::encryption::biguint_array_to_biguint;
+use soda_maze_program::{core::{commitment::Commitment, nullifier::{get_nullifier_pda, Nullifier}}, Packer, ID};
+use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature};
+use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature, pubkey::Pubkey};
 use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage};
 
-#[cfg(feature = "bn254")]
-use ark_bn254::{Bn254, Fr, FrParameters};
-#[cfg(feature = "bls12-381")]
-use ark_bls12_381::{Bls12_381, Fr, FrParameters};
-#[cfg(feature = "groth16")]
-use ark_groth16::Groth16;
+fn rabin_decrypt(cipher: &BigIntDig, modulus: &BigIntDig, p: &BigIntDig, q: &BigIntDig) -> (BigIntDig, BigIntDig, BigIntDig, BigIntDig) {
+    assert_eq!(*modulus, p * q);
+    let (exp_p, rem) = (p + &BigIntDig::from(1u64)).div_rem(&BigIntDig::from(4u64));
+    assert_eq!(rem, BigIntDig::from(0u64));
+    let (exp_q, rem) = (q + &BigIntDig::from(1u64)).div_rem(&BigIntDig::from(4u64));
+    assert_eq!(rem, BigIntDig::from(0u64));
 
-#[derive(Serialize, Deserialize)]
-struct RabinParameters {
-    modulus: String,
-    modulus_len: usize,
-    bit_size: usize,
-    cipher_batch: usize,
+    let mp = cipher.modpow(&exp_p, p);
+    let mq = cipher.modpow(&exp_q, q);
+
+    let egcd = p.extended_gcd(&q);
+    assert_eq!(egcd.gcd, BigIntDig::from(1u64));
+
+    let r = (&egcd.x * p * &mq + &egcd.y * q * &mp) % modulus;
+    let r_neg = modulus - &r;
+    let s = (&egcd.x * p * &mq - &egcd.y * q * &mp) % modulus;
+    let s_neg = modulus - &s;
+
+    (r, r_neg, s, s_neg)
 }
 
-fn read_json_from_file<De: DeserializeOwned>(path: &PathBuf) -> De {
-    let file = OpenOptions::new()
-        .read(true)
-        .open(path)
-        .unwrap();
-    serde_json::from_reader(&file).expect("failed to parse file")
-}
+fn substract_nullifier_pda(preimage: &BigIntDig, len: usize, bit_size: usize) -> Pubkey {
+    use soda_maze_program::bn::BigInteger256;
 
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
+    let (sign, preimage) = preimage.to_bytes_le();
+    assert_ne!(sign, Sign::Minus);
+    let preimage = BigUint::from_bytes_le(&preimage);
 
-    let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
-    let modulus = BigUint::from_bytes_le(&modulus);
-    let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
-
-    EncryptionConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        modulus_array,
-        modulus_len: params.modulus_len,
-        bit_size: params.bit_size,
-        cipher_batch: params.cipher_batch,
+    let mut nullifier_len = <Fr as PrimeField>::Params::MODULUS_BITS as usize / bit_size;
+    if <Fr as PrimeField>::Params::MODULUS_BITS as usize % bit_size != 0 {
+        nullifier_len += 1;
     }
-}
+    let base = BigUint::from(1u64) << ((len - nullifier_len) * bit_size);
+    let nullifier = Fr::from(preimage / &base);
 
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_deposit_const_params(
-    height: usize,
-    encryption: Option<EncryptionConstParams<Fr, PoseidonHasher<Fr>>>,
-) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
+    let nullifier = BigInteger256::new(nullifier.into_repr().0);
+    let (nullifier_key, _) = get_nullifier_pda(&nullifier, &ID);
 
-    DepositConstParams {
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-        encryption,
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-    
-    WithdrawConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-    }
+    nullifier_key
 }
 
 #[derive(Parser, Debug)]
-#[clap(version = "0.0.1", about = "Soda Maze Eye", long_about = "")]
-struct Args {
-    #[clap(short, long, value_parser, default_value = "https://api.devnet.solana.com")]
-    url: String,
-    #[clap(short, long, value_parser)]
-    vault: String,
-    #[clap(short, long, value_parser)]
-    index: u64,
-    #[clap(short, long, value_parser)]
-    signature: String,
+#[clap(name = "Soda Maze Eye", version = "0.0.1", about = "Reveal illegal deposit informations", long_about = "")]
+enum Opt {
+    RabinReveal {
+        #[clap(short = 'u', long, value_parser, default_value = "https://api.devnet.solana.com")]
+        url: String,
+        #[clap(long = "rabin-param", parse(from_os_str))]
+        rabin_params: PathBuf,
+        #[clap(long = "rabin-prime", parse(from_os_str))]
+        rabin_primes: PathBuf,
+        #[clap(short, long, value_parser)]
+        signature: String,
+    }
 }
 
 fn main() {
-    let ref args = Args::parse();
-    
-    let client = &RpcClient::new_with_commitment(
-        args.url,
-        CommitmentConfig::finalized(),
-    );
-    let sig = Signature::from_str(&args.signature).expect("invalid signature");
-    let tx = client.get_transaction(&sig, UiTransactionEncoding::JsonParsed)
-        .expect("get transaction error");
-    match tx.transaction.transaction {
-        EncodedTransaction::Json(tx_data) => {
-            match tx_data.message {
-                UiMessage::Parsed(message) => {
+    let opt = Opt::parse();
 
-                }
-                UiMessage::Raw(message) => {
+    match opt {
+        Opt::RabinReveal {
+            url,
+            rabin_params,
+            rabin_primes,
+            signature,
+        } => {
+            let rabin_params = RabinParameters::from_file(&rabin_params).expect("read rabin parameters from file error");
+            let rabin_primes = RabinPrimes::from_file(&rabin_primes).expect("read rabin primes from file error");
+            let p = hex::decode(rabin_primes.prime_a).expect("invalid rabin primes");
+            let q = hex::decode(rabin_primes.prime_b).expect("invalid rabin primes");
+            let modulus = hex::decode(rabin_params.modulus).expect("invalid rabin params");
 
+            let client = &RpcClient::new_with_commitment(
+                &url,
+                CommitmentConfig::finalized(),
+            );
+            let sig = Signature::from_str(&signature).expect("invalid signature");
+            let tx = client.get_transaction(&sig, UiTransactionEncoding::Json)
+                .expect("get transaction error");
+            let commitment_key = match tx.transaction.transaction {
+                EncodedTransaction::Json(tx_data) => {
+                    match tx_data.message {
+                        UiMessage::Raw(ref message) => {
+                            assert_eq!(message.account_keys.len(), 32);
+                            let commitment_key = &message.account_keys[5];
+                            Pubkey::from_str(commitment_key).unwrap()
+                        }
+                        _ => unreachable!("message type should by raw"),
+                    }
                 }
+                _ => unreachable!("transaction type should be json"),
+            };
+        
+            let commitment_data = client.get_account_data(&commitment_key).expect("get commitment data failed");
+            let commitment = Commitment::unpack(&commitment_data).expect("unpack commitment error");
+            let cipher_array = commitment.cipher.iter().map(|c| {
+                Fr::from_repr(BigInteger256::new(c.0)).unwrap().into()
+            }).collect::<Vec<BigUint>>();
+            let cipher = biguint_array_to_biguint(&cipher_array, rabin_params.bit_size * rabin_params.cipher_batch);
+        
+            let cipher = BigIntDig::from_bytes_le(Sign::Plus, &cipher.to_bytes_le());
+            let p = BigIntDig::from_bytes_le(Sign::Plus, &p);
+            let q =  BigIntDig::from_bytes_le(Sign::Plus, &q);
+            let modulus = BigIntDig::from_bytes_le(Sign::Plus, &modulus);
+            let (v1, v2, v3, v4) = rabin_decrypt(&cipher, &modulus, &p, &q);
+
+            // 4 solves
+            let key = substract_nullifier_pda(&v1, rabin_params.modulus_len, rabin_params.bit_size);
+            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
+            if !nullifier_data.is_empty() {
+                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+                println!("withdraw owner pubkey: {}", nullifier.owner);
+                return;
+            }
+
+            let key = substract_nullifier_pda(&v2, rabin_params.modulus_len, rabin_params.bit_size);
+            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
+            if !nullifier_data.is_empty() {
+                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+                println!("withdraw owner pubkey: {}", nullifier.owner);
+                return;
+            }
+
+            let key = substract_nullifier_pda(&v3, rabin_params.modulus_len, rabin_params.bit_size);
+            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
+            if !nullifier_data.is_empty() {
+                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+                println!("withdraw owner pubkey: {}", nullifier.owner);
+                return;
+            }
+
+            let key = substract_nullifier_pda(&v4, rabin_params.modulus_len, rabin_params.bit_size);
+            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
+            if !nullifier_data.is_empty() {
+                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+                println!("withdraw owner pubkey: {}", nullifier.owner);
+                return;
             }
         }
-        _ => panic!("invalid transaction type"),
-    };
+    }
+}
 
-    
-    
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_rabin_decryption() {
+        // use num_bigint::BigUint;
+        use num_integer::Integer;
+        use num_bigint_dig::{RandPrime, BigUint, BigInt};
+        use rand_core::OsRng;
+        use crate::rabin_decrypt;
 
-    let url = value_t!(matches, "url", String)?;
-    let vault = value_t!(matches, "vault", String)?;
+        let mut rng = OsRng;
 
-    let client = &RpcClient::new_with_commitment(
-        url,
-        CommitmentConfig::finalized(),
-    );
+        let bit_len = 1488;
+        let (p, q): (BigInt, BigInt);
+        let div = BigUint::from(4u64);
+        let rem = BigUint::from(3u64);
+        loop {
+            let v = rng.gen_prime(bit_len);
+            let (_, r) = v.div_rem(&div);
+            if r == rem {
+                p = v.into();
+                break;
+            }
+        };
+        loop {
+            let v = rng.gen_prime(bit_len);
+            let (_, r) = v.div_rem(&div);
+            if r == rem {
+                q = v.into();
+                break;
+            }
+        };
 
-    Ok(())
+        let modulus = &p * &q;
+        let preimage = BigInt::from(1u64) << (bit_len - 2);
+        let (_, cipher) = (&preimage * &preimage).div_rem(&modulus);
+
+        let (v1, v2, v3, v4) = rabin_decrypt(&cipher, &modulus, &p, &q);
+        println!("{}", v1.eq(&preimage));
+        println!("{}", v2.eq(&preimage));
+        println!("{}", v3.eq(&preimage));
+        println!("{}", v4.eq(&preimage));
+    }
+
 }

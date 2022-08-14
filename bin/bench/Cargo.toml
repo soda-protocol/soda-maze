@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 soda-maze-lib = { path = "../../lib" }
-soda-maze-keys = { path = "../../keys" }
+soda-maze-types = { path = "../../types" }
 structopt = { version = "0.3", default-features = false }
 borsh = "0.9.3"
 arkworks-utils = "0.4.20"

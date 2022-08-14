@@ -4,5 +4,5 @@ bin/gen-params/target
 bin/eye/target
 program/target
 wasm/target
-keys/target
+types/target
 *Cargo.lock

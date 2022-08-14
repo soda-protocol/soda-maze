@@ -154,4 +154,3 @@ impl Into<ProvingKey<Bn254>> for MazeProvingKey {
         }
     }
 }
-

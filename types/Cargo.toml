@@ -1,5 +1,5 @@
 [package]
-name = "soda-maze-keys"
+name = "soda-maze-types"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,11 +7,14 @@ edition = "2021"
 
 [dependencies]
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
+anyhow = "1.0.61"
 borsh = "0.9.3"
 borsh-derive = "0.9.3"
 ark-ff = "0.3.0"
 ark-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.71"
 
 [features]
 default = ["ark-groth16/parallel"]

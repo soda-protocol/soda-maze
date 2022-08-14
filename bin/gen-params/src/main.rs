@@ -4,19 +4,20 @@ use ark_ff::PrimeField;
 use ark_ec::AffineCurve;
 use ark_groth16::PreparedVerifyingKey;
 use ark_crypto_primitives::snark::*;
+use num_integer::Integer;
+use num_bigint::BigUint;
+use num_bigint_dig::BigUint as BigUintDig;
 use rand_core::{CryptoRng, RngCore, SeedableRng, OsRng};
 use rand_xorshift::XorShiftRng;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
-use serde_json;
 use structopt::StructOpt;
-use num_bigint::BigUint;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, biguint_to_biguint_array};
-use soda_maze_keys::{MazeProvingKey, MazeVerifyingKey};
+use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
+use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
@@ -35,24 +36,6 @@ type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadge
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 #[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
 type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
-
-fn read_json_from_file<De: DeserializeOwned>(path: &PathBuf) -> De {
-    let file = OpenOptions::new()
-        .read(true)
-        .open(path)
-        .unwrap();
-    serde_json::from_reader(&file).expect("failed to parse file")
-}
-
-fn write_json_to_file<Se: Serialize>(path: &PathBuf, data: &Se) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(path)
-        .unwrap();
-    serde_json::to_writer_pretty(&mut file, data)
-        .expect("failed to write to file");
-}
 
 fn write_to_file<Se: BorshSerialize>(path: &PathBuf, data: &Se) {
     let mut file = OpenOptions::new()
@@ -182,20 +165,6 @@ impl RngCore for XSRng {
 
 impl CryptoRng for XSRng {}
 
-#[derive(Serialize, Deserialize)]
-struct RabinPrimes {
-    prime_a: String,
-    prime_b: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct RabinParameters {
-    modulus: String,
-    modulus_len: usize,
-    bit_size: usize,
-    cipher_batch: usize,
-}
-
 fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
     if let Some(seed) = seed {
         let mut s = [0u8; 16];
@@ -311,15 +280,33 @@ fn main() {
 
             let mut rng = get_xorshift_rng(seed);
             let bit_len = bit_size * prime_len;
-            let a = rng.gen_prime(bit_len);
-            let b = rng.gen_prime(bit_len);
-            let modulus = &a * &b;
+
+            let (p1, p2): (BigUintDig, BigUintDig);
+            let div = BigUintDig::from(4u64);
+            let rem = BigUintDig::from(3u64);
+            loop {
+                let v = rng.gen_prime(bit_len);
+                let (_, r) = v.div_rem(&div);
+                if r == rem {
+                    p1 = v;
+                    break;
+                }
+            };
+            loop {
+                let v = rng.gen_prime(bit_len);
+                let (_, r) = v.div_rem(&div);
+                if r == rem {
+                    p2 = v;
+                    break;
+                }
+            };
+            let modulus = &p1 * &p2;
 
             let primes = RabinPrimes {
-                prime_a: hex::encode(a.to_bytes_le()),
-                prime_b: hex::encode(b.to_bytes_le()),
+                prime_a: hex::encode(p1.to_bytes_le()),
+                prime_b: hex::encode(p2.to_bytes_le()),
             };
-            write_json_to_file(&prime_path, &primes);
+            primes.to_file(&prime_path).expect("write rabin primes to file error");
     
             let modulus = BigUint::from_bytes_le(&modulus.to_bytes_le());
             let modulus_array = biguint_to_biguint_array(modulus.clone(), prime_len * 2, bit_size);
@@ -334,13 +321,13 @@ fn main() {
                 println!("    BigInteger::new({:?}),", &val.0);
             });
 
-            let parameter = RabinParameters {
+            let rabin_parameters = RabinParameters {
                 modulus: hex::encode(modulus.to_bytes_le()),
                 modulus_len: prime_len * 2,
                 bit_size,
                 cipher_batch,
             };
-            write_json_to_file(&param_path, &parameter);
+            rabin_parameters.to_file(&param_path).expect("write rabin paramters to file error");
         },
         Opt::SetupDeposit {
             seed,
@@ -351,7 +338,7 @@ fn main() {
             pvk_path,
         } => {
             let const_params = rabin_path.map(|rabin_path| {
-                let params: RabinParameters = read_json_from_file(&rabin_path);
+                let params = RabinParameters::from_file(&rabin_path).expect("read rabin paramters from file error");
                 get_encryption_const_params(params)
             });
             let const_params = get_deposit_const_params(height, const_params);
