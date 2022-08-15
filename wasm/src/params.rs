@@ -1,7 +1,6 @@
 use ark_bn254::Fr;
 use num_bigint::BigUint;
 use borsh::BorshDeserialize;
-use serde::{Serialize, Deserialize};
 use rust_embed::RustEmbed;
 use soda_maze_program::params::HEIGHT;
 use soda_maze_lib::vanilla::hasher::FieldHasher;
@@ -9,25 +8,18 @@ use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::encryption::EncryptionConstParams;
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use soda_maze_types::keys::MazeProvingKey;
+use soda_maze_types::{keys::MazeProvingKey, params::RabinParameters};
+use serde_json::from_reader;
 
 #[derive(RustEmbed)]
 #[folder = "resources/"]
 pub struct Params;
 
-#[derive(Serialize, Deserialize)]
-pub struct RabinParameters {
-    pub modulus: String,
-    pub modulus_len: usize,
-    pub bit_size: usize,
-    pub cipher_batch: usize,
-}
-
 pub fn get_encryption_const_params() -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
     use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
 
     let params = Params::get("rabin-param.json").unwrap();
-    let params: RabinParameters = serde_json::from_reader(params.data.as_ref()).expect("Error: failed to parse rabin-param.json");
+    let params: RabinParameters = from_reader(params.data.as_ref()).expect("Error: failed to parse rabin-param.json");
     let modulus = hex::decode(&params.modulus).expect("Error: modulus is an invalid hex string");
     let modulus = BigUint::from_bytes_le(&modulus);
     let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
