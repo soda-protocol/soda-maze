@@ -66,7 +66,7 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
         writeln!(&mut file, "    G1Affine254::new_const(")?;
         writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.x.0.0)?;
         writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.y.0.0)?;
-        writeln!(&mut file, "        {}", g_ic.infinity)?;
+        writeln!(&mut file, "        {},", g_ic.infinity)?;
         writeln!(&mut file, "    ),")?;
     }
     writeln!(&mut file, "];\n")?;
@@ -293,7 +293,7 @@ fn main() {
             loop {
                 let v = rng.gen_prime(bit_len);
                 let (_, r) = v.div_rem(&div);
-                if r == rem {
+                if &r == &rem {
                     p1 = v;
                     break;
                 }
@@ -301,7 +301,7 @@ fn main() {
             loop {
                 let v = rng.gen_prime(bit_len);
                 let (_, r) = v.div_rem(&div);
-                if r == rem {
+                if &r == &rem {
                     p2 = v;
                     break;
                 }
