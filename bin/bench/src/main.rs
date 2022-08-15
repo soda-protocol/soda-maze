@@ -237,7 +237,7 @@ enum Opt {
     ProveDeposit {
         #[structopt(long, short = "s")]
         seed: Option<String>,
-        #[structopt(long, default_value = "27")]
+        #[structopt(long, default_value = "21")]
         height: usize,
         #[structopt(long = "deposit-amount", default_value = "1")]
         deposit_amount: u64,
@@ -253,7 +253,7 @@ enum Opt {
     ProveWithdraw {
         #[structopt(long, short = "s")]
         seed: Option<String>,
-        #[structopt(long, default_value = "27")]
+        #[structopt(long, default_value = "21")]
         height: usize,
         #[structopt(long = "balance", default_value = "1")]
         balance: u64,

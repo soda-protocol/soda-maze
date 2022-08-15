@@ -245,7 +245,7 @@ enum Opt {
     SetupDeposit {
         #[structopt(long, short = "s")]
         seed: Option<String>,
-        #[structopt(long, default_value = "27")]
+        #[structopt(long, default_value = "21")]
         height: usize,
         #[structopt(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
@@ -259,7 +259,7 @@ enum Opt {
     SetupWithdraw {
         #[structopt(long, short = "s")]
         seed: Option<String>,
-        #[structopt(long, default_value = "27")]
+        #[structopt(long, default_value = "21")]
         height: usize,
         #[structopt(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
