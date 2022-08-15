@@ -458,10 +458,6 @@ mod tests {
             commitment: CommitmentLevel::Processed,
         });
 
-        let data = client.get_account_data(&pubkey!("Zs6MsAm7gZzrMhf3qz7jTkNpJ5oj6HxKdUhBFDnajUq")).unwrap();
-        let utxo = UTXO::unpack(&data).unwrap();
-        println!("{:x?}", utxo.amount);
-
         let blockhash = client.get_latest_blockhash().unwrap();
         let signer = Keypair::from_base58_string(USER_KEYPAIR);
         let token_mint = pubkey!("GR6zSp8opYZh7H2ZFEJBbQYVjY4dkKc19iFoPEhWXTrV");
