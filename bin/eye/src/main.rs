@@ -161,12 +161,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use num_integer::Integer;
+    use num_bigint_dig::{RandPrime, BigUint, BigInt};
+    use rand_core::OsRng;
+
     #[test]
     fn test_rabin_decryption() {
         // use num_bigint::BigUint;
-        use num_integer::Integer;
-        use num_bigint_dig::{RandPrime, BigUint, BigInt};
-        use rand_core::OsRng;
         use crate::rabin_decrypt;
 
         let mut rng = OsRng;

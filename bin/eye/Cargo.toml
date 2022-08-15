@@ -21,7 +21,7 @@ solana-client = "1.11.5"
 solana-sdk = "1.11.5"
 solana-transaction-status = "1.11.5"
 
-[dev.dependencies]
+[dev-dependencies]
 rand-core = { version = "0.6.3", features = ["std"] }
 
 [features]
