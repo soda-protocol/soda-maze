@@ -52,7 +52,7 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
         .create(true)
         .open(path)?;
 
-    writeln!(&mut file, "use crate::{{params::bn::{{G1Projective254, Fq, G1Affine254, EllCoeffFq2, Fq2, Fqk254, Fq6}}, bn::BigInteger256 as BigInteger}};\n")?;
+    writeln!(&mut file, "use crate::{{params::bn::{{G1Projective254, Fq, G1Affine254, G2Prepared254, Fq2, Fqk254, Fq6}}, bn::BigInteger256 as BigInteger}};\n")?;
 
     let g_ic_init = pvk.vk.gamma_abc_g1[0].into_projective();
     writeln!(&mut file, "pub const G_IC_INIT: &G1Projective254 = &G1Projective254::new_const(")?;
@@ -102,43 +102,49 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
     writeln!(&mut file, "    ),")?;
     writeln!(&mut file, ");\n")?;
 
-    writeln!(&mut file, "pub const GAMMA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
+    writeln!(&mut file, "pub const GAMMA_G2_NEG_PC: &G2Prepared254 = &G2Prepared254 {{")?;
+    writeln!(&mut file, "    ell_coeffs: &[")?;
     for (a, b, c) in pvk.gamma_g2_neg_pc.ell_coeffs.iter() {
-        writeln!(&mut file, "    (")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
-        writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
-        writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
-        writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "    ),")?;
+        writeln!(&mut file, "        (")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
+        writeln!(&mut file, "       ),")?;
     }
-    writeln!(&mut file, "];\n")?;
+    writeln!(&mut file, "    ],")?;
+    writeln!(&mut file, "    infinity: {},", pvk.gamma_g2_neg_pc.infinity)?;
+    writeln!(&mut file, "}};\n")?;
 
-    writeln!(&mut file, "pub const DELTA_G2_NEG_PC: &[EllCoeffFq2] = &[")?;
+    writeln!(&mut file, "pub const DELTA_G2_NEG_PC: &G2Prepared254 = &G2Prepared254 {{")?;
+    writeln!(&mut file, "    ell_coeffs: &[")?;
     for (a, b, c) in pvk.delta_g2_neg_pc.ell_coeffs.iter() {
-        writeln!(&mut file, "    (")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "        (")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
+        writeln!(&mut file, "            Fq2::new_const(")?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "            ),")?;
         writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
-        writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "        Fq2::new_const(")?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
-        writeln!(&mut file, "        ),")?;
-        writeln!(&mut file, "    ),")?;
     }
-    writeln!(&mut file, "];")?;
+    writeln!(&mut file, "    ],")?;
+    writeln!(&mut file, "    infinity: {},", pvk.delta_g2_neg_pc.infinity)?;
+    writeln!(&mut file, "}};")?;
 
     file.flush()
 }

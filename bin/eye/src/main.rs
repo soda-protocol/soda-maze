@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use std::path::PathBuf;
 use ark_ff::{FpParameters, BigInteger256, PrimeField};
-use ark_bn254::Fr;
 use num_integer::Integer;
 use num_bigint::BigUint;
 use num_bigint_dig::{Sign, BigInt as BigIntDig};
@@ -12,6 +11,11 @@ use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature, pubkey::Pubkey};
 use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage};
+
+#[cfg(feature = "bn254")]
+use ark_bn254::Fr;
+#[cfg(feature = "bls12-381")]
+use ark_bls12_381::Fr;
 
 fn rabin_decrypt(cipher: &BigIntDig, modulus: &BigIntDig, p: &BigIntDig, q: &BigIntDig) -> (BigIntDig, BigIntDig, BigIntDig, BigIntDig) {
     assert_eq!(*modulus, p * q);

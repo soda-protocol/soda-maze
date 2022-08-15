@@ -25,12 +25,13 @@ const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: tru
 
 cachedTextDecoder.decode();
 
-let cachegetUint8Memory0 = null;
+let cachedUint8Memory0 = new Uint8Array();
+
 function getUint8Memory0() {
-    if (cachegetUint8Memory0 === null || cachegetUint8Memory0.buffer !== wasm.memory.buffer) {
-        cachegetUint8Memory0 = new Uint8Array(wasm.memory.buffer);
+    if (cachedUint8Memory0.byteLength === 0) {
+        cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
     }
-    return cachegetUint8Memory0;
+    return cachedUint8Memory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -105,20 +106,22 @@ function isLikeNone(x) {
     return x === undefined || x === null;
 }
 
-let cachegetInt32Memory0 = null;
+let cachedInt32Memory0 = new Int32Array();
+
 function getInt32Memory0() {
-    if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
-        cachegetInt32Memory0 = new Int32Array(wasm.memory.buffer);
+    if (cachedInt32Memory0.byteLength === 0) {
+        cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
     }
-    return cachegetInt32Memory0;
+    return cachedInt32Memory0;
 }
 
-let cachegetFloat64Memory0 = null;
+let cachedFloat64Memory0 = new Float64Array();
+
 function getFloat64Memory0() {
-    if (cachegetFloat64Memory0 === null || cachegetFloat64Memory0.buffer !== wasm.memory.buffer) {
-        cachegetFloat64Memory0 = new Float64Array(wasm.memory.buffer);
+    if (cachedFloat64Memory0.byteLength === 0) {
+        cachedFloat64Memory0 = new Float64Array(wasm.memory.buffer);
     }
-    return cachegetFloat64Memory0;
+    return cachedFloat64Memory0;
 }
 
 function debugString(val) {
@@ -200,11 +203,11 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} owner
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
+* @param {bigint} leaf_index
+* @param {bigint} deposit_amount
 * @param {Array<any>} neighbors
 * @param {Uint8Array} sig
-* @param {BigInt} nonce
+* @param {bigint} nonce
 * @returns {any}
 */
 export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount, neighbors, sig, nonce) {
@@ -241,7 +244,7 @@ export function get_vault_info(data) {
 
 /**
 * @param {Pubkey} vault_key
-* @param {BigInt} leaf_index
+* @param {bigint} leaf_index
 * @returns {any}
 */
 export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
@@ -256,7 +259,7 @@ export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
-* @param {BigInt} num
+* @param {bigint} num
 * @returns {any}
 */
 export function get_utxo_keys(sig, vault, num) {
@@ -294,14 +297,14 @@ export function get_nullifier(data) {
 * @param {Pubkey} mint
 * @param {Pubkey} owner
 * @param {Pubkey} delegator
-* @param {BigInt} src_leaf_index
-* @param {BigInt} balance
-* @param {BigInt} dst_leaf_index
-* @param {BigInt} withdraw_amount
+* @param {bigint} src_leaf_index
+* @param {bigint} balance
+* @param {bigint} dst_leaf_index
+* @param {bigint} withdraw_amount
 * @param {Uint8Array} sig
 * @param {Array<any>} src_neighbors
 * @param {Array<any>} dst_neighbors
-* @param {BigInt} nonce
+* @param {bigint} nonce
 * @returns {any}
 */
 export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
@@ -340,12 +343,13 @@ function getArrayU8FromWasm0(ptr, len) {
     return getUint8Memory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
-let cachegetUint32Memory0 = null;
+let cachedUint32Memory0 = new Uint32Array();
+
 function getUint32Memory0() {
-    if (cachegetUint32Memory0 === null || cachegetUint32Memory0.buffer !== wasm.memory.buffer) {
-        cachegetUint32Memory0 = new Uint32Array(wasm.memory.buffer);
+    if (cachedUint32Memory0.byteLength === 0) {
+        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
     }
-    return cachegetUint32Memory0;
+    return cachedUint32Memory0;
 }
 
 function passArrayJsValueToWasm0(array, malloc) {
@@ -372,6 +376,16 @@ function handleError(f, args) {
     }
 }
 /**
+* A hash; the 32-byte output of a hashing algorithm.
+*
+* This struct is used most often in `solana-sdk` and related crates to contain
+* a [SHA-256] hash, but may instead contain a [blake3] hash, as created by the
+* [`blake3`] module (and used in [`Message::hash`]).
+*
+* [SHA-256]: https://en.wikipedia.org/wiki/SHA-2
+* [blake3]: https://github.com/BLAKE3-team/BLAKE3
+* [`blake3`]: crate::blake3
+* [`Message::hash`]: crate::message::Message::hash
 */
 export class Hash {
 
@@ -609,6 +623,7 @@ export class Message {
     }
     /**
     * The id of a recent ledger entry.
+    * @returns {Hash}
     */
     get recent_blockhash() {
         const ret = wasm.__wbg_get_message_recent_blockhash(this.ptr);
@@ -626,6 +641,20 @@ export class Message {
     }
 }
 /**
+* The address of a [Solana account][acc].
+*
+* Some account addresses are [ed25519] public keys, with corresponding secret
+* keys that are managed off-chain. Often, though, account addresses do not
+* have corresponding secret keys &mdash; as with [_program derived
+* addresses_][pdas] &mdash; or the secret key is not relevant to the operation
+* of a program, and may have even been disposed of. As running Solana programs
+* can not safely create or manage secret keys, the full [`Keypair`] is not
+* defined in `solana-program` but in `solana-sdk`.
+*
+* [acc]: https://docs.solana.com/developing/programming-model/accounts
+* [ed25519]: https://ed25519.cr.yp.to/
+* [pdas]: https://docs.solana.com/developing/programming-model/calling-between-programs#program-derived-addresses
+* [`Keypair`]: https://docs.rs/solana-sdk/latest/solana_sdk/signer/keypair/struct.Keypair.html
 */
 export class Pubkey {
 
@@ -814,8 +843,8 @@ export class SystemInstruction {
     /**
     * @param {Pubkey} from_pubkey
     * @param {Pubkey} to_pubkey
-    * @param {BigInt} lamports
-    * @param {BigInt} space
+    * @param {bigint} lamports
+    * @param {bigint} space
     * @param {Pubkey} owner
     * @returns {Instruction}
     */
@@ -837,8 +866,8 @@ export class SystemInstruction {
     * @param {Pubkey} to_pubkey
     * @param {Pubkey} base
     * @param {string} seed
-    * @param {BigInt} lamports
-    * @param {BigInt} space
+    * @param {bigint} lamports
+    * @param {bigint} space
     * @param {Pubkey} owner
     * @returns {Instruction}
     */
@@ -888,7 +917,7 @@ export class SystemInstruction {
     /**
     * @param {Pubkey} from_pubkey
     * @param {Pubkey} to_pubkey
-    * @param {BigInt} lamports
+    * @param {bigint} lamports
     * @returns {Instruction}
     */
     static transfer(from_pubkey, to_pubkey, lamports) {
@@ -906,7 +935,7 @@ export class SystemInstruction {
     * @param {string} from_seed
     * @param {Pubkey} from_owner
     * @param {Pubkey} to_pubkey
-    * @param {BigInt} lamports
+    * @param {bigint} lamports
     * @returns {Instruction}
     */
     static transferWithSeed(from_pubkey, from_base, from_seed, from_owner, to_pubkey, lamports) {
@@ -924,7 +953,7 @@ export class SystemInstruction {
     }
     /**
     * @param {Pubkey} pubkey
-    * @param {BigInt} space
+    * @param {bigint} space
     * @returns {Instruction}
     */
     static allocate(pubkey, space) {
@@ -939,7 +968,7 @@ export class SystemInstruction {
     * @param {Pubkey} address
     * @param {Pubkey} base
     * @param {string} seed
-    * @param {BigInt} space
+    * @param {bigint} space
     * @param {Pubkey} owner
     * @returns {Instruction}
     */
@@ -959,7 +988,7 @@ export class SystemInstruction {
     * @param {Pubkey} from_pubkey
     * @param {Pubkey} nonce_pubkey
     * @param {Pubkey} authority
-    * @param {BigInt} lamports
+    * @param {bigint} lamports
     * @returns {Array<any>}
     */
     static createNonceAccount(from_pubkey, nonce_pubkey, authority, lamports) {
@@ -987,7 +1016,7 @@ export class SystemInstruction {
     * @param {Pubkey} nonce_pubkey
     * @param {Pubkey} authorized_pubkey
     * @param {Pubkey} to_pubkey
-    * @param {BigInt} lamports
+    * @param {bigint} lamports
     * @returns {Instruction}
     */
     static withdrawNonceAccount(nonce_pubkey, authorized_pubkey, to_pubkey, lamports) {
@@ -1046,10 +1075,7 @@ async function load(module, imports) {
     }
 }
 
-async function init(input) {
-    if (typeof input === 'undefined') {
-        input = new URL('soda_maze_wasm_bg.wasm', import.meta.url);
-    }
+function getImports() {
     const imports = {};
     imports.wbg = {};
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
@@ -1062,16 +1088,12 @@ async function init(input) {
         const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
-        const ret = getStringFromWasm0(arg0, arg1);
-        return addHeapObject(ret);
-    };
-    imports.wbg.__wbindgen_number_new = function(arg0) {
-        const ret = arg0;
-        return addHeapObject(ret);
-    };
     imports.wbg.__wbg_instruction_new = function(arg0) {
         const ret = Instruction.__wrap(arg0);
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_string_get = function(arg0, arg1) {
@@ -1094,6 +1116,10 @@ async function init(input) {
     };
     imports.wbg.__wbg_pubkey_new = function(arg0) {
         const ret = Pubkey.__wrap(arg0);
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbindgen_number_new = function(arg0) {
+        const ret = arg0;
         return addHeapObject(ret);
     };
     imports.wbg.__wbg_debug_fda1f49ea6af7a1d = function(arg0) {
@@ -1172,15 +1198,15 @@ async function init(input) {
         const ret = getObject(arg0).msCrypto;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_get_590a2cd912f2ae46 = function(arg0, arg1) {
+    imports.wbg.__wbg_get_ad41fee29b7e0f53 = function(arg0, arg1) {
         const ret = getObject(arg0)[arg1 >>> 0];
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_length_2cd798326f2cc4c1 = function(arg0) {
+    imports.wbg.__wbg_length_a73bfd4c96dd97ef = function(arg0) {
         const ret = getObject(arg0).length;
         return ret;
     };
-    imports.wbg.__wbg_new_94fb1279cf6afea5 = function() {
+    imports.wbg.__wbg_new_ee1a3da85465d621 = function() {
         const ret = new Array();
         return addHeapObject(ret);
     };
@@ -1188,35 +1214,35 @@ async function init(input) {
         const ret = typeof(getObject(arg0)) === 'function';
         return ret;
     };
-    imports.wbg.__wbg_newnoargs_e23b458e372830de = function(arg0, arg1) {
+    imports.wbg.__wbg_newnoargs_971e9a5abe185139 = function(arg0, arg1) {
         const ret = new Function(getStringFromWasm0(arg0, arg1));
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_next_cabb70b365520721 = function(arg0) {
+    imports.wbg.__wbg_next_726d1c2255989269 = function(arg0) {
         const ret = getObject(arg0).next;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_next_bf3d83fc18df496e = function() { return handleError(function (arg0) {
+    imports.wbg.__wbg_next_3d0c4cc33e7418c9 = function() { return handleError(function (arg0) {
         const ret = getObject(arg0).next();
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_done_040f966faa9a72b3 = function(arg0) {
+    imports.wbg.__wbg_done_e5655b169bb04f60 = function(arg0) {
         const ret = getObject(arg0).done;
         return ret;
     };
-    imports.wbg.__wbg_value_419afbd9b9574c4c = function(arg0) {
+    imports.wbg.__wbg_value_8f901bca1014f843 = function(arg0) {
         const ret = getObject(arg0).value;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_iterator_4832ef1f15b0382b = function() {
+    imports.wbg.__wbg_iterator_22ed2b976832ff0c = function() {
         const ret = Symbol.iterator;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_get_a9cab131e3152c49 = function() { return handleError(function (arg0, arg1) {
+    imports.wbg.__wbg_get_72332cd2bc57924c = function() { return handleError(function (arg0, arg1) {
         const ret = Reflect.get(getObject(arg0), getObject(arg1));
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_call_ae78342adc33730a = function() { return handleError(function (arg0, arg1) {
+    imports.wbg.__wbg_call_33d7bcddbbfa394a = function() { return handleError(function (arg0, arg1) {
         const ret = getObject(arg0).call(getObject(arg1));
         return addHeapObject(ret);
     }, arguments) };
@@ -1224,65 +1250,65 @@ async function init(input) {
         const ret = getObject(arg0);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_self_99737b4dcdf6f0d8 = function() { return handleError(function () {
+    imports.wbg.__wbg_self_fd00a1ef86d1b2ed = function() { return handleError(function () {
         const ret = self.self;
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_window_9b61fbbf3564c4fb = function() { return handleError(function () {
+    imports.wbg.__wbg_window_6f6e346d8bbd61d7 = function() { return handleError(function () {
         const ret = window.window;
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_globalThis_8e275ef40caea3a3 = function() { return handleError(function () {
+    imports.wbg.__wbg_globalThis_3348936ac49df00a = function() { return handleError(function () {
         const ret = globalThis.globalThis;
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_global_5de1e0f82bddcd27 = function() { return handleError(function () {
+    imports.wbg.__wbg_global_67175caf56f55ca9 = function() { return handleError(function () {
         const ret = global.global;
         return addHeapObject(ret);
     }, arguments) };
-    imports.wbg.__wbg_newwithlength_e80fb11cf19c1628 = function(arg0) {
+    imports.wbg.__wbg_newwithlength_df0e16f0b90b6295 = function(arg0) {
         const ret = new Array(arg0 >>> 0);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_set_561aac756158708c = function(arg0, arg1, arg2) {
+    imports.wbg.__wbg_set_64cc39858b2ec3f1 = function(arg0, arg1, arg2) {
         getObject(arg0)[arg1 >>> 0] = takeObject(arg2);
     };
-    imports.wbg.__wbg_isArray_6721f2e508996340 = function(arg0) {
+    imports.wbg.__wbg_isArray_a1a8c3a8ac24bdf1 = function(arg0) {
         const ret = Array.isArray(getObject(arg0));
         return ret;
     };
-    imports.wbg.__wbg_push_40c6a90f1805aa90 = function(arg0, arg1) {
+    imports.wbg.__wbg_push_0bc7fce4a139a883 = function(arg0, arg1) {
         const ret = getObject(arg0).push(getObject(arg1));
         return ret;
     };
-    imports.wbg.__wbg_values_b1b9e8c63dbe01c2 = function(arg0) {
+    imports.wbg.__wbg_values_830009b5edbb5836 = function(arg0) {
         const ret = getObject(arg0).values();
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_buffer_7af23f65f6c64548 = function(arg0) {
+    imports.wbg.__wbg_buffer_34f5ec9f8a838ba0 = function(arg0) {
         const ret = getObject(arg0).buffer;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_new_cc9018bd6f283b6f = function(arg0) {
+    imports.wbg.__wbg_new_cda198d9dbc6d7ea = function(arg0) {
         const ret = new Uint8Array(getObject(arg0));
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_set_f25e869e4565d2a2 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbg_set_1a930cfcda1a8067 = function(arg0, arg1, arg2) {
         getObject(arg0).set(getObject(arg1), arg2 >>> 0);
     };
-    imports.wbg.__wbg_length_0acb1cf9bbaf8519 = function(arg0) {
+    imports.wbg.__wbg_length_51f19f73d6d9eff3 = function(arg0) {
         const ret = getObject(arg0).length;
         return ret;
     };
-    imports.wbg.__wbg_instanceof_Uint8Array_edb92795fc0c63b4 = function(arg0) {
+    imports.wbg.__wbg_instanceof_Uint8Array_36c37b9ca15e3e0a = function(arg0) {
         const ret = getObject(arg0) instanceof Uint8Array;
         return ret;
     };
-    imports.wbg.__wbg_newwithlength_8f0657faca9f1422 = function(arg0) {
+    imports.wbg.__wbg_newwithlength_66e5530e7079ea1b = function(arg0) {
         const ret = new Uint8Array(arg0 >>> 0);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_subarray_da527dbd24eafb6b = function(arg0, arg1, arg2) {
+    imports.wbg.__wbg_subarray_270ff8dd5582c1ac = function(arg0, arg1, arg2) {
         const ret = getObject(arg0).subarray(arg1 >>> 0, arg2 >>> 0);
         return addHeapObject(ret);
     };
@@ -1301,19 +1327,52 @@ async function init(input) {
         return addHeapObject(ret);
     };
 
-    if (typeof input === 'string' || (typeof Request === 'function' && input instanceof Request) || (typeof URL === 'function' && input instanceof URL)) {
-        input = fetch(input);
-    }
+    return imports;
+}
 
+function initMemory(imports, maybe_memory) {
 
+}
 
-    const { instance, module } = await load(await input, imports);
-
+function finalizeInit(instance, module) {
     wasm = instance.exports;
     init.__wbindgen_wasm_module = module;
+    cachedFloat64Memory0 = new Float64Array();
+    cachedInt32Memory0 = new Int32Array();
+    cachedUint32Memory0 = new Uint32Array();
+    cachedUint8Memory0 = new Uint8Array();
+
 
     return wasm;
 }
 
-export default init;
+function initSync(bytes) {
+    const imports = getImports();
 
+    initMemory(imports);
+
+    const module = new WebAssembly.Module(bytes);
+    const instance = new WebAssembly.Instance(module, imports);
+
+    return finalizeInit(instance, module);
+}
+
+async function init(input) {
+    if (typeof input === 'undefined') {
+        input = new URL('soda_maze_wasm_bg.wasm', import.meta.url);
+    }
+    const imports = getImports();
+
+    if (typeof input === 'string' || (typeof Request === 'function' && input instanceof Request) || (typeof URL === 'function' && input instanceof URL)) {
+        input = fetch(input);
+    }
+
+    initMemory(imports);
+
+    const { instance, module } = await load(await input, imports);
+
+    return finalizeInit(instance, module);
+}
+
+export { initSync }
+export default init;

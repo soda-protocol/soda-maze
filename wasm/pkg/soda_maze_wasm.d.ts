@@ -4,14 +4,14 @@
 * @param {Pubkey} vault
 * @param {Pubkey} mint
 * @param {Pubkey} owner
-* @param {BigInt} leaf_index
-* @param {BigInt} deposit_amount
+* @param {bigint} leaf_index
+* @param {bigint} deposit_amount
 * @param {Array<any>} neighbors
 * @param {Uint8Array} sig
-* @param {BigInt} nonce
+* @param {bigint} nonce
 * @returns {any}
 */
-export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: BigInt, deposit_amount: BigInt, neighbors: Array<any>, sig: Uint8Array, nonce: BigInt): any;
+export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
 /**
 * @param {Uint8Array} data
 * @returns {any}
@@ -19,17 +19,17 @@ export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, le
 export function get_vault_info(data: Uint8Array): any;
 /**
 * @param {Pubkey} vault_key
-* @param {BigInt} leaf_index
+* @param {bigint} leaf_index
 * @returns {any}
 */
-export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: BigInt): any;
+export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: bigint): any;
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
-* @param {BigInt} num
+* @param {bigint} num
 * @returns {any}
 */
-export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: BigInt): any;
+export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: bigint): any;
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
@@ -47,22 +47,32 @@ export function get_nullifier(data: Uint8Array): any;
 * @param {Pubkey} mint
 * @param {Pubkey} owner
 * @param {Pubkey} delegator
-* @param {BigInt} src_leaf_index
-* @param {BigInt} balance
-* @param {BigInt} dst_leaf_index
-* @param {BigInt} withdraw_amount
+* @param {bigint} src_leaf_index
+* @param {bigint} balance
+* @param {bigint} dst_leaf_index
+* @param {bigint} withdraw_amount
 * @param {Uint8Array} sig
 * @param {Array<any>} src_neighbors
 * @param {Array<any>} dst_neighbors
-* @param {BigInt} nonce
+* @param {bigint} nonce
 * @returns {any}
 */
-export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: BigInt, balance: BigInt, dst_leaf_index: BigInt, withdraw_amount: BigInt, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: BigInt): any;
+export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
 /**
 * Initialize Javascript logging and panic handler
 */
 export function solana_program_init(): void;
 /**
+* A hash; the 32-byte output of a hashing algorithm.
+*
+* This struct is used most often in `solana-sdk` and related crates to contain
+* a [SHA-256] hash, but may instead contain a [blake3] hash, as created by the
+* [`blake3`] module (and used in [`Message::hash`]).
+*
+* [SHA-256]: https://en.wikipedia.org/wiki/SHA-2
+* [blake3]: https://github.com/BLAKE3-team/BLAKE3
+* [`blake3`]: crate::blake3
+* [`Message::hash`]: crate::message::Message::hash
 */
 export class Hash {
   free(): void;
@@ -190,6 +200,20 @@ export class Message {
   recent_blockhash: Hash;
 }
 /**
+* The address of a [Solana account][acc].
+*
+* Some account addresses are [ed25519] public keys, with corresponding secret
+* keys that are managed off-chain. Often, though, account addresses do not
+* have corresponding secret keys &mdash; as with [_program derived
+* addresses_][pdas] &mdash; or the secret key is not relevant to the operation
+* of a program, and may have even been disposed of. As running Solana programs
+* can not safely create or manage secret keys, the full [`Keypair`] is not
+* defined in `solana-program` but in `solana-sdk`.
+*
+* [acc]: https://docs.solana.com/developing/programming-model/accounts
+* [ed25519]: https://ed25519.cr.yp.to/
+* [pdas]: https://docs.solana.com/developing/programming-model/calling-between-programs#program-derived-addresses
+* [`Keypair`]: https://docs.rs/solana-sdk/latest/solana_sdk/signer/keypair/struct.Keypair.html
 */
 export class Pubkey {
   free(): void;
@@ -247,104 +271,6 @@ export class Pubkey {
 */
   static findProgramAddress(seeds: any[], program_id: Pubkey): any;
 }
-export class SystemInstruction {
-  free(): void;
-/**
-* @param {Pubkey} from_pubkey
-* @param {Pubkey} to_pubkey
-* @param {BigInt} lamports
-* @param {BigInt} space
-* @param {Pubkey} owner
-* @returns {Instruction}
-*/
-  static createAccount(from_pubkey: Pubkey, to_pubkey: Pubkey, lamports: BigInt, space: BigInt, owner: Pubkey): Instruction;
-/**
-* @param {Pubkey} from_pubkey
-* @param {Pubkey} to_pubkey
-* @param {Pubkey} base
-* @param {string} seed
-* @param {BigInt} lamports
-* @param {BigInt} space
-* @param {Pubkey} owner
-* @returns {Instruction}
-*/
-  static createAccountWithSeed(from_pubkey: Pubkey, to_pubkey: Pubkey, base: Pubkey, seed: string, lamports: BigInt, space: BigInt, owner: Pubkey): Instruction;
-/**
-* @param {Pubkey} pubkey
-* @param {Pubkey} owner
-* @returns {Instruction}
-*/
-  static assign(pubkey: Pubkey, owner: Pubkey): Instruction;
-/**
-* @param {Pubkey} pubkey
-* @param {Pubkey} base
-* @param {string} seed
-* @param {Pubkey} owner
-* @returns {Instruction}
-*/
-  static assignWithSeed(pubkey: Pubkey, base: Pubkey, seed: string, owner: Pubkey): Instruction;
-/**
-* @param {Pubkey} from_pubkey
-* @param {Pubkey} to_pubkey
-* @param {BigInt} lamports
-* @returns {Instruction}
-*/
-  static transfer(from_pubkey: Pubkey, to_pubkey: Pubkey, lamports: BigInt): Instruction;
-/**
-* @param {Pubkey} from_pubkey
-* @param {Pubkey} from_base
-* @param {string} from_seed
-* @param {Pubkey} from_owner
-* @param {Pubkey} to_pubkey
-* @param {BigInt} lamports
-* @returns {Instruction}
-*/
-  static transferWithSeed(from_pubkey: Pubkey, from_base: Pubkey, from_seed: string, from_owner: Pubkey, to_pubkey: Pubkey, lamports: BigInt): Instruction;
-/**
-* @param {Pubkey} pubkey
-* @param {BigInt} space
-* @returns {Instruction}
-*/
-  static allocate(pubkey: Pubkey, space: BigInt): Instruction;
-/**
-* @param {Pubkey} address
-* @param {Pubkey} base
-* @param {string} seed
-* @param {BigInt} space
-* @param {Pubkey} owner
-* @returns {Instruction}
-*/
-  static allocateWithSeed(address: Pubkey, base: Pubkey, seed: string, space: BigInt, owner: Pubkey): Instruction;
-/**
-* @param {Pubkey} from_pubkey
-* @param {Pubkey} nonce_pubkey
-* @param {Pubkey} authority
-* @param {BigInt} lamports
-* @returns {Array<any>}
-*/
-  static createNonceAccount(from_pubkey: Pubkey, nonce_pubkey: Pubkey, authority: Pubkey, lamports: BigInt): Array<any>;
-/**
-* @param {Pubkey} nonce_pubkey
-* @param {Pubkey} authorized_pubkey
-* @returns {Instruction}
-*/
-  static advanceNonceAccount(nonce_pubkey: Pubkey, authorized_pubkey: Pubkey): Instruction;
-/**
-* @param {Pubkey} nonce_pubkey
-* @param {Pubkey} authorized_pubkey
-* @param {Pubkey} to_pubkey
-* @param {BigInt} lamports
-* @returns {Instruction}
-*/
-  static withdrawNonceAccount(nonce_pubkey: Pubkey, authorized_pubkey: Pubkey, to_pubkey: Pubkey, lamports: BigInt): Instruction;
-/**
-* @param {Pubkey} nonce_pubkey
-* @param {Pubkey} authorized_pubkey
-* @param {Pubkey} new_authority
-* @returns {Instruction}
-*/
-  static authorizeNonceAccount(nonce_pubkey: Pubkey, authorized_pubkey: Pubkey, new_authority: Pubkey): Instruction;
-}
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -357,7 +283,7 @@ export interface InitOutput {
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
-  readonly __wbg_instruction_free: (a: number) => void;
+  readonly __wbg_pubkey_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly systeminstruction_assign: (a: number, b: number) => number;
@@ -370,9 +296,7 @@ export interface InitOutput {
   readonly systeminstruction_advanceNonceAccount: (a: number, b: number) => number;
   readonly systeminstruction_withdrawNonceAccount: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly systeminstruction_authorizeNonceAccount: (a: number, b: number, c: number) => number;
-  readonly __wbg_message_free: (a: number) => void;
-  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
-  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
+  readonly __wbg_instruction_free: (a: number) => void;
   readonly pubkey_constructor: (a: number, b: number) => void;
   readonly pubkey_toString: (a: number, b: number) => void;
   readonly pubkey_isOnCurve: (a: number) => number;
@@ -381,22 +305,33 @@ export interface InitOutput {
   readonly pubkey_createWithSeed: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly pubkey_createProgramAddress: (a: number, b: number, c: number, d: number) => void;
   readonly pubkey_findProgramAddress: (a: number, b: number, c: number, d: number) => void;
-  readonly __wbg_pubkey_free: (a: number) => void;
   readonly solana_program_init: () => void;
-  readonly hash_constructor: (a: number, b: number) => void;
-  readonly hash_toString: (a: number, b: number) => void;
-  readonly hash_equals: (a: number, b: number) => number;
-  readonly hash_toBytes: (a: number, b: number) => void;
   readonly __wbg_instructions_free: (a: number) => void;
   readonly instructions_constructor: () => number;
   readonly instructions_push: (a: number, b: number) => void;
   readonly __wbg_hash_free: (a: number) => void;
+  readonly __wbg_message_free: (a: number) => void;
+  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
+  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
+  readonly hash_constructor: (a: number, b: number) => void;
+  readonly hash_toString: (a: number, b: number) => void;
+  readonly hash_equals: (a: number, b: number) => number;
+  readonly hash_toBytes: (a: number, b: number) => void;
   readonly __wbindgen_malloc: (a: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
 }
+
+/**
+* Synchronously compiles the given `bytes` and instantiates the WebAssembly module.
+*
+* @param {BufferSource} bytes
+*
+* @returns {InitOutput}
+*/
+export function initSync(bytes: BufferSource): InitOutput;
 
 /**
 * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
