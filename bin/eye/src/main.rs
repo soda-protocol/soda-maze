@@ -146,7 +146,11 @@ fn main() {
             let data = client.get_account_data(&key);
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                println!("withdraw owner pubkey: {}", nullifier.owner);
+                if nullifier.used {
+                    println!("{} is on withdrawing", nullifier.owner);
+                } else {
+                    println!("{} has withdrawn", nullifier.owner);
+                }
                 return;
             }
 
@@ -154,7 +158,11 @@ fn main() {
             let data = client.get_account_data(&key);
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                println!("withdraw owner pubkey: {}", nullifier.owner);
+                if nullifier.used {
+                    println!("{} is on withdrawing", nullifier.owner);
+                } else {
+                    println!("{} has withdrawn", nullifier.owner);
+                }
                 return;
             }
 
@@ -162,7 +170,11 @@ fn main() {
             let data = client.get_account_data(&key);
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                println!("withdraw owner pubkey: {}", nullifier.owner);
+                if nullifier.used {
+                    println!("{} is on withdrawing", nullifier.owner);
+                } else {
+                    println!("{} has withdrawn", nullifier.owner);
+                }
                 return;
             }
 
@@ -170,7 +182,11 @@ fn main() {
             let data = client.get_account_data(&key);
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                println!("withdraw owner pubkey: {}", nullifier.owner);
+                if nullifier.used {
+                    println!("{} is on withdrawing", nullifier.owner);
+                } else {
+                    println!("{} has withdrawn", nullifier.owner);
+                }
                 return;
             }
 
