@@ -147,9 +147,9 @@ fn main() {
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 if nullifier.used {
-                    println!("{} is on withdrawing", nullifier.owner);
-                } else {
                     println!("{} has withdrawn", nullifier.owner);
+                } else {
+                    println!("{} is on withdrawing", nullifier.owner);
                 }
                 return;
             }
@@ -159,9 +159,9 @@ fn main() {
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 if nullifier.used {
-                    println!("{} is on withdrawing", nullifier.owner);
-                } else {
                     println!("{} has withdrawn", nullifier.owner);
+                } else {
+                    println!("{} is on withdrawing", nullifier.owner);
                 }
                 return;
             }
@@ -171,9 +171,9 @@ fn main() {
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 if nullifier.used {
-                    println!("{} is on withdrawing", nullifier.owner);
-                } else {
                     println!("{} has withdrawn", nullifier.owner);
+                } else {
+                    println!("{} is on withdrawing", nullifier.owner);
                 }
                 return;
             }
@@ -183,9 +183,9 @@ fn main() {
             if let Ok(data) = data {
                 let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 if nullifier.used {
-                    println!("{} is on withdrawing", nullifier.owner);
-                } else {
                     println!("{} has withdrawn", nullifier.owner);
+                } else {
+                    println!("{} is on withdrawing", nullifier.owner);
                 }
                 return;
             }
