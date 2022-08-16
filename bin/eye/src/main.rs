@@ -10,7 +10,7 @@ use soda_maze_program::{core::{commitment::Commitment, nullifier::{get_nullifier
 use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature, pubkey::Pubkey};
-use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage};
+use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage, UiInstruction, UiParsedInstruction};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::Fr;
@@ -30,9 +30,16 @@ fn rabin_decrypt(cipher: &BigIntDig, modulus: &BigIntDig, p: &BigIntDig, q: &Big
     let egcd = p.extended_gcd(&q);
     assert_eq!(egcd.gcd, BigIntDig::from(1u64));
 
-    let r = (&egcd.x * p * &mq + &egcd.y * q * &mp) % modulus;
+    let mut r = (&egcd.x * p * &mq + &egcd.y * q * &mp) % modulus;
+    if r.sign() == Sign::Minus {
+        r += modulus;
+    }
     let r_neg = modulus - &r;
-    let s = (&egcd.x * p * &mq - &egcd.y * q * &mp) % modulus;
+
+    let mut s = (&egcd.x * p * &mq - &egcd.y * q * &mp) % modulus;
+    if s.sign() == Sign::Minus {
+        s += modulus;
+    }
     let s_neg = modulus - &s;
 
     (r, r_neg, s, s_neg)
@@ -94,17 +101,28 @@ fn main() {
                 CommitmentConfig::finalized(),
             );
             let sig = Signature::from_str(&signature).expect("invalid signature");
-            let tx = client.get_transaction(&sig, UiTransactionEncoding::Json)
+            let tx = client.get_transaction(&sig, UiTransactionEncoding::JsonParsed)
                 .expect("get transaction error");
             let commitment_key = match tx.transaction.transaction {
                 EncodedTransaction::Json(tx_data) => {
                     match tx_data.message {
-                        UiMessage::Raw(ref message) => {
-                            assert_eq!(message.account_keys.len(), 32);
-                            let commitment_key = &message.account_keys[5];
-                            Pubkey::from_str(commitment_key).unwrap()
+                        UiMessage::Parsed(ref message) => {
+                            assert_eq!(message.instructions.len(), 1);
+                            let instruction = &message.instructions[0];
+                            match instruction {
+                                UiInstruction::Parsed(instruction) => {
+                                    match instruction {
+                                        UiParsedInstruction::PartiallyDecoded(instruction) => {
+                                            assert_eq!(instruction.accounts.len(), 31);
+                                            Pubkey::from_str(&instruction.accounts[6]).unwrap()
+                                        }
+                                        _ => unreachable!("parsed instruction should be partially decoded"),
+                                    }
+                                }
+                                _ => unreachable!("instruction type should by parsed"),
+                            }
                         }
-                        _ => unreachable!("message type should by raw"),
+                        _ => unreachable!("message type should by parsed"),
                     }
                 }
                 _ => unreachable!("transaction type should be json"),
@@ -125,36 +143,38 @@ fn main() {
 
             // 4 solves
             let key = substract_nullifier_pda(&v1, rabin_params.modulus_len, rabin_params.bit_size);
-            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
-            if !nullifier_data.is_empty() {
-                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+            let data = client.get_account_data(&key);
+            if let Ok(data) = data {
+                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 println!("withdraw owner pubkey: {}", nullifier.owner);
                 return;
             }
 
             let key = substract_nullifier_pda(&v2, rabin_params.modulus_len, rabin_params.bit_size);
-            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
-            if !nullifier_data.is_empty() {
-                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+            let data = client.get_account_data(&key);
+            if let Ok(data) = data {
+                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 println!("withdraw owner pubkey: {}", nullifier.owner);
                 return;
             }
 
             let key = substract_nullifier_pda(&v3, rabin_params.modulus_len, rabin_params.bit_size);
-            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
-            if !nullifier_data.is_empty() {
-                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+            let data = client.get_account_data(&key);
+            if let Ok(data) = data {
+                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 println!("withdraw owner pubkey: {}", nullifier.owner);
                 return;
             }
 
             let key = substract_nullifier_pda(&v4, rabin_params.modulus_len, rabin_params.bit_size);
-            let nullifier_data = client.get_account_data(&key).expect("get nullifier data error");
-            if !nullifier_data.is_empty() {
-                let nullifier = Nullifier::unpack(&nullifier_data).expect("unpack nullifier error");
+            let data = client.get_account_data(&key);
+            if let Ok(data) = data {
+                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
                 println!("withdraw owner pubkey: {}", nullifier.owner);
                 return;
             }
+
+            println!("user has not withdrawn yet");
         }
     }
 }

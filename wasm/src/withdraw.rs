@@ -90,7 +90,7 @@ fn gen_withdraw_instructions(
     let verifier = create_withdraw_verifier(vault, owner, delegator, Box::new(proof))
         .expect("Error: create withdraw verifier failed");
 
-    let verify = (0..170).into_iter().map(|i| {
+    let verify = (0..175).into_iter().map(|i| {
         verify_withdraw_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 

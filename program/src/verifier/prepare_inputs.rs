@@ -36,7 +36,7 @@ impl PrepareInputs {
         let mut bits_iter = BitIteratorBE::without_leading_zeros(public_input)
             .skip(self.bit_index as usize);
 
-        const MAX_UINTS: usize = 1360000;
+        const MAX_UINTS: usize = 1300000;
         let mut used_units = 0;
         loop {
             if let Some(bit) = bits_iter.next() {

@@ -80,7 +80,7 @@ fn gen_deposit_instructions(
     let verifier = create_deposit_verifier(vault, owner, Box::new(commitment), Box::new(proof))
         .expect("Error: create deposit verifier failed");
 
-    let verify = (0..210).into_iter().map(|i| {
+    let verify = (0..215).into_iter().map(|i| {
         verify_deposit_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 
