@@ -44,8 +44,8 @@ export function parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array): an
 export function get_nullifier(data: Uint8Array): any;
 /**
 * @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} owner
+* @param {Pubkey} token_mint
+* @param {Pubkey} receiver
 * @param {Pubkey} delegator
 * @param {bigint} src_leaf_index
 * @param {bigint} balance
@@ -57,7 +57,7 @@ export function get_nullifier(data: Uint8Array): any;
 * @param {bigint} nonce
 * @returns {any}
 */
-export function gen_withdraw_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
+export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -283,7 +283,7 @@ export interface InitOutput {
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
-  readonly __wbg_pubkey_free: (a: number) => void;
+  readonly __wbg_instruction_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly systeminstruction_assign: (a: number, b: number) => number;
@@ -296,7 +296,10 @@ export interface InitOutput {
   readonly systeminstruction_advanceNonceAccount: (a: number, b: number) => number;
   readonly systeminstruction_withdrawNonceAccount: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly systeminstruction_authorizeNonceAccount: (a: number, b: number, c: number) => number;
-  readonly __wbg_instruction_free: (a: number) => void;
+  readonly __wbg_message_free: (a: number) => void;
+  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
+  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
+  readonly __wbg_pubkey_free: (a: number) => void;
   readonly pubkey_constructor: (a: number, b: number) => void;
   readonly pubkey_toString: (a: number, b: number) => void;
   readonly pubkey_isOnCurve: (a: number) => number;
@@ -309,14 +312,11 @@ export interface InitOutput {
   readonly __wbg_instructions_free: (a: number) => void;
   readonly instructions_constructor: () => number;
   readonly instructions_push: (a: number, b: number) => void;
-  readonly __wbg_hash_free: (a: number) => void;
-  readonly __wbg_message_free: (a: number) => void;
-  readonly __wbg_get_message_recent_blockhash: (a: number) => number;
-  readonly __wbg_set_message_recent_blockhash: (a: number, b: number) => void;
   readonly hash_constructor: (a: number, b: number) => void;
   readonly hash_toString: (a: number, b: number) => void;
   readonly hash_equals: (a: number, b: number) => number;
   readonly hash_toBytes: (a: number, b: number) => void;
+  readonly __wbg_hash_free: (a: number) => void;
   readonly __wbindgen_malloc: (a: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;

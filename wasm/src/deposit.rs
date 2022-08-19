@@ -28,14 +28,13 @@ struct Instructions {
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
-    pub utxo: Instruction,
     pub finalize: Instruction,
 }
 
 fn gen_deposit_instructions(
     vault: Pubkey,
     mint: Pubkey,
-    owner: Pubkey,
+    depositor: Pubkey,
     proof: Proof<Bn254>,
     pub_in: DepositPublicInputs<Fr>,
     sig: &[u8],
@@ -45,15 +44,14 @@ fn gen_deposit_instructions(
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
-    use soda_maze_program::store::utxo::Amount;
 
-    let reset = reset_deposit_buffer_accounts(vault, owner).expect("Error: reset deposit buffer accounts failed");
+    let reset = reset_deposit_buffer_accounts(vault, depositor).expect("Error: reset deposit buffer accounts failed");
 
     let leaf = BigInteger256::new(pub_in.leaf.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
         BigInteger256::new(node.into_repr().0)
     }).collect::<Vec<_>>();
-    let credential = create_deposit_credential(vault, owner, pub_in.deposit_amount, leaf, Box::new(updating_nodes))
+    let credential = create_deposit_credential(vault, depositor, pub_in.deposit_amount, leaf, Box::new(updating_nodes))
         .expect("Error: create deposit credential failed");
 
     let commitment = pub_in.encryption.unwrap().cipher_field_array.into_iter().map(|c| {
@@ -77,22 +75,15 @@ fn gen_deposit_instructions(
         ),
     };
 
-    let verifier = create_deposit_verifier(vault, owner, Box::new(commitment), Box::new(proof))
+    let verifier = create_deposit_verifier(vault, depositor, Box::new(commitment), Box::new(proof))
         .expect("Error: create deposit verifier failed");
 
-    let verify = (0..215).into_iter().map(|i| {
-        verify_deposit_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
+    let verify = (0..215u8).into_iter().map(|i| {
+        verify_deposit_proof(vault, depositor, vec![i]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 
-    let utxo_key = gen_utxo_key(sig, &vault, nonce);
-    let utxo = store_utxo(
-        owner,
-        utxo_key,
-        pub_in.leaf_index,
-        Amount::Origin(pub_in.deposit_amount),
-    ).expect("Error: store utxo failed");
-
-    let finalize = finalize_deposit(vault, mint, owner, pub_in.leaf_index, leaf)
+    let utxo = gen_utxo_key(sig, &vault, nonce);
+    let finalize = finalize_deposit(vault, mint, depositor, pub_in.leaf_index, leaf, utxo)
         .expect("Error: finalize deposit failed");
 
     Instructions {
@@ -100,7 +91,6 @@ fn gen_deposit_instructions(
         credential,
         verifier,
         verify,
-        utxo,
         finalize,
     }
 }

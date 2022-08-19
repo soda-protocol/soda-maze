@@ -9,7 +9,6 @@ pub mod processor;
 pub mod core;
 pub mod params;
 pub mod invoke;
-pub mod store;
 
 solana_program::declare_id!("Waaj4s4dxec6JicgSv78DcG2xi2MPch29YUDz8diRag");
 

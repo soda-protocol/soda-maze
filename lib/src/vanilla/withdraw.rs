@@ -23,6 +23,7 @@ pub struct WithdrawOriginInputs<F: PrimeField> {
     pub withdraw_amount: u64,
     pub src_leaf_index: u64,
     pub dst_leaf_index: u64,
+    pub receiver: F,
     pub secret: F,
     pub src_neighbor_nodes: Vec<F>,
     pub dst_neighbor_nodes: Vec<F>,
@@ -31,6 +32,7 @@ pub struct WithdrawOriginInputs<F: PrimeField> {
 #[derive(Clone)]
 pub struct WithdrawPublicInputs<F: PrimeField> {
     pub withdraw_amount: u64,
+    pub receiver: F,
     pub nullifier: F,
     pub prev_root: F,
     pub dst_leaf_index: u64,
@@ -61,6 +63,7 @@ where
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         let src_leaf_index = 0;
         let balance = 1;
+        let receiver = F::zero();
         let secret = F::zero();
         let leaf = FH::hash(
             &params.leaf_params,
@@ -76,6 +79,7 @@ where
             withdraw_amount: balance,
             src_leaf_index,
             dst_leaf_index: src_leaf_index + 1,
+            receiver,
             secret,
             src_neighbor_nodes,
             dst_neighbor_nodes,
@@ -137,6 +141,7 @@ where
 
         let pub_in = WithdrawPublicInputs {
             withdraw_amount: orig_in.withdraw_amount,
+            receiver: orig_in.receiver,
             nullifier,
             prev_root,
             dst_leaf_index: orig_in.dst_leaf_index,

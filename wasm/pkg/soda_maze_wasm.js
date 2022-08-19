@@ -1,26 +1,6 @@
 
 let wasm;
 
-const heap = new Array(32).fill(undefined);
-
-heap.push(undefined, null, true, false);
-
-function getObject(idx) { return heap[idx]; }
-
-let heap_next = heap.length;
-
-function dropObject(idx) {
-    if (idx < 36) return;
-    heap[idx] = heap_next;
-    heap_next = idx;
-}
-
-function takeObject(idx) {
-    const ret = getObject(idx);
-    dropObject(idx);
-    return ret;
-}
-
 const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
 
 cachedTextDecoder.decode();
@@ -38,6 +18,12 @@ function getStringFromWasm0(ptr, len) {
     return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
 }
 
+const heap = new Array(32).fill(undefined);
+
+heap.push(undefined, null, true, false);
+
+let heap_next = heap.length;
+
 function addHeapObject(obj) {
     if (heap_next === heap.length) heap.push(heap.length + 1);
     const idx = heap_next;
@@ -45,6 +31,20 @@ function addHeapObject(obj) {
 
     heap[idx] = obj;
     return idx;
+}
+
+function getObject(idx) { return heap[idx]; }
+
+function dropObject(idx) {
+    if (idx < 36) return;
+    heap[idx] = heap_next;
+    heap_next = idx;
+}
+
+function takeObject(idx) {
+    const ret = getObject(idx);
+    dropObject(idx);
+    return ret;
 }
 
 let WASM_VECTOR_LEN = 0;
@@ -294,8 +294,8 @@ export function get_nullifier(data) {
 
 /**
 * @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} owner
+* @param {Pubkey} token_mint
+* @param {Pubkey} receiver
 * @param {Pubkey} delegator
 * @param {bigint} src_leaf_index
 * @param {bigint} balance
@@ -307,16 +307,16 @@ export function get_nullifier(data) {
 * @param {bigint} nonce
 * @returns {any}
 */
-export function gen_withdraw_proof(vault, mint, owner, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
+export function gen_withdraw_proof(vault, token_mint, receiver, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
     _assertClass(vault, Pubkey);
     var ptr0 = vault.ptr;
     vault.ptr = 0;
-    _assertClass(mint, Pubkey);
-    var ptr1 = mint.ptr;
-    mint.ptr = 0;
-    _assertClass(owner, Pubkey);
-    var ptr2 = owner.ptr;
-    owner.ptr = 0;
+    _assertClass(token_mint, Pubkey);
+    var ptr1 = token_mint.ptr;
+    token_mint.ptr = 0;
+    _assertClass(receiver, Pubkey);
+    var ptr2 = receiver.ptr;
+    receiver.ptr = 0;
     _assertClass(delegator, Pubkey);
     var ptr3 = delegator.ptr;
     delegator.ptr = 0;
@@ -1078,18 +1078,22 @@ async function load(module, imports) {
 function getImports() {
     const imports = {};
     imports.wbg = {};
+    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
+        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
+        return addHeapObject(ret);
+    };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
     };
     imports.wbg.__wbg_log_f436293c3666c84e = function(arg0, arg1) {
         console.log(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
-        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
-        return addHeapObject(ret);
-    };
     imports.wbg.__wbg_instruction_new = function(arg0) {
         const ret = Instruction.__wrap(arg0);
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbindgen_number_new = function(arg0) {
+        const ret = arg0;
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
@@ -1116,10 +1120,6 @@ function getImports() {
     };
     imports.wbg.__wbg_pubkey_new = function(arg0) {
         const ret = Pubkey.__wrap(arg0);
-        return addHeapObject(ret);
-    };
-    imports.wbg.__wbindgen_number_new = function(arg0) {
-        const ret = arg0;
         return addHeapObject(ret);
     };
     imports.wbg.__wbg_debug_fda1f49ea6af7a1d = function(arg0) {

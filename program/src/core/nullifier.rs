@@ -4,30 +4,22 @@ use solana_program::{pubkey::Pubkey, program_pack::IsInitialized};
 use crate::{bn::{BigInteger, BigInteger256}, Packer};
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
-pub struct Nullifier {
-    is_initialized: bool,
-    pub owner: Pubkey,
-    pub used: bool,
-}
+pub struct Nullifier(bool);
 
 impl Nullifier {
-    pub fn new(owner: Pubkey) -> Self {
-        Self {
-            is_initialized: true,
-            owner,
-            used: false,
-        }
-    }
+    pub fn new() -> Self {
+        Self(true)
+    }    
 }
 
 impl IsInitialized for Nullifier {
     fn is_initialized(&self) -> bool {
-        self.is_initialized
+        self.0
     }
 }
 
 impl Packer for Nullifier {
-    const LEN: usize = 1 + 32 + 1;
+    const LEN: usize = 1;
 }
 
 pub fn get_nullifier_pda<'a>(

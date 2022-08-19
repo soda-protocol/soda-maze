@@ -6,11 +6,12 @@ use solana_program::{
     sysvar::{rent::Rent, Sysvar},
     system_instruction,
     program_error::ProgramError,
+    program_pack::Pack,
     instruction::Instruction,
     program::{invoke, invoke_signed},
 };
 use spl_associated_token_account::instruction::create_associated_token_account;
-use spl_token::instruction as token_instruction;
+use spl_token::{instruction as token_instruction, state::Account};
 
 use crate::error::MazeError;
 
@@ -133,7 +134,7 @@ pub fn process_token_transfer<'a>(
 
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
-pub fn process_create_associated_token_account<'a>(
+pub fn process_optimal_create_token_account<'a>(
     rent_info: &AccountInfo<'a>,
     mint_info: &AccountInfo<'a>,
     token_account_info: &AccountInfo<'a>,
@@ -166,7 +167,13 @@ pub fn process_create_associated_token_account<'a>(
     } else if token_account_info.owner != token_program_info.key {
         Err(ProgramError::IllegalOwner)
     } else {
-        Ok(())
+        let account = Account::unpack(&token_account_info.try_borrow_data()?)?;
+        if &account.owner != owner_authority_info.key {
+            msg!("token account owner is invalid");
+            Err(MazeError::UnmatchedAccounts.into())
+        } else {
+            Ok(())
+        }
     }
 }
 

@@ -6,7 +6,7 @@ use js_sys::{Uint8Array, Array};
 use rand_core::OsRng;
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::{pubkey::Pubkey, instruction::Instruction};
-use soda_maze_program::{Packer, params::HEIGHT, core::node::MerkleNode};
+use soda_maze_program::{Packer, params::HEIGHT, core::node::MerkleNode, core::pubkey_to_fr_repr};
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
@@ -25,16 +25,14 @@ struct Instructions {
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
-    pub token_account: Instruction,
-    pub utxo: Instruction,
     pub finalize: Instruction,
 }
 
 #[allow(clippy::too_many_arguments)]
 fn gen_withdraw_instructions(
     vault: Pubkey,
-    mint: Pubkey,
-    owner: Pubkey,
+    token_mint: Pubkey,
+    receiver: Pubkey,
     delegator: Pubkey,
     proof: Proof<Bn254>,
     pub_in: WithdrawPublicInputs<Fr>,
@@ -46,7 +44,6 @@ fn gen_withdraw_instructions(
     use soda_maze_program::verifier::Proof;
     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
-    use soda_maze_program::store::utxo::Amount;
 
     // debug log
     log(format!("sig = {:?}", sig).as_str());
@@ -59,7 +56,7 @@ fn gen_withdraw_instructions(
     }).collect::<Vec<_>>();
     let credential = create_withdraw_credential(
         vault,
-        owner,
+        receiver,
         delegator,
         pub_in.withdraw_amount,
         nullifier,
@@ -85,37 +82,26 @@ fn gen_withdraw_instructions(
         ),
     };
 
-    let reset = reset_withdraw_buffer_accounts(vault, owner, delegator).expect("Error: reset buffer accounts failed");
+    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).expect("Error: reset buffer accounts failed");
 
-    let verifier = create_withdraw_verifier(vault, owner, delegator, Box::new(proof))
+    let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof))
         .expect("Error: create withdraw verifier failed");
 
-    let verify = (0..175).into_iter().map(|i| {
-        verify_withdraw_proof(vault, owner, vec![i as u8]).expect("Error: verify proof failed")
+    let verify = (0..175u8).into_iter().map(|i| {
+        verify_withdraw_proof(vault, receiver, vec![i]).expect("Error: verify proof failed")
     }).collect::<Vec<_>>();
 
-    let token_account = spl_associated_token_account::instruction::create_associated_token_account(
-        &delegator,
-        &owner,
-        &mint,
-    );
-
-    let cipher = encrypt_balance(sig, &vault, balance);
-    let utxo_key = gen_utxo_key(sig, &vault, nonce);
-    let utxo = store_utxo(
-        delegator,
-        utxo_key,
-        pub_in.dst_leaf_index,
-        Amount::Cipher(cipher),
-    ).expect("Error: store utxo failed");
-
+    let balance_cipher = encrypt_balance(sig, &vault, balance);
+    let utxo = gen_utxo_key(sig, &vault, nonce);
     let finalize = finalize_withdraw(
         vault,
-        mint,
-        owner,
+        token_mint,
+        receiver,
         delegator,
         pub_in.dst_leaf_index,
         nullifier,
+        utxo,
+        balance_cipher,
     ).expect("Error: finalize withdraw failed");
 
     Instructions {
@@ -123,8 +109,6 @@ fn gen_withdraw_instructions(
         credential,
         verifier,
         verify,
-        token_account,
-        utxo,
         finalize,
     }
 }
@@ -133,8 +117,8 @@ fn gen_withdraw_instructions(
 #[allow(clippy::too_many_arguments)]
 pub fn gen_withdraw_proof(
     vault: Pubkey,
-    mint: Pubkey,
-    owner: Pubkey,
+    token_mint: Pubkey,
+    receiver: Pubkey,
     delegator: Pubkey,
     src_leaf_index: u64, // selected utxo index
     balance: u64, // selected utxo balance
@@ -160,7 +144,7 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid fr repr")
+            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid node hash fr repr")
         }
     }).collect::<Vec<_>>();
     assert_eq!(src_neighbor_nodes.len(), HEIGHT, "Error: invalid src neighbors array length");
@@ -171,16 +155,19 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid fr repr")
+            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid node hash fr repr")
         }
     }).collect::<Vec<_>>();
     assert_eq!(dst_neighbor_nodes.len(), HEIGHT, "Error: invalid dst neighbors array length");
 
+    let receiver_fr = Fr::from_repr(BigInteger256::new(pubkey_to_fr_repr(&receiver)))
+        .expect("Error: invalid receiver fr repr");
     let origin_inputs = WithdrawOriginInputs {
         balance,
         withdraw_amount,
         src_leaf_index,
         dst_leaf_index,
+        receiver: receiver_fr,
         secret,
         src_neighbor_nodes,
         dst_neighbor_nodes,
@@ -207,8 +194,8 @@ pub fn gen_withdraw_proof(
 
     let instructions = gen_withdraw_instructions(
         vault,
-        mint,
-        owner,
+        token_mint,
+        receiver,
         delegator,
         proof,
         pub_in,

@@ -10,34 +10,34 @@ const WITHDRAW_TAG: &[u8] = &[1];
 
 pub fn get_deposit_credential_pda<'a>(
     vault: &'a Pubkey,
-    owner: &'a Pubkey,
+    depositor: &'a Pubkey,
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
-    let owner_ref = owner.as_ref();
+    let depositor_ref = depositor.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, &DEPOSIT_TAG, owner_ref],
+        &[vault_ref, &DEPOSIT_TAG, depositor_ref],
         program_id,
     );
 
-    (key, (vault_ref, DEPOSIT_TAG, owner_ref, [seed]))
+    (key, (vault_ref, DEPOSIT_TAG, depositor_ref, [seed]))
 }
 
 pub fn get_withdraw_credential_pda<'a>(
     vault: &'a Pubkey,
-    owner: &'a Pubkey,
+    receiver: &'a Pubkey,
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
-    let owner_ref = owner.as_ref();
+    let receiver_ref = receiver.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, &WITHDRAW_TAG, owner_ref],
+        &[vault_ref, &WITHDRAW_TAG, receiver_ref],
         program_id,
     );
 
-    (key, (vault_ref, WITHDRAW_TAG, owner_ref, [seed]))
+    (key, (vault_ref, WITHDRAW_TAG, receiver_ref, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
@@ -49,7 +49,11 @@ pub struct Credential<V: VanillaData> {
 }
 
 impl<V: VanillaData> Credential<V> {
-    pub fn new(vault: Pubkey, owner: Pubkey, vanilla_data: V) -> Self {
+    pub fn new(
+        vault: Pubkey,
+        owner: Pubkey,
+        vanilla_data: V,
+    ) -> Self {
         Self {
             is_initialized: true,
             vault,

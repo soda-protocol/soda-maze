@@ -3,11 +3,11 @@ use solana_program::{msg, pubkey::Pubkey, entrypoint::ProgramResult};
 
 use crate::params::{verify::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
-use super::{is_fr_valid, VanillaData, credential::Credential, node::is_updating_nodes_valid};
+use super::{pubkey_to_fr_repr, is_fr_valid, VanillaData, credential::Credential, node::is_updating_nodes_valid};
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
-    pub delegator: Pubkey,
+    pub receiver: Pubkey,
     pub withdraw_amount: u64,
     pub nullifier: BigInteger,
     pub leaf_index: u64,
@@ -19,7 +19,7 @@ pub struct WithdrawVanillaData {
 impl WithdrawVanillaData {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        delegator: Pubkey,
+        receiver: Pubkey,
         withdraw_amount: u64,
         nullifier: BigInteger,
         leaf_index: u64,
@@ -28,7 +28,7 @@ impl WithdrawVanillaData {
         updating_nodes: Box<Vec<BigInteger>>,
     ) -> Self {
         Self {
-            delegator,
+            receiver,
             withdraw_amount,
             nullifier,
             leaf_index,
@@ -71,6 +71,7 @@ impl VanillaData for WithdrawVanillaData {
     fn to_public_inputs(self) -> Box<Vec<BigInteger>> {
         let mut inputs = Box::new(Vec::with_capacity(Self::INPUTS_LEN));
 
+        inputs.push(BigInteger::new(pubkey_to_fr_repr(&self.receiver)));
         inputs.push(BigInteger::from(self.withdraw_amount));
         inputs.push(self.nullifier);
         inputs.push(BigInteger::from(self.leaf_index));

@@ -6,8 +6,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 use crate::params::bn::{G1Projective254, G1Affine254, G2Prepared254, Fqk254};
 
 const DEPOSIT_INPUTS: usize = 37;
-
-const WITHDRAW_INPUTS: usize = 26;
+const WITHDRAW_INPUTS: usize = 27;
 
 pub struct PreparedVerifyingKey<'a> {
     pub g_ic_init: &'a G1Projective254,

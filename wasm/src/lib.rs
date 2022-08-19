@@ -7,13 +7,11 @@ use ark_bn254::Fr;
 use ark_ff::PrimeField;
 use js_sys::Uint8Array;
 use serde::{Serialize, Deserialize};
-use soda_maze_program::core::nullifier::Nullifier;
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::pubkey::Pubkey;
 use soda_maze_program::{Packer, ID};
 use soda_maze_program::params::HEIGHT;
-use soda_maze_program::store::utxo::{UTXO, Amount, get_utxo_pda};
-use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda};
+use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda, nullifier::Nullifier, utxo::{UTXO, Amount, get_utxo_pda}};
 use utils::{decrypt_balance, gen_utxo_key, gen_secret};
 
 #[wasm_bindgen]
@@ -118,11 +116,15 @@ pub fn get_nullifier(data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let data = data.to_vec();
-    let used = if data.is_empty() {
+    let nullified = if data.is_empty() {
         false
     } else {
-        let nullifier = Nullifier::unpack(&data).expect("Error: invalid nullifier");
-        nullifier.used
+        if Nullifier::unpack(&data).is_ok() {
+            true
+        } else {
+            false
+        }
     };
-    JsValue::from_bool(used)
+    
+    JsValue::from_bool(nullified)
 }

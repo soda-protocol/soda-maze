@@ -25,42 +25,42 @@ impl Program {
     pub fn process(self, pvk: &PreparedVerifyingKey) -> Self {
         match self {
             Program::PrepareInputs(pi) => {
-                msg!("Proving stage: Preparing Inputs of index {}", pi.input_index);
+                msg!("Verifying stage: Preparing Inputs of index {}", pi.input_index);
                 pi.process(pvk)
             },
             Program::MillerLoop(ml) => {
-                msg!("Proving stage: Miller Loop Evaluating");
+                msg!("Verifying stage: Miller Loop Evaluating");
                 ml.process(pvk)
             },
             Program::MillerLoopFinalize(mlf) => {
-                msg!("Proving stage: Miller Loop Finalizing");
+                msg!("Verifying stage: Miller Loop Finalizing");
                 mlf.process(pvk)
             },
             Program::FinalExponentEasyPart(fee) => {
-                msg!("Proving stage: Final Exponent for Easy Part");
+                msg!("Verifying stage: Final Exponent for Easy Part");
                 fee.process()
             },
             Program::FinalExponentHardPart1(feh1) => {
-                msg!("Proving stage: Final Exponent for Hard Part I");
+                msg!("Verifying stage: Final Exponent for Hard Part I");
                 feh1.process()
             },
             Program::FinalExponentHardPart2(feh2) => {
-                msg!("Proving stage: Final Exponent for Hard Part II");
+                msg!("Verifying stage: Final Exponent for Hard Part II");
                 feh2.process()
             },
             Program::FinalExponentHardPart3(feh3) => {
-                msg!("Proving stage: Final Exponent for Hard Part III");
+                msg!("Verifying stage: Final Exponent for Hard Part III");
                 feh3.process()
             },
             Program::FinalExponentHardPart4(feh4) => {
-                msg!("Proving stage: Final Exponent for Hard Part IV");
+                msg!("Verifying stage: Final Exponent for Hard Part IV");
                 feh4.process(pvk)
             },
             Program::Finish(f) => {
                 if f {
-                    msg!("Proving stage: Proof Verified");
+                    msg!("Verifying stage: proof is verified");
                 } else {
-                    msg!("Proving stage: Proof Failure");
+                    msg!("Verifying stage: proof is failure");
                 }
                 Program::Finish(f)
             },
@@ -70,14 +70,14 @@ impl Program {
     pub fn check_verified(&self) -> ProgramResult {
         if let Program::Finish(res) = self {
             if *res {
-                msg!("Proof Verified");
+                msg!("Proof is Verified");
                 Ok(())
             } else {
-                msg!("Proof Failure");
+                msg!("Proof is Failure");
                 Err(MazeError::ProofNotVerified.into())
             }
         } else {
-            msg!("Proof Unfinished");
+            msg!("Proof does not finish verification");
             Err(MazeError::ProofNotVerified.into())
         }
     }

@@ -5,15 +5,15 @@ use solana_program::{program_pack::IsInitialized, pubkey::Pubkey};
 use crate::Packer;
 
 pub fn get_utxo_pda<'a>(
-    utxo_key: &'a [u8],
+    utxo: &'a [u8],
     program_id: &Pubkey,
 ) -> (Pubkey, (&'a [u8], [u8; 1])) {
     let (key, seed) = Pubkey::find_program_address(
-        &[utxo_key],
+        &[utxo],
         program_id,
     );
 
-    (key, (utxo_key, [seed]))
+    (key, (utxo, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]

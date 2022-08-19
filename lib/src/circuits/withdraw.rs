@@ -20,6 +20,7 @@ where
     dst_leaf_index: u64,
     balance: u64,
     withdraw_amount: u64,
+    receiver: F,
     nullifier: F,
     secret: F,
     prev_root: F,
@@ -42,6 +43,7 @@ where
         // alloc input
         // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
         let withdraw_amount = FpVar::new_input(cs.clone(), || Ok(F::from(self.withdraw_amount)))?;
+        let _receiver_input = FpVar::new_input(cs.clone(), || Ok(self.receiver))?;
         let nullifier_input = FpVar::new_input(cs.clone(), || Ok(self.nullifier))?;
         let dst_leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.dst_leaf_index)))?;
         let dst_leaf_input = FpVar::new_input(cs.clone(), || Ok(self.dst_leaf))?;
@@ -107,6 +109,7 @@ where
         dst_leaf_index: u64,
         balance: u64,
         withdraw_amount: u64,
+        receiver: F,
         nullifier: F,
         secret: F,
         prev_root: F,
@@ -122,6 +125,7 @@ where
             dst_leaf_index,
             balance,
             withdraw_amount,
+            receiver,
             nullifier,
             secret,
             prev_root,
@@ -189,6 +193,8 @@ mod tests {
             &[Fr::from(dst_index), Fr::from(rest_amount), secret],
         ).unwrap();
 
+        let receiver = Fr::rand(rng);
+
         let nullifier = PoseidonHasher::hash(
             &nullifier_params,
             &[Fr::from(src_index), secret],
@@ -218,6 +224,7 @@ mod tests {
             dst_index,
             deposit_amount,
             withdraw_amount,
+            receiver,
             nullifier,
             secret,
             prev_root,

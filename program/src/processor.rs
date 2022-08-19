@@ -1,7 +1,6 @@
 use borsh::BorshDeserialize;
-use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}, program_pack::Pack};
+use solana_program::{msg, pubkey::Pubkey, account_info::{AccountInfo, next_account_info}};
 use solana_program::entrypoint::ProgramResult;
-use spl_token::state::Account;
 
 use crate::{
     Packer,
@@ -9,7 +8,6 @@ use crate::{
     instruction::MazeInstruction,
     bn::BigInteger256 as BigInteger,
     verifier::{Proof, Verifier, get_verifier_pda},
-    store::utxo::{UTXO, Amount, get_utxo_pda},
     core::{
         VanillaData,
         nullifier::{get_nullifier_pda, Nullifier},
@@ -19,13 +17,14 @@ use crate::{
         withdraw::{WithdrawCredential, WithdrawVanillaData},
         vault::{Vault, get_vault_pda, get_vault_authority_pda},
         node::{MerkleNode, get_merkle_node_pda, gen_merkle_path_from_leaf_index},
+        utxo::{UTXO, Amount, get_utxo_pda},
     },
     invoke::{
         process_token_transfer,
         process_rent_refund,
         process_optimal_create_account,
-        process_create_associated_token_account,
-        // process_transfer,
+        process_optimal_create_token_account,
+        process_transfer,
     },
 };
 
@@ -47,24 +46,25 @@ pub fn process_instruction(
             proof,
         } => process_create_deposit_verifier(program_id, accounts, commitment, proof),
         MazeInstruction::VerifyDepositProof => process_verify_deposit_proof(program_id, accounts),
-        MazeInstruction::FinalizeDeposit => process_finalize_deposit(program_id, accounts),
+        MazeInstruction::FinalizeDeposit {
+            utxo,
+        } => process_finalize_deposit(program_id, accounts, utxo),
         MazeInstruction::ResetWithdrawAccounts => process_reset_withdraw_buffer_accounts(program_id, accounts),
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
+            receiver,
             nullifier,
             leaf,
             updating_nodes,
-        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, nullifier, leaf, updating_nodes),
+        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, receiver, nullifier, leaf, updating_nodes),
         MazeInstruction::CreateWithdrawVerifier {
             proof,
         } => process_create_withdraw_verifier(program_id, accounts, proof),
         MazeInstruction::VerifyWithdrawProof => process_verify_withdraw_proof(program_id, accounts),
-        MazeInstruction::FinalizeWithdraw => process_finalize_withdraw(program_id, accounts),
-        MazeInstruction::StoreUtxo {
-            utxo_key,
-            leaf_index,
-            amount,
-        } => process_store_utxo(program_id, accounts, utxo_key, leaf_index, amount),
+        MazeInstruction::FinalizeWithdraw {
+            utxo,
+            balance_cipher,
+        } => process_finalize_withdraw(program_id, accounts, utxo, balance_cipher),
         MazeInstruction::CreateVault {
             min_deposit,
             min_withdraw,
@@ -136,11 +136,7 @@ fn process_create_deposit_credential(
     let rent_info = next_account_info(accounts_iter)?;
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
-
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    let depositor_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -148,7 +144,7 @@ fn process_create_deposit_credential(
 
     let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_deposit_credential_pda(
         vault_info.key,
-        owner_info.key,
+        depositor_info.key,
         program_id,
     );
     if credential_info.key != &credential_key {
@@ -158,7 +154,7 @@ fn process_create_deposit_credential(
     process_optimal_create_account(
         rent_info,
         credential_info,
-        owner_info,
+        depositor_info,
         system_program_info,
         program_id,
         DepositCredential::LEN,
@@ -167,7 +163,7 @@ fn process_create_deposit_credential(
     )?;
     let credential = DepositCredential::new(
         *vault_info.key,
-        *owner_info.key,
+        *depositor_info.key,
         DepositVanillaData::new(
             deposit_amount,
             vault.index,
@@ -195,11 +191,7 @@ fn process_create_deposit_verifier(
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
-
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    let depositor_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
@@ -209,7 +201,7 @@ fn process_create_deposit_verifier(
         msg!("Vault in credential is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
     }
-    if &credential.owner != owner_info.key {
+    if &credential.owner != depositor_info.key {
         msg!("Owner in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
@@ -232,7 +224,7 @@ fn process_create_deposit_verifier(
     process_optimal_create_account(
         rent_info,
         verifier_info,
-        owner_info,
+        depositor_info,
         system_program_info,
         program_id,
         Verifier::LEN,
@@ -285,6 +277,7 @@ fn process_verify_deposit_proof(
 fn process_finalize_deposit(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    utxo: [u8; 32],
 ) -> ProgramResult {
     msg!("Finalizing deposit");
 
@@ -299,11 +292,8 @@ fn process_finalize_deposit(
     let commitment_info = next_account_info(accounts_iter)?;
     let src_token_account_info = next_account_info(accounts_iter)?;
     let vault_token_account_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
-
-    if !owner_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
+    let utxo_info = next_account_info(accounts_iter)?;
+    let depositor_info = next_account_info(accounts_iter)?;
 
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     if &vault.token_account != vault_token_account_info.key {
@@ -317,7 +307,7 @@ fn process_finalize_deposit(
         msg!("Vault in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
-    if &credential.owner != owner_info.key {
+    if &credential.owner != depositor_info.key {
         msg!("Owner in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
@@ -344,7 +334,7 @@ fn process_finalize_deposit(
     process_optimal_create_account(
         rent_info,
         commitment_info,
-        owner_info,
+        depositor_info,
         system_program_info,
         program_id,
         Commitment::LEN,
@@ -355,6 +345,25 @@ fn process_finalize_deposit(
     let commitment = credential.vanilla_data.commitment.ok_or(MazeError::LackOfCommiment)?;
     Commitment::new(commitment).initialize_to_account_info(commitment_info)?;
     
+    // store uxto on chain
+    let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo, program_id);
+    if &utxo_pubkey != utxo_info.key {
+        msg!("UTXO pubkey is invalid");
+        return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    process_optimal_create_account(
+        rent_info,
+        utxo_info,
+        depositor_info,
+        system_program_info,
+        program_id,
+        UTXO::LEN,
+        &[],
+        &[seed_1, &seed_2],
+    )?;
+    let utxo = UTXO::new(credential.vanilla_data.leaf_index, Amount::Origin(credential.vanilla_data.deposit_amount));
+    utxo.initialize_to_account_info(utxo_info)?;
+
     let merkle_path = gen_merkle_path_from_leaf_index(vault.index);
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
     let new_root = merkle_nodes.pop().unwrap();
@@ -378,7 +387,7 @@ fn process_finalize_deposit(
             process_optimal_create_account(
                 rent_info,
                 node_info,
-                owner_info,
+                depositor_info,
                 system_program_info,
                 program_id,
                 MerkleNode::LEN,
@@ -395,15 +404,14 @@ fn process_finalize_deposit(
         token_program_info,
         src_token_account_info,
         vault_token_account_info,
-        owner_info,
+        depositor_info,
         &[],
         credential.vanilla_data.deposit_amount,
     )?;
-
     // clear verifier
-    process_rent_refund(verifier_info, owner_info);
+    process_rent_refund(verifier_info, depositor_info);
     // clear credential
-    process_rent_refund(credential_info, owner_info);
+    process_rent_refund(credential_info, depositor_info);
 
     Ok(())
 }
@@ -420,7 +428,6 @@ fn process_reset_withdraw_buffer_accounts(
 
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
     if credential_info.try_data_is_empty()? {
@@ -428,11 +435,7 @@ fn process_reset_withdraw_buffer_accounts(
     }
 
     let credential = WithdrawCredential::unpack_from_account_info(credential_info, program_id)?;
-    if &credential.owner != owner_info.key {
-        msg!("Owner in credential is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
-    }
-    if &credential.vanilla_data.delegator != delegator_info.key {
+    if &credential.owner != delegator_info.key {
         msg!("Delegator in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
@@ -455,12 +458,16 @@ fn process_reset_withdraw_buffer_accounts(
     Ok(())
 }
 
+/// TODO: create credential and verifier in one function
+// fn process_create_withdraw_credential_and_verifier() {}
+
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 fn process_create_withdraw_credential(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     withdraw_amount: u64,
+    receiver: Pubkey,
     nullifier: BigInteger,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
@@ -473,8 +480,6 @@ fn process_create_withdraw_credential(
     let rent_info = next_account_info(accounts_iter)?;
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
-    let nullifier_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
@@ -483,7 +488,7 @@ fn process_create_withdraw_credential(
 
     let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_withdraw_credential_pda(
         vault_info.key,
-        owner_info.key,
+        &receiver,
         program_id,
     );
     if credential_info.key != &credential_key {
@@ -502,9 +507,9 @@ fn process_create_withdraw_credential(
     )?;
     let credential = WithdrawCredential::new(
         *vault_info.key,
-        *owner_info.key,
+        *delegator_info.key,
         WithdrawVanillaData::new(
-            *delegator_info.key,
+            receiver,
             withdraw_amount,
             nullifier,
             vault.index,
@@ -514,41 +519,7 @@ fn process_create_withdraw_credential(
         ),
     );
     credential.vanilla_data.check_valid()?;
-    credential.initialize_to_account_info(credential_info)?;
-
-    let (nullifier_key, (seed_1, seed_2)) = get_nullifier_pda(
-        &nullifier,
-        program_id,
-    );
-    if &nullifier_key != nullifier_info.key {
-        msg!("Nullifier pubkey is invalid");
-        return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if nullifier_info.data_is_empty() {
-        process_optimal_create_account(
-            rent_info,
-            nullifier_info,
-            delegator_info,
-            system_program_info,
-            program_id,
-            Nullifier::LEN,
-            &[],
-            &[&seed_1, &seed_2],
-        )?;
-        Nullifier::new(*owner_info.key).initialize_to_account_info(nullifier_info)?;
-    } else {
-        let nullifier = Nullifier::unpack_from_account_info(nullifier_info, program_id)?;
-        if nullifier.used {
-            msg!("Nullifier is already used");
-            return Err(MazeError::InvalidNullifier.into());
-        }
-        if &nullifier.owner != owner_info.key {
-            msg!("Nullifier owners are not matched");
-            return Err(MazeError::InvalidNullifier.into());
-        }
-    }
-
-    Ok(())
+    credential.initialize_to_account_info(credential_info)
 }
 
 #[inline(never)]
@@ -566,7 +537,6 @@ fn process_create_withdraw_verifier(
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
-    let owner_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
@@ -577,11 +547,7 @@ fn process_create_withdraw_verifier(
         msg!("Vault in credential is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
     }
-    if &credential.owner != owner_info.key {
-        msg!("Owner in credential is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
-    }
-    if &credential.vanilla_data.delegator != delegator_info.key {
+    if &credential.owner != delegator_info.key {
         msg!("Delegator in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
@@ -651,6 +617,8 @@ fn process_verify_withdraw_proof(
 fn process_finalize_withdraw(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    utxo: [u8; 32],
+    balance_cipher: u128,
 ) -> ProgramResult {
     msg!("Finalizing withdraw");
 
@@ -658,7 +626,9 @@ fn process_finalize_withdraw(
 
     let system_program_info = next_account_info(accounts_iter)?;
     let token_program_info = next_account_info(accounts_iter)?;
+    let spl_associated_program_info = next_account_info(accounts_iter)?;
     let rent_info = next_account_info(accounts_iter)?;
+    let token_mint_info = next_account_info(accounts_iter)?;
     let vault_info = next_account_info(accounts_iter)?;
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
@@ -667,7 +637,8 @@ fn process_finalize_withdraw(
     let dst_token_account_info = next_account_info(accounts_iter)?;
     let delegator_token_account_info = next_account_info(accounts_iter)?;
     let vault_signer_info = next_account_info(accounts_iter)?;
-    // let owner_info = next_account_info(accounts_iter)?;
+    let receiver_info = next_account_info(accounts_iter)?;
+    let utxo_info = next_account_info(accounts_iter)?;
     let delegator_info = next_account_info(accounts_iter)?;
 
     let mut vault = Vault::unpack_from_account_info(vault_info, program_id)?;
@@ -686,12 +657,12 @@ fn process_finalize_withdraw(
         msg!("Vault in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
-    // if &credential.owner != owner_info.key {
-    //     msg!("Owner in credential is invalid");
-    //     return Err(MazeError::UnmatchedAccounts.into());
-    // }
-    if &credential.vanilla_data.delegator != delegator_info.key {
-        msg!("Delegator in credential is invalid");
+    if &credential.owner != delegator_info.key {
+        msg!("Owner in credential is invalid");
+        return Err(MazeError::UnmatchedAccounts.into());
+    }
+    if &credential.vanilla_data.receiver != receiver_info.key {
+        msg!("Receiver in credential is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
     }
     // check if leaf index and root is matched
@@ -708,7 +679,7 @@ fn process_finalize_withdraw(
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
     verifier.program.check_verified()?;
 
-    let (nullifier_key, _) = get_nullifier_pda(
+    let (nullifier_key, (seed_1, seed_2)) = get_nullifier_pda(
         &credential.vanilla_data.nullifier,
         program_id,
     );
@@ -716,23 +687,48 @@ fn process_finalize_withdraw(
         msg!("Nullifier pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
     }
-    let mut nullifier = Nullifier::unpack_from_account_info(nullifier_info, program_id)?;
-    if nullifier.used {
-        msg!("Nullifier is not used");
-        return Err(MazeError::InvalidNullifier.into());
-    }
-    nullifier.used = true;
-    nullifier.pack_to_account_info(nullifier_info)?;
+    process_optimal_create_account(
+        rent_info,
+        nullifier_info,
+        delegator_info,
+        system_program_info,
+        program_id,
+        Nullifier::LEN,
+        &[],
+        &[&seed_1, &seed_2],
+    )?;
+    Nullifier::new().initialize_to_account_info(nullifier_info)?;
 
-    let dst_token_account = Account::unpack(&dst_token_account_info.try_borrow_data()?)?;
-    // if &dst_token_account.owner != owner_info.key {
-    //     msg!("Destination token account owner is invalid");
-    //     return Err(MazeError::UnmatchedAccounts.into());
-    // }
-    if &dst_token_account.owner != &credential.owner {
-        msg!("Destination token account owner is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
+    process_optimal_create_token_account(
+        rent_info,
+        token_mint_info,
+        dst_token_account_info,
+        delegator_info,
+        receiver_info,
+        token_program_info,
+        system_program_info,
+        spl_associated_program_info,
+        &[],
+    )?;
+
+    // store uxto on chain
+    let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo, program_id);
+    if &utxo_pubkey != utxo_info.key {
+        msg!("UTXO pubkey is invalid");
+        return Err(MazeError::InvalidPdaPubkey.into());
     }
+    process_optimal_create_account(
+        rent_info,
+        utxo_info,
+        delegator_info,
+        system_program_info,
+        program_id,
+        UTXO::LEN,
+        &[],
+        &[seed_1, &seed_2],
+    )?;
+    let utxo = UTXO::new(credential.vanilla_data.leaf_index, Amount::Cipher(balance_cipher));
+    utxo.initialize_to_account_info(utxo_info)?;
 
     let merkle_path = gen_merkle_path_from_leaf_index(vault.index);
     let mut merkle_nodes = credential.vanilla_data.updating_nodes;
@@ -769,7 +765,7 @@ fn process_finalize_withdraw(
     vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
-    let withdraw_amount = credential.vanilla_data.withdraw_amount
+    let receive_amount = credential.vanilla_data.withdraw_amount
         .checked_sub(vault.delegate_fee)
         .ok_or(MazeError::Overflow)?;
     // transfer token from vault to user
@@ -779,7 +775,7 @@ fn process_finalize_withdraw(
         dst_token_account_info,
         vault_signer_info,
         &vault.signer_seeds(vault_info.key),
-        withdraw_amount,
+        receive_amount,
     )?;
     // transfer token from vault to delegator
     process_token_transfer(
@@ -792,51 +788,14 @@ fn process_finalize_withdraw(
     )?;
 
     // transfer sol as fee from delegator to owner
-    // const FEE: u64 = 10_000_000;
-    // process_transfer(delegator_info, owner_info, system_program_info, &[], FEE)?;
-
+    const FEE: u64 = 10_000_000;
+    process_transfer(delegator_info, receiver_info, system_program_info, &[], FEE)?;
     // clear verifier
     process_rent_refund(verifier_info, delegator_info);
     // clear credential
     process_rent_refund(credential_info, delegator_info);
 
     Ok(())
-}
-
-fn process_store_utxo(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    utxo_key: [u8; 32],
-    leaf_index: u64,
-    amount: Amount,
-) -> ProgramResult {
-    msg!("Store utxo");
-
-    let accounts_iter = &mut accounts.iter();
-
-    let system_program_info = next_account_info(accounts_iter)?;
-    let rent_info = next_account_info(accounts_iter)?;
-    let payer_info = next_account_info(accounts_iter)?;
-    let utxo_info = next_account_info(accounts_iter)?;
-
-    // store uxto on chain
-    let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo_key, program_id);
-    if &utxo_pubkey != utxo_info.key {
-        msg!("UTXO pubkey is invalid");
-        return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    process_optimal_create_account(
-        rent_info,
-        utxo_info,
-        payer_info,
-        system_program_info,
-        program_id,
-        UTXO::LEN,
-        &[],
-        &[seed_1, &seed_2],
-    )?;
-    let utxo = UTXO::new(leaf_index, amount);
-    utxo.initialize_to_account_info(utxo_info)
 }
 
 /////////////////////////////////////////////////// admin authority ///////////////////////////////////////////////////
@@ -897,7 +856,7 @@ fn process_create_vault(
         return Err(MazeError::InvalidPdaPubkey.into());
     }
 
-    process_create_associated_token_account(
+    process_optimal_create_token_account(
         rent_info,
         token_mint_info,
         vault_token_account_info,

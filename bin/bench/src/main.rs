@@ -1,10 +1,10 @@
-use std::collections::BTreeMap;
-use std::{path::PathBuf, fs::OpenOptions};
+use std::{collections::BTreeMap, path::PathBuf, fs::OpenOptions};
 use ark_ff::{FpParameters, PrimeField};
 use ark_std::{UniformRand, rand::SeedableRng};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read};
-use borsh::BorshDeserialize;
 use arkworks_utils::poseidon::PoseidonParameters;
+use borsh::BorshDeserialize;
+use clap::Parser;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::FieldHasher;
@@ -14,11 +14,10 @@ use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublic
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
 use soda_maze_types::params::{RabinParameters, JsonParser};
-use structopt::StructOpt;
+use serde::{Serialize, Deserialize};
 use num_bigint::BigUint;
 use rand_core::{CryptoRng, RngCore, OsRng};
 use rand_xorshift::XorShiftRng;
-use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr, FrParameters};
@@ -59,6 +58,7 @@ impl JsonParser for DepositProofData {}
 #[derive(Serialize, Deserialize)]
 struct WithdrawProofData {
     withdraw_amount: u64,
+    receiver: String,
     nullifier: String,
     prev_root: String,
     dst_leaf_index: u64,
@@ -231,59 +231,59 @@ impl<'a> MerkleTree<'a> {
     }
 }
 
-#[derive(StructOpt)]
-#[structopt(name = "Maze Setup", about = "Soda Maze Setup Benchmark.")]
+#[derive(Parser, Debug)]
+#[clap(name = "Soda Maze Setup", version = "0.0.1", about = "Soda Maze Setup Benchmark.", long_about = "")]
 enum Opt {
     ProveDeposit {
-        #[structopt(long, short = "s")]
+        #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[structopt(long, default_value = "21")]
+        #[clap(long, value_parser, default_value = "21")]
         height: usize,
-        #[structopt(long = "deposit-amount", default_value = "1")]
+        #[clap(long = "deposit-amount", value_parser, default_value = "1")]
         deposit_amount: u64,
-        #[structopt(long = "leaf-index", default_value = "0")]
+        #[clap(long = "leaf-index", value_parser, default_value = "0")]
         leaf_index: u64,
-        #[structopt(long = "rabin-path", parse(from_os_str))]
+        #[clap(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
-        #[structopt(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
     ProveWithdraw {
-        #[structopt(long, short = "s")]
+        #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[structopt(long, default_value = "21")]
+        #[clap(long, value_parser, default_value = "21")]
         height: usize,
-        #[structopt(long = "balance", default_value = "1")]
+        #[clap(long = "balance", value_parser, default_value = "1")]
         balance: u64,
-        #[structopt(long = "withdraw-amount", default_value = "1")]
+        #[clap(long = "withdraw-amount", value_parser, default_value = "1")]
         withdraw_amount: u64,
-        #[structopt(long = "src-index", default_value = "0")]
+        #[clap(long = "src-index", value_parser, default_value = "0")]
         src_index: u64,
-        #[structopt(long = "dst-index", default_value = "1")]
+        #[clap(long = "dst-index", value_parser, default_value = "1")]
         dst_index: u64,
-        #[structopt(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
     VerifyDeposit {
-        #[structopt(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
     VerifyWithdraw {
-        #[structopt(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     }
 }
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         Opt::ProveDeposit {
@@ -375,6 +375,7 @@ fn main() {
 
             let const_params = get_withdraw_const_params(height);
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
+            let receiver = Fr::rand(&mut OsRng);
             let secret = Fr::rand(&mut OsRng);
             let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
@@ -389,6 +390,7 @@ fn main() {
                 withdraw_amount,
                 src_leaf_index: src_index,
                 dst_leaf_index: dst_index,
+                receiver,
                 secret,
                 src_neighbor_nodes,
                 dst_neighbor_nodes,
@@ -404,6 +406,7 @@ fn main() {
                 WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
             let proof_data = WithdrawProofData {
                 withdraw_amount: pub_in.withdraw_amount,
+                receiver: to_hex(&pub_in.receiver), 
                 nullifier: to_hex(&pub_in.nullifier),
                 prev_root: to_hex(&pub_in.prev_root),
                 dst_leaf_index: pub_in.dst_leaf_index,
@@ -528,6 +531,7 @@ fn main() {
             let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {
                 withdraw_amount: proof_data.withdraw_amount,
+                receiver: from_hex(proof_data.receiver),
                 nullifier: from_hex(proof_data.nullifier),
                 prev_root: from_hex(proof_data.prev_root),
                 dst_leaf_index: proof_data.dst_leaf_index,

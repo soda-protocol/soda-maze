@@ -111,6 +111,7 @@ where
     fn generate_public_inputs(pub_in: &WithdrawPublicInputs<F>) -> Vec<F> {
         let mut inputs = Vec::new();
         inputs.push(F::from(pub_in.withdraw_amount));
+        inputs.push(pub_in.receiver);
         inputs.push(pub_in.nullifier);
         inputs.push(F::from(pub_in.dst_leaf_index));
         inputs.push(pub_in.dst_leaf);
@@ -133,6 +134,7 @@ where
             pub_in.dst_leaf_index,
             priv_in.balance,
             pub_in.withdraw_amount,
+            pub_in.receiver,
             pub_in.nullifier,
             priv_in.secret,
             pub_in.prev_root,
