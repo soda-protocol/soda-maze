@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [patch.crates-io]
 rand_core = { path = "./rand_core-0.6.3" }
+solana-address-lookup-table-program = { path = "./solana-address-lookup-table-program-1.11.7" }
 
 [dependencies]
 aes = "0.8.1"
@@ -21,9 +22,9 @@ rand_core = { version = "0.6.3", features = ["std"] }
 hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.71"
-solana-program = "1.11.5"
-solana-sdk = "1.11.5"
-solana-address-lookup-table-program = "1.11.5"
+solana-program = "1.11.7"
+solana-sdk = "1.11.7"
+solana-address-lookup-table-program = "=1.11.7"
 wasm-bindgen = { version = "0.2.76", features = ["serde-serialize"] }
 js-sys = "0.3.53"
 rust-embed = "6.4.0"
