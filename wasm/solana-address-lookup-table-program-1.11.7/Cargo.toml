@@ -65,5 +65,5 @@ version = "0.4"
 [target."cfg(not(any(target_os = \"solana\", target_arch = \"wasm32\")))".dependencies.solana-program-runtime]
 version = "=1.11.7"
 
-[target."cfg(not(any(target_os = \"solana\", target_arch = \"wasm32\")))".dependencies.solana-sdk]
+[target."cfg(not(target_os = \"solana\"))".dependencies.solana-sdk]
 version = "=1.11.7"
