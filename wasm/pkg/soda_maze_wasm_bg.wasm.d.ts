@@ -8,8 +8,8 @@ export function get_merkle_neighbor_nodes(a: number, b: number, c: number): numb
 export function get_utxo_keys(a: number, b: number, c: number, d: number): number;
 export function parse_utxo(a: number, b: number, c: number): number;
 export function get_nullifier(a: number): number;
-export function compile_v0_message_data(a: number, b: number, c: number, d: number, e: number): number;
-export function pack_v0_transaction(a: number, b: number): number;
+export function compile_versioned_message_data(a: number, b: number, c: number, d: number, e: number): number;
+export function pack_versioned_transaction_data(a: number, b: number): number;
 export function __wbg_transaction_free(a: number): void;
 export function transaction_constructor(a: number, b: number): number;
 export function transaction_message(a: number): number;

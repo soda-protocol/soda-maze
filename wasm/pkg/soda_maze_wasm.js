@@ -343,16 +343,15 @@ export function get_nullifier(data) {
 * @param {Pubkey} payer
 * @param {Pubkey} lookup_table_key
 * @param {Array<any>} addresses
-* @param {Instruction} instruction
+* @param {Array<any>} instructions
 * @param {Hash} blockhash
 * @returns {any}
 */
-export function compile_v0_message_data(payer, lookup_table_key, addresses, instruction, blockhash) {
+export function compile_versioned_message_data(payer, lookup_table_key, addresses, instructions, blockhash) {
     _assertClass(payer, Pubkey);
     _assertClass(lookup_table_key, Pubkey);
-    _assertClass(instruction, Instruction);
     _assertClass(blockhash, Hash);
-    const ret = wasm.compile_v0_message_data(payer.ptr, lookup_table_key.ptr, addHeapObject(addresses), instruction.ptr, blockhash.ptr);
+    const ret = wasm.compile_versioned_message_data(payer.ptr, lookup_table_key.ptr, addHeapObject(addresses), addHeapObject(instructions), blockhash.ptr);
     return takeObject(ret);
 }
 
@@ -361,8 +360,8 @@ export function compile_v0_message_data(payer, lookup_table_key, addresses, inst
 * @param {Uint8Array} sig
 * @returns {any}
 */
-export function pack_v0_transaction(message_data, sig) {
-    const ret = wasm.pack_v0_transaction(addHeapObject(message_data), addHeapObject(sig));
+export function pack_versioned_transaction_data(message_data, sig) {
+    const ret = wasm.pack_versioned_transaction_data(addHeapObject(message_data), addHeapObject(sig));
     return takeObject(ret);
 }
 

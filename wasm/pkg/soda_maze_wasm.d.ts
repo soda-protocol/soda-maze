@@ -62,17 +62,17 @@ export function get_nullifier(data: Uint8Array): any;
 * @param {Pubkey} payer
 * @param {Pubkey} lookup_table_key
 * @param {Array<any>} addresses
-* @param {Instruction} instruction
+* @param {Array<any>} instructions
 * @param {Hash} blockhash
 * @returns {any}
 */
-export function compile_v0_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instruction: Instruction, blockhash: Hash): any;
+export function compile_versioned_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instructions: Array<any>, blockhash: Hash): any;
 /**
 * @param {Uint8Array} message_data
 * @param {Uint8Array} sig
 * @returns {any}
 */
-export function pack_v0_transaction(message_data: Uint8Array, sig: Uint8Array): any;
+export function pack_versioned_transaction_data(message_data: Uint8Array, sig: Uint8Array): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -387,8 +387,8 @@ export interface InitOutput {
   readonly get_utxo_keys: (a: number, b: number, c: number, d: number) => number;
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
-  readonly compile_v0_message_data: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly pack_v0_transaction: (a: number, b: number) => number;
+  readonly compile_versioned_message_data: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly pack_versioned_transaction_data: (a: number, b: number) => number;
   readonly __wbg_transaction_free: (a: number) => void;
   readonly transaction_constructor: (a: number, b: number) => number;
   readonly transaction_message: (a: number) => number;
