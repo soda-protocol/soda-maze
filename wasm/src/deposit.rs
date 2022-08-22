@@ -33,7 +33,7 @@ struct Instructions {
 
 fn gen_deposit_instructions(
     vault: Pubkey,
-    mint: Pubkey,
+    token_mint: Pubkey,
     depositor: Pubkey,
     proof: Proof<Bn254>,
     pub_in: DepositPublicInputs<Fr>,
@@ -83,7 +83,7 @@ fn gen_deposit_instructions(
     }).collect::<Vec<_>>();
 
     let utxo = gen_utxo_key(sig, &vault, nonce);
-    let finalize = finalize_deposit(vault, mint, depositor, pub_in.leaf_index, leaf, utxo)
+    let finalize = finalize_deposit(vault, token_mint, depositor, pub_in.leaf_index, leaf, utxo)
         .expect("Error: finalize deposit failed");
 
     Instructions {
@@ -170,5 +170,5 @@ pub fn gen_deposit_proof(
     log("Generating solana instructions...");
 
     let instructions = gen_deposit_instructions(vault, mint, owner, proof, pub_in, &sig, nonce);
-    JsValue::from_serde(&instructions).expect("Error: serde instructions error")
+    JsValue::from_serde(&instructions).expect("Error: parse instructions error")
 }

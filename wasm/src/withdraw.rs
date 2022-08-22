@@ -49,6 +49,8 @@ fn gen_withdraw_instructions(
     log(format!("sig = {:?}", sig).as_str());
     log(format!("balance = {}", balance).as_str());
 
+    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).expect("Error: reset buffer accounts failed");
+
     let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
     let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
@@ -81,8 +83,6 @@ fn gen_withdraw_instructions(
             proof.c.infinity,
         ),
     };
-
-    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).expect("Error: reset buffer accounts failed");
 
     let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof))
         .expect("Error: create withdraw verifier failed");
@@ -203,5 +203,5 @@ pub fn gen_withdraw_proof(
         nonce,
         balance - withdraw_amount,
     );
-    JsValue::from_serde(&instructions).expect("Error: serde instructions error")
+    JsValue::from_serde(&instructions).expect("Error: parse instructions error")
 }

@@ -23,6 +23,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.71"
 solana-program = "1.11.5"
 solana-sdk = "1.11.5"
+solana-address-lookup-table-program = "1.11.5"
 wasm-bindgen = { version = "0.2.76", features = ["serde-serialize"] }
 js-sys = "0.3.53"
 rust-embed = "6.4.0"

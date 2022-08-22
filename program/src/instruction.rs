@@ -434,7 +434,7 @@ mod tests {
     use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit};
-    use crate::{core::vault::Vault, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::reset_deposit_buffer_accounts, core::utxo::UTXO};
+    use crate::{core::vault::Vault, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::{reset_deposit_buffer_accounts, create_withdraw_credential}, core::utxo::UTXO};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
@@ -610,13 +610,23 @@ mod tests {
 
         // let instruction = create_vault(token_mint, signer.pubkey(), 10000000, 10000000, 2000000).unwrap();
 
-        let instruction = create_deposit_credential(
+        let instruction = create_withdraw_credential(
             VAULT,
             signer.pubkey(),
+            signer.pubkey(),
             deposit_amount,
-            leaf,
+            BigInteger::new([17927352299501438696, 17120781152786718247, 10035296882566948099, 1181717570369996349]),
+            BigInteger::new([17927352299501438696, 17120781152786718247, 10035296882566948099, 1181717570369996349]),
             Box::new(updating_nodes),
         ).unwrap();
+
+        // let instruction = create_deposit_credential(
+        //     VAULT,
+        //     signer.pubkey(),
+        //     deposit_amount,
+        //     leaf,
+        //     Box::new(updating_nodes),
+        // ).unwrap();
 
         // let instruction = create_deposit_verifier(
         //     VAULT,
