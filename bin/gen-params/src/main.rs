@@ -9,7 +9,7 @@ use num_bigint::BigUint;
 use num_bigint_dig::BigUint as BigUintDig;
 use rand_core::{CryptoRng, RngCore, SeedableRng, OsRng};
 use rand_xorshift::XorShiftRng;
-use structopt::StructOpt;
+use clap::Parser;
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
@@ -225,53 +225,54 @@ fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonH
     }
 }
 
-#[derive(StructOpt)]
-#[structopt(name = "Soda Maze Gen Parameters", about = "Soda Maze Gen Parameters Benchmark.")]
+
+#[derive(Parser, Debug)]
+#[clap(name = "Soda Maze Gen Parameters", version = "0.0.1", about = "Soda Maze Gen Parameters Benchmark.", long_about = "")]
 enum Opt {
     GenRabinParam {
-        #[structopt(long, short = "s")]
+        #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[structopt(long = "bit-size", short = "b", default_value = "124")]
+        #[clap(long = "bit-size", value_parser, default_value = "124")]
         bit_size: usize,
-        #[structopt(long = "prime-len", short = "p", default_value = "12")]
+        #[clap(long = "prime-len", value_parser, default_value = "12")]
         prime_len: usize,
-        #[structopt(long = "cipher-batch", short = "c", default_value = "2")]
+        #[clap(long = "cipher-batch", value_parser, default_value = "2")]
         cipher_batch: usize,
-        #[structopt(long = "prime-path", parse(from_os_str))]
+        #[clap(long = "prime-path", parse(from_os_str))]
         prime_path: PathBuf,
-        #[structopt(long = "param-path", parse(from_os_str))]
+        #[clap(long = "param-path", parse(from_os_str))]
         param_path: PathBuf,
     },
     SetupDeposit {
-        #[structopt(long, short = "s")]
+        #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[structopt(long, default_value = "21")]
+        #[clap(long, short = 'h', value_parser, default_value = "21")]
         height: usize,
-        #[structopt(long = "rabin-path", parse(from_os_str))]
+        #[clap(long = "rabin-path", parse(from_os_str))]
         rabin_path: Option<PathBuf>,
-        #[structopt(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "pvk-path", parse(from_os_str))]
+        #[clap(long = "pvk-path", parse(from_os_str))]
         pvk_path: PathBuf,
     },
     SetupWithdraw {
-        #[structopt(long, short = "s")]
+        #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[structopt(long, default_value = "21")]
+        #[clap(long, short = 'h', value_parser, default_value = "21")]
         height: usize,
-        #[structopt(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
-        #[structopt(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str))]
         vk_path: PathBuf,
-        #[structopt(long = "pvk-path", parse(from_os_str))]
+        #[clap(long = "pvk-path", parse(from_os_str))]
         pvk_path: PathBuf,
     },
 }
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         Opt::GenRabinParam {

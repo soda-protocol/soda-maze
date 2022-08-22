@@ -9,7 +9,7 @@ edition = "2021"
 soda-maze-lib = { path = "../../lib" }
 soda-maze-types = { path = "../../types" }
 borsh = "0.9.3"
-structopt = { version = "0.3", default-features = false }
+clap = { version = "3.2", features = ["std", "color", "derive"] }
 ark-std = "0.3.0"
 ark-ff = "0.3.0"
 ark-ec = "0.3.0"

@@ -141,56 +141,39 @@ fn main() {
             let modulus = BigIntDig::from_bytes_le(Sign::Plus, &modulus);
             let (v1, v2, v3, v4) = rabin_decrypt(&cipher, &modulus, &p, &q);
 
+            let solver = |preimage: &BigIntDig| -> bool {
+                let key = substract_nullifier_pda(preimage, rabin_params.modulus_len, rabin_params.bit_size);
+                let data = client.get_account_data(&key);
+                if let Ok(data) = data {
+                    if let Ok(_) = Nullifier::unpack(&data) {
+                        println!("depositor has withdrawn! nullifier is {}", key);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+
             // 4 solves
-            let key = substract_nullifier_pda(&v1, rabin_params.modulus_len, rabin_params.bit_size);
-            let data = client.get_account_data(&key);
-            if let Ok(data) = data {
-                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                if nullifier.used {
-                    println!("{} has withdrawn", nullifier.owner);
-                } else {
-                    println!("{} is on withdrawing", nullifier.owner);
-                }
+            let ok = solver(&v1);
+            if ok {
                 return;
             }
-
-            let key = substract_nullifier_pda(&v2, rabin_params.modulus_len, rabin_params.bit_size);
-            let data = client.get_account_data(&key);
-            if let Ok(data) = data {
-                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                if nullifier.used {
-                    println!("{} has withdrawn", nullifier.owner);
-                } else {
-                    println!("{} is on withdrawing", nullifier.owner);
-                }
+            let ok = solver(&v2);
+            if ok {
                 return;
             }
-
-            let key = substract_nullifier_pda(&v3, rabin_params.modulus_len, rabin_params.bit_size);
-            let data = client.get_account_data(&key);
-            if let Ok(data) = data {
-                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                if nullifier.used {
-                    println!("{} has withdrawn", nullifier.owner);
-                } else {
-                    println!("{} is on withdrawing", nullifier.owner);
-                }
+            let ok = solver(&v3);
+            if ok {
                 return;
             }
-
-            let key = substract_nullifier_pda(&v4, rabin_params.modulus_len, rabin_params.bit_size);
-            let data = client.get_account_data(&key);
-            if let Ok(data) = data {
-                let nullifier = Nullifier::unpack(&data).expect("unpack nullifier error");
-                if nullifier.used {
-                    println!("{} has withdrawn", nullifier.owner);
-                } else {
-                    println!("{} is on withdrawing", nullifier.owner);
-                }
+            let ok = solver(&v4);
+            if ok {
                 return;
             }
-
-            println!("user has not withdrawn yet");
+            println!("depositor has not withdrawn yet");
         }
     }
 }
