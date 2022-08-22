@@ -6,7 +6,7 @@ use solana_program::declare_id;
 
 pub mod error;
 pub mod instruction;
-#[cfg(not(any(target_os = "solana", target_os = "wasm32")))]
+#[cfg(not(any(target_os = "solana", target_arch = "wasm32")))]
 pub mod processor;
 pub mod state;
 
