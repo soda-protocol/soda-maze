@@ -1,13 +1,29 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export function gen_withdraw_proof(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number): number;
 export function gen_deposit_proof(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number): number;
 export function get_vault_info(a: number): number;
 export function get_merkle_neighbor_nodes(a: number, b: number, c: number): number;
 export function get_utxo_keys(a: number, b: number, c: number, d: number): number;
 export function parse_utxo(a: number, b: number, c: number): number;
 export function get_nullifier(a: number): number;
-export function gen_withdraw_proof(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number): number;
+export function compile_v0_message_data(a: number, b: number, c: number, d: number, e: number): number;
+export function pack_v0_transaction(a: number, b: number): number;
+export function __wbg_transaction_free(a: number): void;
+export function transaction_constructor(a: number, b: number): number;
+export function transaction_message(a: number): number;
+export function transaction_messageData(a: number, b: number): void;
+export function transaction_verify(a: number, b: number): void;
+export function transaction_partialSign(a: number, b: number, c: number): void;
+export function transaction_isSigned(a: number): number;
+export function transaction_toBytes(a: number, b: number): void;
+export function transaction_fromBytes(a: number, b: number, c: number): void;
+export function __wbg_keypair_free(a: number): void;
+export function keypair_constructor(): number;
+export function keypair_toBytes(a: number, b: number): void;
+export function keypair_fromBytes(a: number, b: number, c: number): void;
+export function keypair_pubkey(a: number): number;
 export function __wbg_instruction_free(a: number): void;
 export function systeminstruction_createAccount(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function systeminstruction_createAccountWithSeed(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number): number;

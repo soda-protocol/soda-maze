@@ -664,4 +664,11 @@ mod tests {
         let sig = send_v0_transaction(&client, &signer, &[instruction]);
         println!("{}", sig);
     }
+
+    #[test]
+    fn test_2() {
+        let keypair = Keypair::from_base58_string("4YMEQLGqsZCmhVoQNhgTBr16Qm7YnK3SRxse3YrKPeuaqDnoGVAN7pTz695KYk2FeZPhrfdvW9RUFG6r1ApMogeB");
+        let s = keypair.sign_message(&[0u8]);
+        println!("{}", s.to_string());
+    }
 }

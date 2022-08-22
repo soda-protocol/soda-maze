@@ -2,8 +2,24 @@
 /* eslint-disable */
 /**
 * @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} owner
+* @param {Pubkey} token_mint
+* @param {Pubkey} receiver
+* @param {Pubkey} delegator
+* @param {bigint} src_leaf_index
+* @param {bigint} balance
+* @param {bigint} dst_leaf_index
+* @param {bigint} withdraw_amount
+* @param {Uint8Array} sig
+* @param {Array<any>} src_neighbors
+* @param {Array<any>} dst_neighbors
+* @param {bigint} nonce
+* @returns {any}
+*/
+export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} token_mint
+* @param {Pubkey} depositor
 * @param {bigint} leaf_index
 * @param {bigint} deposit_amount
 * @param {Array<any>} neighbors
@@ -11,7 +27,7 @@
 * @param {bigint} nonce
 * @returns {any}
 */
-export function gen_deposit_proof(vault: Pubkey, mint: Pubkey, owner: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
+export function gen_deposit_proof(vault: Pubkey, token_mint: Pubkey, depositor: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
 /**
 * @param {Uint8Array} data
 * @returns {any}
@@ -43,21 +59,20 @@ export function parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array): an
 */
 export function get_nullifier(data: Uint8Array): any;
 /**
-* @param {Pubkey} vault
-* @param {Pubkey} token_mint
-* @param {Pubkey} receiver
-* @param {Pubkey} delegator
-* @param {bigint} src_leaf_index
-* @param {bigint} balance
-* @param {bigint} dst_leaf_index
-* @param {bigint} withdraw_amount
-* @param {Uint8Array} sig
-* @param {Array<any>} src_neighbors
-* @param {Array<any>} dst_neighbors
-* @param {bigint} nonce
+* @param {Pubkey} payer
+* @param {Pubkey} lookup_table_key
+* @param {Array<any>} addresses
+* @param {Instruction} instruction
+* @param {Hash} blockhash
 * @returns {any}
 */
-export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
+export function compile_v0_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instruction: Instruction, blockhash: Hash): any;
+/**
+* @param {Uint8Array} message_data
+* @param {Uint8Array} sig
+* @returns {any}
+*/
+export function pack_v0_transaction(message_data: Uint8Array, sig: Uint8Array): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -177,6 +192,32 @@ export class Instructions {
   push(instruction: Instruction): void;
 }
 /**
+* A vanilla Ed25519 key pair
+*/
+export class Keypair {
+  free(): void;
+/**
+* Create a new `Keypair `
+*/
+  constructor();
+/**
+* Convert a `Keypair` to a `Uint8Array`
+* @returns {Uint8Array}
+*/
+  toBytes(): Uint8Array;
+/**
+* Recover a `Keypair` from a `Uint8Array`
+* @param {Uint8Array} bytes
+* @returns {Keypair}
+*/
+  static fromBytes(bytes: Uint8Array): Keypair;
+/**
+* Return the `Pubkey` for this `Keypair`
+* @returns {Pubkey}
+*/
+  pubkey(): Pubkey;
+}
+/**
 * A Solana transaction message (legacy).
 *
 * See the [`message`] module documentation for further description.
@@ -271,18 +312,97 @@ export class Pubkey {
 */
   static findProgramAddress(seeds: any[], program_id: Pubkey): any;
 }
+/**
+* An atomically-commited sequence of instructions.
+*
+* While [`Instruction`]s are the basic unit of computation in Solana,
+* they are submitted by clients in [`Transaction`]s containing one or
+* more instructions, and signed by one or more [`Signer`]s.
+*
+* [`Signer`]: crate::signer::Signer
+*
+* See the [module documentation] for more details about transactions.
+*
+* [module documentation]: self
+*
+* Some constructors accept an optional `payer`, the account responsible for
+* paying the cost of executing a transaction. In most cases, callers should
+* specify the payer explicitly in these constructors. In some cases though,
+* the caller is not _required_ to specify the payer, but is still allowed to:
+* in the [`Message`] structure, the first account is always the fee-payer, so
+* if the caller has knowledge that the first account of the constructed
+* transaction's `Message` is both a signer and the expected fee-payer, then
+* redundantly specifying the fee-payer is not strictly required.
+*/
+export class Transaction {
+  free(): void;
+/**
+* Create a new `Transaction`
+* @param {Instructions} instructions
+* @param {Pubkey | undefined} payer
+*/
+  constructor(instructions: Instructions, payer?: Pubkey);
+/**
+* Return a message containing all data that should be signed.
+* @returns {Message}
+*/
+  message(): Message;
+/**
+* Return the serialized message data to sign.
+* @returns {Uint8Array}
+*/
+  messageData(): Uint8Array;
+/**
+* Verify the transaction
+*/
+  verify(): void;
+/**
+* @param {Keypair} keypair
+* @param {Hash} recent_blockhash
+*/
+  partialSign(keypair: Keypair, recent_blockhash: Hash): void;
+/**
+* @returns {boolean}
+*/
+  isSigned(): boolean;
+/**
+* @returns {Uint8Array}
+*/
+  toBytes(): Uint8Array;
+/**
+* @param {Uint8Array} bytes
+* @returns {Transaction}
+*/
+  static fromBytes(bytes: Uint8Array): Transaction;
+}
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => number;
   readonly get_vault_info: (a: number) => number;
   readonly get_merkle_neighbor_nodes: (a: number, b: number, c: number) => number;
   readonly get_utxo_keys: (a: number, b: number, c: number, d: number) => number;
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
+  readonly compile_v0_message_data: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly pack_v0_transaction: (a: number, b: number) => number;
+  readonly __wbg_transaction_free: (a: number) => void;
+  readonly transaction_constructor: (a: number, b: number) => number;
+  readonly transaction_message: (a: number) => number;
+  readonly transaction_messageData: (a: number, b: number) => void;
+  readonly transaction_verify: (a: number, b: number) => void;
+  readonly transaction_partialSign: (a: number, b: number, c: number) => void;
+  readonly transaction_isSigned: (a: number) => number;
+  readonly transaction_toBytes: (a: number, b: number) => void;
+  readonly transaction_fromBytes: (a: number, b: number, c: number) => void;
+  readonly __wbg_keypair_free: (a: number) => void;
+  readonly keypair_constructor: () => number;
+  readonly keypair_toBytes: (a: number, b: number) => void;
+  readonly keypair_fromBytes: (a: number, b: number, c: number) => void;
+  readonly keypair_pubkey: (a: number) => number;
   readonly __wbg_instruction_free: (a: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;

@@ -49,7 +49,7 @@ fn gen_withdraw_instructions(
     log(format!("sig = {:?}", sig).as_str());
     log(format!("balance = {}", balance).as_str());
 
-    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).expect("Error: reset buffer accounts failed");
+    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).unwrap();
 
     let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
     let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
@@ -64,7 +64,7 @@ fn gen_withdraw_instructions(
         nullifier,
         dst_leaf,
         Box::new(updating_nodes),
-    ).expect("Error: create withdraw credential failed");
+    ).unwrap();
 
     let proof = Proof {
         a: G1Affine254::new(
@@ -84,11 +84,10 @@ fn gen_withdraw_instructions(
         ),
     };
 
-    let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof))
-        .expect("Error: create withdraw verifier failed");
+    let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof)).unwrap();
 
     let verify = (0..175u8).into_iter().map(|i| {
-        verify_withdraw_proof(vault, receiver, vec![i]).expect("Error: verify proof failed")
+        verify_withdraw_proof(vault, receiver, vec![i]).unwrap()
     }).collect::<Vec<_>>();
 
     let balance_cipher = encrypt_balance(sig, &vault, balance);
@@ -102,7 +101,7 @@ fn gen_withdraw_instructions(
         nullifier,
         utxo,
         balance_cipher,
-    ).expect("Error: finalize withdraw failed");
+    ).unwrap();
 
     Instructions {
         reset,
@@ -144,7 +143,7 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid node hash fr repr")
+            Fr::from_repr(BigInteger256::new(node.hash.0)).unwrap()
         }
     }).collect::<Vec<_>>();
     assert_eq!(src_neighbor_nodes.len(), HEIGHT, "Error: invalid src neighbors array length");
@@ -155,13 +154,12 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).expect("Error: invalid node hash fr repr")
+            Fr::from_repr(BigInteger256::new(node.hash.0)).unwrap()
         }
     }).collect::<Vec<_>>();
     assert_eq!(dst_neighbor_nodes.len(), HEIGHT, "Error: invalid dst neighbors array length");
 
-    let receiver_fr = Fr::from_repr(BigInteger256::new(pubkey_to_fr_repr(&receiver)))
-        .expect("Error: invalid receiver fr repr");
+    let receiver_fr = Fr::from_repr(BigInteger256::new(pubkey_to_fr_repr(&receiver))).unwrap();
     let origin_inputs = WithdrawOriginInputs {
         balance,
         withdraw_amount,
@@ -203,5 +201,6 @@ pub fn gen_withdraw_proof(
         nonce,
         balance - withdraw_amount,
     );
-    JsValue::from_serde(&instructions).expect("Error: parse instructions error")
+    
+    JsValue::from_serde(&instructions).unwrap()
 }

@@ -5,12 +5,11 @@ pub mod utils;
 
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
-use js_sys::Uint8Array;
+use js_sys::{Uint8Array, Array};
 use serde::{Serialize, Deserialize};
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::{pubkey::Pubkey, hash::Hash, instruction::Instruction, message::{v0::Message as V0Message, VersionedMessage}};
-use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
-use solana_address_lookup_table_program::state::AddressLookupTable;
+use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, signature::Signature, transaction::VersionedTransaction};
 use soda_maze_program::{Packer, ID};
 use soda_maze_program::params::HEIGHT;
 use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda, nullifier::Nullifier, utxo::{UTXO, Amount, get_utxo_pda}};
@@ -36,7 +35,7 @@ fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
     use soda_maze_program::core::nullifier::get_nullifier_pda;
 
     let ref params = get_poseidon_bn254_for_nullifier();
-    let nullifier = PoseidonHasher::hash(params, &[Fr::from(leaf_index), secret]).expect("Error: poseidon hash error");
+    let nullifier = PoseidonHasher::hash(params, &[Fr::from(leaf_index), secret]).unwrap();
     let nullifier = BigInteger256::new(nullifier.into_repr().0);
     let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
 
@@ -48,7 +47,8 @@ pub fn get_vault_info(data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault = Vault::unpack(&data.to_vec()).expect("Error: vault data can not unpack");
-    JsValue::from_serde(&vault).expect("Error: parse vault error")
+
+    JsValue::from_serde(&vault).unwrap()
 }
 
 #[wasm_bindgen]
@@ -85,7 +85,7 @@ pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> JsValue {
         pubkey
     }).collect::<Vec<_>>();
 
-    JsValue::from_serde(&pubkeys).expect("Error: parse pubkeys error")
+    JsValue::from_serde(&pubkeys).unwrap()
 }
 
 #[wasm_bindgen]
@@ -110,7 +110,7 @@ pub fn parse_utxo(sig: Uint8Array, vault: &Pubkey, utxo: Uint8Array) -> JsValue 
         nullifier,
     };
 
-    JsValue::from_serde(&utxo).expect("Error: parse utxo error")
+    JsValue::from_serde(&utxo).unwrap()
 }
 
 #[wasm_bindgen]
@@ -132,22 +132,25 @@ pub fn get_nullifier(data: Uint8Array) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn compile_v0_message_data(
+pub fn compile_versioned_message_data(
     payer: &Pubkey,
     lookup_table_key: &Pubkey,
-    lookup_table_data: Uint8Array,
-    instructions: JsValue,
+    addresses: Array,
+    instructions: Array,
     blockhash: &Hash,
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    let instructions: Vec<Instruction> = instructions.into_serde().expect("Error: unparse instructions error");
+    let instructions = instructions.iter().map(|instruction| {
+        instruction.into_serde().expect("Error: unparse instructions error")
+    }).collect::<Vec<Instruction>>();
 
-    let lookup_table_data = lookup_table_data.to_vec();
-    let lookup_table = AddressLookupTable::deserialize(&lookup_table_data).unwrap();
+    let addresses = addresses.iter().map(|address| {
+        address.into_serde().expect("Error: unparse instructions error")
+    }).collect::<Vec<Pubkey>>();
     let address_lookup_table_account = AddressLookupTableAccount {
         key: *lookup_table_key,
-        addresses: lookup_table.addresses.to_vec(),
+        addresses,
     };
 
     let message = V0Message::try_compile(
@@ -158,5 +161,25 @@ pub fn compile_v0_message_data(
     ).expect("Error: try compile v0 message error");
     let message_data = VersionedMessage::V0(message).serialize();
 
-    JsValue::from_serde(&message_data).expect("Error: parse message data error")
+    JsValue::from_serde(&message_data).unwrap()
+}
+
+#[wasm_bindgen]
+pub fn pack_versioned_transaction_data(
+    message_data: Uint8Array,
+    sig: Uint8Array,
+) -> JsValue {
+    console_error_panic_hook::set_once();
+
+    let sig = sig.to_vec();
+    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+    let message_data = message_data.to_vec();
+    let message = bincode::deserialize(&message_data).expect("Error: deserialize message data error");
+    let tx = VersionedTransaction {
+        message,
+        signatures: vec![Signature::new(&sig)],
+    };
+    let tx_data = bincode::serialize(&tx).unwrap();
+
+    JsValue::from_serde(&tx_data).unwrap()
 }

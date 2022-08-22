@@ -1,9 +1,13 @@
 
 let wasm;
 
-const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+const heap = new Array(32).fill(undefined);
 
-cachedTextDecoder.decode();
+heap.push(undefined, null, true, false);
+
+function getObject(idx) { return heap[idx]; }
+
+let WASM_VECTOR_LEN = 0;
 
 let cachedUint8Memory0 = new Uint8Array();
 
@@ -13,41 +17,6 @@ function getUint8Memory0() {
     }
     return cachedUint8Memory0;
 }
-
-function getStringFromWasm0(ptr, len) {
-    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
-}
-
-const heap = new Array(32).fill(undefined);
-
-heap.push(undefined, null, true, false);
-
-let heap_next = heap.length;
-
-function addHeapObject(obj) {
-    if (heap_next === heap.length) heap.push(heap.length + 1);
-    const idx = heap_next;
-    heap_next = heap[idx];
-
-    heap[idx] = obj;
-    return idx;
-}
-
-function getObject(idx) { return heap[idx]; }
-
-function dropObject(idx) {
-    if (idx < 36) return;
-    heap[idx] = heap_next;
-    heap_next = idx;
-}
-
-function takeObject(idx) {
-    const ret = getObject(idx);
-    dropObject(idx);
-    return ret;
-}
-
-let WASM_VECTOR_LEN = 0;
 
 const cachedTextEncoder = new TextEncoder('utf-8');
 
@@ -102,10 +71,6 @@ function passStringToWasm0(arg, malloc, realloc) {
     return ptr;
 }
 
-function isLikeNone(x) {
-    return x === undefined || x === null;
-}
-
 let cachedInt32Memory0 = new Int32Array();
 
 function getInt32Memory0() {
@@ -113,6 +78,41 @@ function getInt32Memory0() {
         cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
     }
     return cachedInt32Memory0;
+}
+
+let heap_next = heap.length;
+
+function dropObject(idx) {
+    if (idx < 36) return;
+    heap[idx] = heap_next;
+    heap_next = idx;
+}
+
+function takeObject(idx) {
+    const ret = getObject(idx);
+    dropObject(idx);
+    return ret;
+}
+
+const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+
+cachedTextDecoder.decode();
+
+function getStringFromWasm0(ptr, len) {
+    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
+}
+
+function addHeapObject(obj) {
+    if (heap_next === heap.length) heap.push(heap.length + 1);
+    const idx = heap_next;
+    heap_next = heap[idx];
+
+    heap[idx] = obj;
+    return idx;
+}
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
 }
 
 let cachedFloat64Memory0 = new Float64Array();
@@ -201,8 +201,55 @@ const u32CvtShim = new Uint32Array(2);
 const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 /**
 * @param {Pubkey} vault
-* @param {Pubkey} mint
-* @param {Pubkey} owner
+* @param {Pubkey} token_mint
+* @param {Pubkey} receiver
+* @param {Pubkey} delegator
+* @param {bigint} src_leaf_index
+* @param {bigint} balance
+* @param {bigint} dst_leaf_index
+* @param {bigint} withdraw_amount
+* @param {Uint8Array} sig
+* @param {Array<any>} src_neighbors
+* @param {Array<any>} dst_neighbors
+* @param {bigint} nonce
+* @returns {any}
+*/
+export function gen_withdraw_proof(vault, token_mint, receiver, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
+    _assertClass(vault, Pubkey);
+    var ptr0 = vault.ptr;
+    vault.ptr = 0;
+    _assertClass(token_mint, Pubkey);
+    var ptr1 = token_mint.ptr;
+    token_mint.ptr = 0;
+    _assertClass(receiver, Pubkey);
+    var ptr2 = receiver.ptr;
+    receiver.ptr = 0;
+    _assertClass(delegator, Pubkey);
+    var ptr3 = delegator.ptr;
+    delegator.ptr = 0;
+    uint64CvtShim[0] = src_leaf_index;
+    const low4 = u32CvtShim[0];
+    const high4 = u32CvtShim[1];
+    uint64CvtShim[0] = balance;
+    const low5 = u32CvtShim[0];
+    const high5 = u32CvtShim[1];
+    uint64CvtShim[0] = dst_leaf_index;
+    const low6 = u32CvtShim[0];
+    const high6 = u32CvtShim[1];
+    uint64CvtShim[0] = withdraw_amount;
+    const low7 = u32CvtShim[0];
+    const high7 = u32CvtShim[1];
+    uint64CvtShim[0] = nonce;
+    const low8 = u32CvtShim[0];
+    const high8 = u32CvtShim[1];
+    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_neighbors), addHeapObject(dst_neighbors), low8, high8);
+    return takeObject(ret);
+}
+
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} token_mint
+* @param {Pubkey} depositor
 * @param {bigint} leaf_index
 * @param {bigint} deposit_amount
 * @param {Array<any>} neighbors
@@ -210,16 +257,16 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @param {bigint} nonce
 * @returns {any}
 */
-export function gen_deposit_proof(vault, mint, owner, leaf_index, deposit_amount, neighbors, sig, nonce) {
+export function gen_deposit_proof(vault, token_mint, depositor, leaf_index, deposit_amount, neighbors, sig, nonce) {
     _assertClass(vault, Pubkey);
     var ptr0 = vault.ptr;
     vault.ptr = 0;
-    _assertClass(mint, Pubkey);
-    var ptr1 = mint.ptr;
-    mint.ptr = 0;
-    _assertClass(owner, Pubkey);
-    var ptr2 = owner.ptr;
-    owner.ptr = 0;
+    _assertClass(token_mint, Pubkey);
+    var ptr1 = token_mint.ptr;
+    token_mint.ptr = 0;
+    _assertClass(depositor, Pubkey);
+    var ptr2 = depositor.ptr;
+    depositor.ptr = 0;
     uint64CvtShim[0] = leaf_index;
     const low3 = u32CvtShim[0];
     const high3 = u32CvtShim[1];
@@ -293,54 +340,41 @@ export function get_nullifier(data) {
 }
 
 /**
-* @param {Pubkey} vault
-* @param {Pubkey} token_mint
-* @param {Pubkey} receiver
-* @param {Pubkey} delegator
-* @param {bigint} src_leaf_index
-* @param {bigint} balance
-* @param {bigint} dst_leaf_index
-* @param {bigint} withdraw_amount
-* @param {Uint8Array} sig
-* @param {Array<any>} src_neighbors
-* @param {Array<any>} dst_neighbors
-* @param {bigint} nonce
+* @param {Pubkey} payer
+* @param {Pubkey} lookup_table_key
+* @param {Array<any>} addresses
+* @param {Instruction} instruction
+* @param {Hash} blockhash
 * @returns {any}
 */
-export function gen_withdraw_proof(vault, token_mint, receiver, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    _assertClass(token_mint, Pubkey);
-    var ptr1 = token_mint.ptr;
-    token_mint.ptr = 0;
-    _assertClass(receiver, Pubkey);
-    var ptr2 = receiver.ptr;
-    receiver.ptr = 0;
-    _assertClass(delegator, Pubkey);
-    var ptr3 = delegator.ptr;
-    delegator.ptr = 0;
-    uint64CvtShim[0] = src_leaf_index;
-    const low4 = u32CvtShim[0];
-    const high4 = u32CvtShim[1];
-    uint64CvtShim[0] = balance;
-    const low5 = u32CvtShim[0];
-    const high5 = u32CvtShim[1];
-    uint64CvtShim[0] = dst_leaf_index;
-    const low6 = u32CvtShim[0];
-    const high6 = u32CvtShim[1];
-    uint64CvtShim[0] = withdraw_amount;
-    const low7 = u32CvtShim[0];
-    const high7 = u32CvtShim[1];
-    uint64CvtShim[0] = nonce;
-    const low8 = u32CvtShim[0];
-    const high8 = u32CvtShim[1];
-    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_neighbors), addHeapObject(dst_neighbors), low8, high8);
+export function compile_v0_message_data(payer, lookup_table_key, addresses, instruction, blockhash) {
+    _assertClass(payer, Pubkey);
+    _assertClass(lookup_table_key, Pubkey);
+    _assertClass(instruction, Instruction);
+    _assertClass(blockhash, Hash);
+    const ret = wasm.compile_v0_message_data(payer.ptr, lookup_table_key.ptr, addHeapObject(addresses), instruction.ptr, blockhash.ptr);
+    return takeObject(ret);
+}
+
+/**
+* @param {Uint8Array} message_data
+* @param {Uint8Array} sig
+* @returns {any}
+*/
+export function pack_v0_transaction(message_data, sig) {
+    const ret = wasm.pack_v0_transaction(addHeapObject(message_data), addHeapObject(sig));
     return takeObject(ret);
 }
 
 function getArrayU8FromWasm0(ptr, len) {
     return getUint8Memory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1);
+    getUint8Memory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 let cachedUint32Memory0 = new Uint32Array();
@@ -593,6 +627,84 @@ export class Instructions {
     }
 }
 /**
+* A vanilla Ed25519 key pair
+*/
+export class Keypair {
+
+    static __wrap(ptr) {
+        const obj = Object.create(Keypair.prototype);
+        obj.ptr = ptr;
+
+        return obj;
+    }
+
+    __destroy_into_raw() {
+        const ptr = this.ptr;
+        this.ptr = 0;
+
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_keypair_free(ptr);
+    }
+    /**
+    * Create a new `Keypair `
+    */
+    constructor() {
+        const ret = wasm.keypair_constructor();
+        return Keypair.__wrap(ret);
+    }
+    /**
+    * Convert a `Keypair` to a `Uint8Array`
+    * @returns {Uint8Array}
+    */
+    toBytes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.keypair_toBytes(retptr, this.ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var v0 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_free(r0, r1 * 1);
+            return v0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * Recover a `Keypair` from a `Uint8Array`
+    * @param {Uint8Array} bytes
+    * @returns {Keypair}
+    */
+    static fromBytes(bytes) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.keypair_fromBytes(retptr, ptr0, len0);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var r2 = getInt32Memory0()[retptr / 4 + 2];
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return Keypair.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * Return the `Pubkey` for this `Keypair`
+    * @returns {Pubkey}
+    */
+    pubkey() {
+        const ret = wasm.keypair_pubkey(this.ptr);
+        return Pubkey.__wrap(ret);
+    }
+}
+/**
 * A Solana transaction message (legacy).
 *
 * See the [`message`] module documentation for further description.
@@ -609,6 +721,13 @@ export class Instructions {
 * redundantly specifying the fee-payer is not strictly required.
 */
 export class Message {
+
+    static __wrap(ptr) {
+        const obj = Object.create(Message.prototype);
+        obj.ptr = ptr;
+
+        return obj;
+    }
 
     __destroy_into_raw() {
         const ptr = this.ptr;
@@ -1043,6 +1162,161 @@ export class SystemInstruction {
         return Instruction.__wrap(ret);
     }
 }
+/**
+* An atomically-commited sequence of instructions.
+*
+* While [`Instruction`]s are the basic unit of computation in Solana,
+* they are submitted by clients in [`Transaction`]s containing one or
+* more instructions, and signed by one or more [`Signer`]s.
+*
+* [`Signer`]: crate::signer::Signer
+*
+* See the [module documentation] for more details about transactions.
+*
+* [module documentation]: self
+*
+* Some constructors accept an optional `payer`, the account responsible for
+* paying the cost of executing a transaction. In most cases, callers should
+* specify the payer explicitly in these constructors. In some cases though,
+* the caller is not _required_ to specify the payer, but is still allowed to:
+* in the [`Message`] structure, the first account is always the fee-payer, so
+* if the caller has knowledge that the first account of the constructed
+* transaction's `Message` is both a signer and the expected fee-payer, then
+* redundantly specifying the fee-payer is not strictly required.
+*/
+export class Transaction {
+
+    static __wrap(ptr) {
+        const obj = Object.create(Transaction.prototype);
+        obj.ptr = ptr;
+
+        return obj;
+    }
+
+    __destroy_into_raw() {
+        const ptr = this.ptr;
+        this.ptr = 0;
+
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_transaction_free(ptr);
+    }
+    /**
+    * Create a new `Transaction`
+    * @param {Instructions} instructions
+    * @param {Pubkey | undefined} payer
+    */
+    constructor(instructions, payer) {
+        _assertClass(instructions, Instructions);
+        var ptr0 = instructions.ptr;
+        instructions.ptr = 0;
+        let ptr1 = 0;
+        if (!isLikeNone(payer)) {
+            _assertClass(payer, Pubkey);
+            ptr1 = payer.ptr;
+            payer.ptr = 0;
+        }
+        const ret = wasm.transaction_constructor(ptr0, ptr1);
+        return Transaction.__wrap(ret);
+    }
+    /**
+    * Return a message containing all data that should be signed.
+    * @returns {Message}
+    */
+    message() {
+        const ret = wasm.transaction_message(this.ptr);
+        return Message.__wrap(ret);
+    }
+    /**
+    * Return the serialized message data to sign.
+    * @returns {Uint8Array}
+    */
+    messageData() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.transaction_messageData(retptr, this.ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var v0 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_free(r0, r1 * 1);
+            return v0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * Verify the transaction
+    */
+    verify() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.transaction_verify(retptr, this.ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            if (r1) {
+                throw takeObject(r0);
+            }
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * @param {Keypair} keypair
+    * @param {Hash} recent_blockhash
+    */
+    partialSign(keypair, recent_blockhash) {
+        _assertClass(keypair, Keypair);
+        _assertClass(recent_blockhash, Hash);
+        wasm.transaction_partialSign(this.ptr, keypair.ptr, recent_blockhash.ptr);
+    }
+    /**
+    * @returns {boolean}
+    */
+    isSigned() {
+        const ret = wasm.transaction_isSigned(this.ptr);
+        return ret !== 0;
+    }
+    /**
+    * @returns {Uint8Array}
+    */
+    toBytes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.transaction_toBytes(retptr, this.ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var v0 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_free(r0, r1 * 1);
+            return v0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * @param {Uint8Array} bytes
+    * @returns {Transaction}
+    */
+    static fromBytes(bytes) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.transaction_fromBytes(retptr, ptr0, len0);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var r2 = getInt32Memory0()[retptr / 4 + 2];
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return Transaction.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
 
 async function load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
@@ -1078,9 +1352,13 @@ async function load(module, imports) {
 function getImports() {
     const imports = {};
     imports.wbg = {};
-    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
-        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
-        return addHeapObject(ret);
+    imports.wbg.__wbindgen_json_serialize = function(arg0, arg1) {
+        const obj = getObject(arg1);
+        const ret = JSON.stringify(obj === undefined ? null : obj);
+        const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        getInt32Memory0()[arg0 / 4 + 1] = len0;
+        getInt32Memory0()[arg0 / 4 + 0] = ptr0;
     };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
@@ -1088,16 +1366,20 @@ function getImports() {
     imports.wbg.__wbg_log_f436293c3666c84e = function(arg0, arg1) {
         console.log(getStringFromWasm0(arg0, arg1));
     };
+    imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
+        const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
+        return addHeapObject(ret);
+    };
     imports.wbg.__wbg_instruction_new = function(arg0) {
         const ret = Instruction.__wrap(arg0);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_number_new = function(arg0) {
         const ret = arg0;
-        return addHeapObject(ret);
-    };
-    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
-        const ret = getStringFromWasm0(arg0, arg1);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_string_get = function(arg0, arg1) {
@@ -1154,6 +1436,36 @@ function getImports() {
         } finally {
             wasm.__wbindgen_free(arg0, arg1);
         }
+    };
+    imports.wbg.__wbg_randomFillSync_d2ba53160aec6aba = function(arg0, arg1, arg2) {
+        getObject(arg0).randomFillSync(getArrayU8FromWasm0(arg1, arg2));
+    };
+    imports.wbg.__wbg_getRandomValues_e57c9b75ddead065 = function(arg0, arg1) {
+        getObject(arg0).getRandomValues(getObject(arg1));
+    };
+    imports.wbg.__wbg_self_86b4b13392c7af56 = function() { return handleError(function () {
+        const ret = self.self;
+        return addHeapObject(ret);
+    }, arguments) };
+    imports.wbg.__wbg_crypto_b8c92eaac23d0d80 = function(arg0) {
+        const ret = getObject(arg0).crypto;
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_msCrypto_9ad6677321a08dd8 = function(arg0) {
+        const ret = getObject(arg0).msCrypto;
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_static_accessor_MODULE_452b4680e8614c81 = function() {
+        const ret = module;
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_require_f5521a5b85ad2542 = function(arg0, arg1, arg2) {
+        const ret = getObject(arg0).require(getStringFromWasm0(arg1, arg2));
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_getRandomValues_dd27e6b0652b3236 = function(arg0) {
+        const ret = getObject(arg0).getRandomValues;
+        return addHeapObject(ret);
     };
     imports.wbg.__wbg_randomFillSync_654a7797990fb8db = function() { return handleError(function (arg0, arg1, arg2) {
         getObject(arg0).randomFillSync(getArrayU8FromWasm0(arg1, arg2));

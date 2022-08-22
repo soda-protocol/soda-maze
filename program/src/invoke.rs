@@ -151,6 +151,7 @@ pub fn process_optimal_create_token_account<'a>(
                 payer_authority_info.key,
                 owner_authority_info.key,
                 mint_info.key,
+                &spl_token::ID,
             ),
             &[
                 payer_authority_info.clone(),
