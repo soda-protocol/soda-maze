@@ -505,6 +505,21 @@ mod tests {
         println!("{}", res);
     }
 
+    #[test]
+    fn test_sign() {
+        use solana_sdk::signer::signers::Signers;
+
+        let preimage = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        let signer = Keypair::from_base58_string(USER_KEYPAIR);
+
+        let sig = signer.sign_message(&preimage);
+        let signers = &[&signer];
+        let sigs = signers.sign_message(&preimage);
+
+        println!("{}", sig);
+        println!("{:?}", sigs);
+    }
+
     fn send_v0_transaction(client: &RpcClient, signer: &Keypair, instructions: &[Instruction]) -> String {
         let config = RpcSendTransactionConfig {
             preflight_commitment: Some(client.commitment().commitment),

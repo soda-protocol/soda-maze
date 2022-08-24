@@ -92,16 +92,15 @@ pub fn get_utxo_keys(sig: &Uint8Array, vault: &Pubkey, num: u64) -> Array {
 pub fn parse_utxo(sig: &Uint8Array, vault: &Pubkey, utxo: &Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
-    let sig = sig.to_vec();
-    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+    let sig = Signature::new(&sig.to_vec());
 
     let utxo = UTXO::unpack(&utxo.to_vec())
         .expect("Error: UTXO data can not unpack");
     let amount = match utxo.amount {
-        Amount::Cipher(cipher) => decrypt_balance(&sig, &vault, cipher),
+        Amount::Cipher(cipher) => decrypt_balance(sig.as_ref(), &vault, cipher),
         Amount::Origin(amount) => amount,
     };
-    let secret = gen_secret(&sig, &vault);
+    let secret = gen_secret(sig.as_ref(), &vault);
     let nullifier = get_nullifier_pubkey(utxo.leaf_index, secret);
 
     let utxo = Utxo {
@@ -169,14 +168,16 @@ pub fn pack_versioned_transaction_data(
 ) -> Uint8Array {
     console_error_panic_hook::set_once();
 
-    let sig = sig.to_vec();
-    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
     let message_data = message_data.to_vec();
     let message = bincode::deserialize(&message_data).expect("Error: deserialize message data error");
+
+    let sig = Signature::new(&sig.to_vec());
+
     let tx = VersionedTransaction {
         message,
-        signatures: vec![Signature::new(&sig)],
+        signatures: vec![sig],
     };
+    assert!(tx.verify_with_results().into_iter().all(|ok| ok), "Error: signature is invalid");
     let tx_data = bincode::serialize(&tx).unwrap();
 
     Uint8Array::from(&tx_data[..])
