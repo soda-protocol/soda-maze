@@ -36,16 +36,16 @@ export function get_vault_info(data: Uint8Array): any;
 /**
 * @param {Pubkey} vault_key
 * @param {bigint} leaf_index
-* @returns {any}
+* @returns {Array<any>}
 */
-export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: bigint): any;
+export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: bigint): Array<any>;
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
 * @param {bigint} num
-* @returns {any}
+* @returns {Array<any>}
 */
-export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: bigint): any;
+export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: bigint): Array<any>;
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
@@ -55,24 +55,24 @@ export function get_utxo_keys(sig: Uint8Array, vault: Pubkey, num: bigint): any;
 export function parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array): any;
 /**
 * @param {Uint8Array} data
-* @returns {any}
+* @returns {boolean}
 */
-export function get_nullifier(data: Uint8Array): any;
+export function get_nullifier(data: Uint8Array): boolean;
 /**
 * @param {Pubkey} payer
 * @param {Pubkey} lookup_table_key
 * @param {Array<any>} addresses
 * @param {Array<any>} instructions
 * @param {Hash} blockhash
-* @returns {any}
+* @returns {Uint8Array}
 */
-export function compile_versioned_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instructions: Array<any>, blockhash: Hash): any;
+export function compile_versioned_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instructions: Array<any>, blockhash: Hash): Uint8Array;
 /**
 * @param {Uint8Array} message_data
 * @param {Uint8Array} sig
-* @returns {any}
+* @returns {Uint8Array}
 */
-export function pack_versioned_transaction_data(message_data: Uint8Array, sig: Uint8Array): any;
+export function pack_versioned_transaction_data(message_data: Uint8Array, sig: Uint8Array): Uint8Array;
 /**
 * Initialize Javascript logging and panic handler
 */

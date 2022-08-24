@@ -292,7 +292,7 @@ export function get_vault_info(data) {
 /**
 * @param {Pubkey} vault_key
 * @param {bigint} leaf_index
-* @returns {any}
+* @returns {Array<any>}
 */
 export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
     _assertClass(vault_key, Pubkey);
@@ -307,7 +307,7 @@ export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
 * @param {Uint8Array} sig
 * @param {Pubkey} vault
 * @param {bigint} num
-* @returns {any}
+* @returns {Array<any>}
 */
 export function get_utxo_keys(sig, vault, num) {
     _assertClass(vault, Pubkey);
@@ -332,11 +332,11 @@ export function parse_utxo(sig, vault, utxo) {
 
 /**
 * @param {Uint8Array} data
-* @returns {any}
+* @returns {boolean}
 */
 export function get_nullifier(data) {
     const ret = wasm.get_nullifier(addHeapObject(data));
-    return takeObject(ret);
+    return ret !== 0;
 }
 
 /**
@@ -345,7 +345,7 @@ export function get_nullifier(data) {
 * @param {Array<any>} addresses
 * @param {Array<any>} instructions
 * @param {Hash} blockhash
-* @returns {any}
+* @returns {Uint8Array}
 */
 export function compile_versioned_message_data(payer, lookup_table_key, addresses, instructions, blockhash) {
     _assertClass(payer, Pubkey);
@@ -358,7 +358,7 @@ export function compile_versioned_message_data(payer, lookup_table_key, addresse
 /**
 * @param {Uint8Array} message_data
 * @param {Uint8Array} sig
-* @returns {any}
+* @returns {Uint8Array}
 */
 export function pack_versioned_transaction_data(message_data, sig) {
     const ret = wasm.pack_versioned_transaction_data(addHeapObject(message_data), addHeapObject(sig));
@@ -1362,12 +1362,12 @@ function getImports() {
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
     };
-    imports.wbg.__wbg_log_f436293c3666c84e = function(arg0, arg1) {
-        console.log(getStringFromWasm0(arg0, arg1));
-    };
     imports.wbg.__wbindgen_json_parse = function(arg0, arg1) {
         const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
         return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_log_f436293c3666c84e = function(arg0, arg1) {
+        console.log(getStringFromWasm0(arg0, arg1));
     };
     imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
         const ret = getStringFromWasm0(arg0, arg1);
@@ -1598,6 +1598,10 @@ function getImports() {
     };
     imports.wbg.__wbg_buffer_34f5ec9f8a838ba0 = function(arg0) {
         const ret = getObject(arg0).buffer;
+        return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_newwithbyteoffsetandlength_88fdad741db1b182 = function(arg0, arg1, arg2) {
+        const ret = new Uint8Array(getObject(arg0), arg1 >>> 0, arg2 >>> 0);
         return addHeapObject(ret);
     };
     imports.wbg.__wbg_new_cda198d9dbc6d7ea = function(arg0) {

@@ -47,12 +47,11 @@ pub fn get_vault_info(data: Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault = Vault::unpack(&data.to_vec()).expect("Error: vault data can not unpack");
-
     JsValue::from_serde(&vault).unwrap()
 }
 
 #[wasm_bindgen]
-pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> JsValue {
+pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> Array {
     console_error_panic_hook::set_once();
 
     let neighbors = (0..HEIGHT)
@@ -66,14 +65,14 @@ pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> JsValue
             };
             let (neighbor, _) = get_merkle_node_pda(&vault_key, layer, index, &ID);
             
-            neighbor
-        })
-        .collect::<Vec<_>>();
-    JsValue::from_serde(&neighbors).expect("Error: parse neighbors error")
+            JsValue::from_serde(&neighbor).unwrap()
+        });
+
+    Array::from_iter(neighbors)
 }
 
 #[wasm_bindgen]
-pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> JsValue {
+pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> Array {
     console_error_panic_hook::set_once();
 
     let sig = &sig.to_vec()[..];
@@ -82,10 +81,11 @@ pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> JsValue {
     let pubkeys = (0..num).map(|nonce| {
         let key = gen_utxo_key(sig, &vault, nonce);
         let (pubkey, _) = get_utxo_pda(key.as_ref(), &ID);
-        pubkey
-    }).collect::<Vec<_>>();
+        
+        JsValue::from_serde(&pubkey).unwrap()
+    });
 
-    JsValue::from_serde(&pubkeys).unwrap()
+    Array::from_iter(pubkeys)
 }
 
 #[wasm_bindgen]
@@ -114,11 +114,11 @@ pub fn parse_utxo(sig: Uint8Array, vault: &Pubkey, utxo: Uint8Array) -> JsValue 
 }
 
 #[wasm_bindgen]
-pub fn get_nullifier(data: Uint8Array) -> JsValue {
+pub fn get_nullifier(data: Uint8Array) -> bool {
     console_error_panic_hook::set_once();
 
     let data = data.to_vec();
-    let nullified = if data.is_empty() {
+    if data.is_empty() {
         false
     } else {
         if Nullifier::unpack(&data).is_ok() {
@@ -126,9 +126,7 @@ pub fn get_nullifier(data: Uint8Array) -> JsValue {
         } else {
             false
         }
-    };
-    
-    JsValue::from_bool(nullified)
+    }
 }
 
 #[wasm_bindgen]
@@ -138,20 +136,20 @@ pub fn compile_versioned_message_data(
     addresses: Array,
     instructions: Array,
     blockhash: &Hash,
-) -> JsValue {
+) -> Uint8Array {
     console_error_panic_hook::set_once();
 
-    let instructions = instructions.iter().map(|instruction| {
-        instruction.into_serde().expect("Error: unparse instructions error")
-    }).collect::<Vec<Instruction>>();
-
     let addresses = addresses.iter().map(|address| {
-        address.into_serde().expect("Error: unparse instructions error")
+        address.into_serde().expect("Error: unparse addresses error")
     }).collect::<Vec<Pubkey>>();
     let address_lookup_table_account = AddressLookupTableAccount {
         key: *lookup_table_key,
         addresses,
     };
+
+    let instructions = instructions.iter().map(|instruction| {
+        instruction.into_serde().expect("Error: unparse instructions error")
+    }).collect::<Vec<Instruction>>();
 
     let message = V0Message::try_compile(
         payer,
@@ -161,14 +159,14 @@ pub fn compile_versioned_message_data(
     ).expect("Error: try compile v0 message error");
     let message_data = VersionedMessage::V0(message).serialize();
 
-    JsValue::from_serde(&message_data).unwrap()
+    Uint8Array::from(&message_data[..])
 }
 
 #[wasm_bindgen]
 pub fn pack_versioned_transaction_data(
     message_data: Uint8Array,
     sig: Uint8Array,
-) -> JsValue {
+) -> Uint8Array {
     console_error_panic_hook::set_once();
 
     let sig = sig.to_vec();
@@ -181,5 +179,5 @@ pub fn pack_versioned_transaction_data(
     };
     let tx_data = bincode::serialize(&tx).unwrap();
 
-    JsValue::from_serde(&tx_data).unwrap()
+    Uint8Array::from(&tx_data[..])
 }
