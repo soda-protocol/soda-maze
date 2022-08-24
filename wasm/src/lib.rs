@@ -18,7 +18,10 @@ use utils::{decrypt_balance, gen_utxo_key, gen_secret};
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
+    fn info(s: &str);
+    
+    #[wasm_bindgen(js_namespace = console)]
+    fn debug(s: &str);
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -15,7 +15,7 @@ use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, 
 use soda_maze_lib::vanilla::encryption::EncryptionOriginInputs;
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
 
-use crate::log;
+use crate::info;
 use crate::utils::*;
 use crate::params::*;
 
@@ -106,7 +106,7 @@ pub fn gen_deposit_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    log("Preparing params and datas...");
+    info("Preparing params and datas...");
 
     let sig = sig.to_vec();
     assert_eq!(sig.len(), 64, "Error: sig length should be 64");
@@ -151,20 +151,20 @@ pub fn gen_deposit_proof(
     let pk = get_deposit_pk();
     let pk = pk.into();
 
-    log("Generating vanilla proof...");
+    info("Generating vanilla proof...");
 
     let (pub_in, priv_in) =
         DepositVanillaInstant::generate_vanilla_proof(&deposit_const_params, &origin_inputs)
             .expect("Error: generate vanilla proof failed");
 
-    log("Generating snark proof...");
+    info("Generating snark proof...");
 
     let proof =
         DepositInstant::generate_snark_proof(&mut OsRng, &deposit_const_params, &pub_in, &priv_in, &pk)
             .expect("Error: generate snark proof failed");
     drop(pk);
 
-    log("Generating solana instructions...");
+    info("Generating solana instructions...");
 
     let instructions = gen_deposit_instructions(vault, token_mint, depositor, proof, pub_in, &sig, nonce);
 
