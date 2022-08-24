@@ -280,13 +280,24 @@ export function gen_deposit_proof(vault, token_mint, depositor, leaf_index, depo
     return takeObject(ret);
 }
 
+let stack_pointer = 32;
+
+function addBorrowedObject(obj) {
+    if (stack_pointer == 1) throw new Error('out of js stack');
+    heap[--stack_pointer] = obj;
+    return stack_pointer;
+}
 /**
 * @param {Uint8Array} data
 * @returns {any}
 */
 export function get_vault_info(data) {
-    const ret = wasm.get_vault_info(addHeapObject(data));
-    return takeObject(ret);
+    try {
+        const ret = wasm.get_vault_info(addBorrowedObject(data));
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 /**
@@ -310,12 +321,16 @@ export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
 * @returns {Array<any>}
 */
 export function get_utxo_keys(sig, vault, num) {
-    _assertClass(vault, Pubkey);
-    uint64CvtShim[0] = num;
-    const low0 = u32CvtShim[0];
-    const high0 = u32CvtShim[1];
-    const ret = wasm.get_utxo_keys(addHeapObject(sig), vault.ptr, low0, high0);
-    return takeObject(ret);
+    try {
+        _assertClass(vault, Pubkey);
+        uint64CvtShim[0] = num;
+        const low0 = u32CvtShim[0];
+        const high0 = u32CvtShim[1];
+        const ret = wasm.get_utxo_keys(addBorrowedObject(sig), vault.ptr, low0, high0);
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 /**
@@ -325,9 +340,14 @@ export function get_utxo_keys(sig, vault, num) {
 * @returns {any}
 */
 export function parse_utxo(sig, vault, utxo) {
-    _assertClass(vault, Pubkey);
-    const ret = wasm.parse_utxo(addHeapObject(sig), vault.ptr, addHeapObject(utxo));
-    return takeObject(ret);
+    try {
+        _assertClass(vault, Pubkey);
+        const ret = wasm.parse_utxo(addBorrowedObject(sig), vault.ptr, addBorrowedObject(utxo));
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 /**
@@ -335,8 +355,12 @@ export function parse_utxo(sig, vault, utxo) {
 * @returns {boolean}
 */
 export function get_nullifier(data) {
-    const ret = wasm.get_nullifier(addHeapObject(data));
-    return ret !== 0;
+    try {
+        const ret = wasm.get_nullifier(addBorrowedObject(data));
+        return ret !== 0;
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 /**
@@ -348,11 +372,16 @@ export function get_nullifier(data) {
 * @returns {Uint8Array}
 */
 export function compile_versioned_message_data(payer, lookup_table_key, addresses, instructions, blockhash) {
-    _assertClass(payer, Pubkey);
-    _assertClass(lookup_table_key, Pubkey);
-    _assertClass(blockhash, Hash);
-    const ret = wasm.compile_versioned_message_data(payer.ptr, lookup_table_key.ptr, addHeapObject(addresses), addHeapObject(instructions), blockhash.ptr);
-    return takeObject(ret);
+    try {
+        _assertClass(payer, Pubkey);
+        _assertClass(lookup_table_key, Pubkey);
+        _assertClass(blockhash, Hash);
+        const ret = wasm.compile_versioned_message_data(payer.ptr, lookup_table_key.ptr, addBorrowedObject(addresses), addBorrowedObject(instructions), blockhash.ptr);
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 /**
@@ -361,8 +390,13 @@ export function compile_versioned_message_data(payer, lookup_table_key, addresse
 * @returns {Uint8Array}
 */
 export function pack_versioned_transaction_data(message_data, sig) {
-    const ret = wasm.pack_versioned_transaction_data(addHeapObject(message_data), addHeapObject(sig));
-    return takeObject(ret);
+    try {
+        const ret = wasm.pack_versioned_transaction_data(addBorrowedObject(message_data), addBorrowedObject(sig));
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 function getArrayU8FromWasm0(ptr, len) {

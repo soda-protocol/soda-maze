@@ -43,7 +43,7 @@ fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
 }
 
 #[wasm_bindgen]
-pub fn get_vault_info(data: Uint8Array) -> JsValue {
+pub fn get_vault_info(data: &Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let vault = Vault::unpack(&data.to_vec()).expect("Error: vault data can not unpack");
@@ -72,7 +72,7 @@ pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> Array {
 }
 
 #[wasm_bindgen]
-pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> Array {
+pub fn get_utxo_keys(sig: &Uint8Array, vault: &Pubkey, num: u64) -> Array {
     console_error_panic_hook::set_once();
 
     let sig = &sig.to_vec()[..];
@@ -89,7 +89,7 @@ pub fn get_utxo_keys(sig: Uint8Array, vault: &Pubkey, num: u64) -> Array {
 }
 
 #[wasm_bindgen]
-pub fn parse_utxo(sig: Uint8Array, vault: &Pubkey, utxo: Uint8Array) -> JsValue {
+pub fn parse_utxo(sig: &Uint8Array, vault: &Pubkey, utxo: &Uint8Array) -> JsValue {
     console_error_panic_hook::set_once();
 
     let sig = sig.to_vec();
@@ -114,7 +114,7 @@ pub fn parse_utxo(sig: Uint8Array, vault: &Pubkey, utxo: Uint8Array) -> JsValue 
 }
 
 #[wasm_bindgen]
-pub fn get_nullifier(data: Uint8Array) -> bool {
+pub fn get_nullifier(data: &Uint8Array) -> bool {
     console_error_panic_hook::set_once();
 
     let data = data.to_vec();
@@ -133,8 +133,8 @@ pub fn get_nullifier(data: Uint8Array) -> bool {
 pub fn compile_versioned_message_data(
     payer: &Pubkey,
     lookup_table_key: &Pubkey,
-    addresses: Array,
-    instructions: Array,
+    addresses: &Array,
+    instructions: &Array,
     blockhash: &Hash,
 ) -> Uint8Array {
     console_error_panic_hook::set_once();
@@ -164,8 +164,8 @@ pub fn compile_versioned_message_data(
 
 #[wasm_bindgen]
 pub fn pack_versioned_transaction_data(
-    message_data: Uint8Array,
-    sig: Uint8Array,
+    message_data: &Uint8Array,
+    sig: &Uint8Array,
 ) -> Uint8Array {
     console_error_panic_hook::set_once();
 
