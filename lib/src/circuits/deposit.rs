@@ -1,42 +1,45 @@
+use ark_ec::TEModelParameters;
 use ark_std::rc::Rc;
 use ark_ff::PrimeField;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::EqGadget, alloc::AllocVar};
 use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
 use crate::vanilla::hasher::FieldHasher;
-use super::{FieldHasherGadget, RabinEncryption};
 use super::merkle::AddNewLeaf;
+use super::{FieldHasherGadget, JubjubEncrypt};
 
-pub struct DepositCircuit<F, FH, FHG>
+pub struct DepositCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
     leaf_params: Rc<FH::Parameters>,
     deposit_amount: u64,
     leaf_index: u64,
-    leaf: F,
-    prev_root: F,
-    secret: F,
-    proof: AddNewLeaf<F, FH, FHG>,
-    encrption: Option<RabinEncryption<F, FH, FHG>>,
+    leaf: P::BaseField,
+    prev_root: P::BaseField,
+    secret: P::BaseField,
+    proof: AddNewLeaf<P::BaseField, FH, FHG>,
+    jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
 }
 
-impl<F, FH, FHG> ConstraintSynthesizer<F> for DepositCircuit<F, FH, FHG>
+impl<P, FH, FHG> ConstraintSynthesizer<P::BaseField> for DepositCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
-    fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
+    fn generate_constraints(self, cs: ConstraintSystemRef<P::BaseField>) -> Result<()> {
         // alloc constant
         let leaf_params = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
         
         // alloc input
         // amount bit size of 64 can verify in contract, so no need constrain in circuit
-        let deposit_amount = FpVar::new_input(cs.clone(), || Ok(F::from(self.deposit_amount)))?;
-        let leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.leaf_index)))?;
+        let deposit_amount = FpVar::new_input(cs.clone(), || Ok(P::BaseField::from(self.deposit_amount)))?;
+        let leaf_index = FpVar::new_input(cs.clone(), || Ok(P::BaseField::from(self.leaf_index)))?;
         let leaf_input = FpVar::new_input(cs.clone(), || Ok(self.leaf))?;
         let prev_root = FpVar::new_input(cs.clone(), || Ok(self.prev_root))?;
 
@@ -52,35 +55,37 @@ where
         // add new leaf proof
         self.proof.synthesize(cs.clone(), leaf_index.clone(), leaf, prev_root)?;
 
-        if let Some(encryption) = self.encrption {
-            encryption.synthesize(cs, leaf_index, secret)?;
+        // encrypt nullifier to commitment
+        if let Some(jubjub) = self.jubjub {
+            jubjub.synthesize(cs, leaf_index, secret)?;
         }
 
         Ok(())
     }
 }
 
-impl<F, FH, FHG> DepositCircuit<F, FH, FHG>
+impl<P, FH, FHG> DepositCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        leaf_params: FH::Parameters,
-        inner_params: FH::Parameters,
+        leaf_params: Rc<FH::Parameters>,
+        inner_params: Rc<FH::Parameters>,
         deposit_amount: u64,
         leaf_index: u64,
-        leaf: F,
-        prev_root: F,
-        update_nodes: Vec<F>,
-        secret: F,
-        neighbor_nodes: Vec<(bool, F)>,
-        encrption: Option<RabinEncryption<F, FH, FHG>>,
+        leaf: P::BaseField,
+        prev_root: P::BaseField,
+        update_nodes: Vec<P::BaseField>,
+        secret: P::BaseField,
+        neighbor_nodes: Vec<(bool, P::BaseField)>,
+        jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
     ) -> Self {
         Self {
-            leaf_params: Rc::new(leaf_params),
+            leaf_params,
             deposit_amount,
             leaf_index,
             leaf,
@@ -91,32 +96,36 @@ where
                 update_nodes,
                 inner_params,
             ),
-            encrption,
+            jubjub,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::Fr;
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_ed_on_bn254::{Fq as Fr, EdwardsParameters};
+    use ark_std::{rc::Rc, test_rng, UniformRand, rand::Rng};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSynthesizer};
 	use arkworks_utils::utils::common::{Curve, setup_params_x5_3, setup_params_x5_4};
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::hasher::poseidon::PoseidonHasherGadget;
-    use crate::vanilla::{hasher::{poseidon::PoseidonHasher, FieldHasher}, merkle::gen_merkle_path};
+    use crate::vanilla::VanillaProof;
+    use crate::vanilla::deposit::{DepositConstParams, DepositOriginInputs, DepositVanillaProof};
+    use crate::vanilla::hasher::poseidon::PoseidonHasher;
     use super::DepositCircuit;
 
-    const HEIGHT: u8 = 27;
+    const HEIGHT: u8 = 24;
 
-    fn get_random_merkle_neighbors(rng: &mut StdRng) -> Vec<(bool, Fr)> {
-        let mut neighbor_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
+    fn get_random_merkle_neighbors<R: Rng + ?Sized>(rng: &mut R) -> (Vec<bool>, Vec<Fr>) {
+        let mut neighbor_nodes = vec![Fr::rand(rng)];
+        let mut indexes = vec![bool::rand(rng)];
         for _ in 0..(HEIGHT - 1) {
-            neighbor_nodes.push((bool::rand(rng), Fr::rand(rng)));
+            indexes.push(bool::rand(rng));
+            neighbor_nodes.push(Fr::rand(rng));
         }
 
-        neighbor_nodes
+        (indexes, neighbor_nodes)
     }
 
     #[test]
@@ -125,49 +134,45 @@ mod tests {
         let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         let inner_params = setup_params_x5_3::<Fr>(Curve::Bn254);
         // deposit data
-        let amount = u64::rand(rng);
+        let deposit_amount = u64::rand(rng);
         let secret = Fr::rand(rng);
 
-        let amount_fp = Fr::from(amount);
-        let neighbor_nodes = get_random_merkle_neighbors(rng);
-        let index_iter = neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
-        let index = BitVec::<u8>::from_iter(index_iter)
-            .load_le::<u64>();
-        let leaf = PoseidonHasher::hash(
-            &leaf_params,
-            &[Fr::from(index), amount_fp, secret],
-        ).unwrap();
-
-        let prev_root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &inner_params,
-            &neighbor_nodes,
-            PoseidonHasher::empty_hash(),
-        )
-        .unwrap()
-        .last()
-        .unwrap()
-        .clone();
+        let (indexes, neighbor_nodes) = get_random_merkle_neighbors(rng);
+        let leaf_index = BitVec::<u8>::from_iter(indexes).load_le::<u64>();
         
-        let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &inner_params,
-            &neighbor_nodes,
-            leaf.clone(),
-        ).unwrap();
-
-        let deposit = DepositCircuit::<_, _, PoseidonHasherGadget<Fr>>::new(
-            leaf_params,
-            inner_params,
-            amount,
-            index,
-            leaf,
-            prev_root,
-            update_nodes,
+        let params = DepositConstParams::<EdwardsParameters, _> {
+            leaf_params: Rc::new(leaf_params),
+            inner_params: Rc::new(inner_params),
+            height: HEIGHT as usize,
+            jubjub: None,
+        };
+        let orig_in = DepositOriginInputs {
+            leaf_index,
+            deposit_amount,
             secret,
             neighbor_nodes,
+            jubjub: None,
+        };
+        // generate vanilla proof
+        let (pub_in, priv_in) = DepositVanillaProof::<_, PoseidonHasher<_>>::generate_vanilla_proof(
+            &params,
+            &orig_in,
+        ).unwrap();
+
+        let deposit = DepositCircuit::<EdwardsParameters, _, PoseidonHasherGadget<_>>::new(
+            params.leaf_params,
+            params.inner_params,
+            orig_in.deposit_amount,
+            orig_in.leaf_index,
+            pub_in.leaf,
+            pub_in.prev_root,
+            pub_in.update_nodes,
+            priv_in.secret,
+            priv_in.neighbor_nodes,
             None,
         );
-
-        let cs = ConstraintSystem::<_>::new_ref();
+        // generate snark proof
+        let cs = ConstraintSystem::new_ref();
         deposit.generate_constraints(cs.clone()).unwrap();
 
         assert!(cs.is_satisfied().unwrap());

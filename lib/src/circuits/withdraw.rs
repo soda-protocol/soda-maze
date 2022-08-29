@@ -1,18 +1,20 @@
+use ark_ec::TEModelParameters;
 use ark_std::{cmp::Ordering, rc::Rc};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::EqGadget, alloc::AllocVar};
 use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
 use crate::vanilla::hasher::FieldHasher;
-use super::FieldHasherGadget;
+use super::{FieldHasherGadget, JubjubEncrypt};
 use super::merkle::{AddNewLeaf, LeafExistance};
 use super::uint64::Uint64;
 
-pub struct WithdrawCircuit<F, FH, FHG>
+pub struct WithdrawCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
     nullifier_params: Rc<FH::Parameters>,
     leaf_params: Rc<FH::Parameters>,
@@ -20,37 +22,39 @@ where
     dst_leaf_index: u64,
     balance: u64,
     withdraw_amount: u64,
-    receiver: F,
-    nullifier: F,
-    secret: F,
-    prev_root: F,
-    dst_leaf: F,
-    src_proof: LeafExistance<F, FH, FHG>,
-    dst_proof: AddNewLeaf<F, FH, FHG>,
+    receiver: P::BaseField,
+    nullifier: P::BaseField,
+    secret: P::BaseField,
+    prev_root: P::BaseField,
+    dst_leaf: P::BaseField,
+    src_proof: LeafExistance<P::BaseField, FH, FHG>,
+    dst_proof: AddNewLeaf<P::BaseField, FH, FHG>,
+    jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
 }
 
-impl<F, FH, FHG> ConstraintSynthesizer<F> for WithdrawCircuit<F, FH, FHG>
+impl<P, FH, FHG> ConstraintSynthesizer<P::BaseField> for WithdrawCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
-    fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<()> {
+    fn generate_constraints(self, cs: ConstraintSystemRef<P::BaseField>) -> Result<()> {
         // alloc constant
         let nullifier_params = FHG::ParametersVar::new_constant(cs.clone(), self.nullifier_params)?;
         let leaf_params = FHG::ParametersVar::new_constant(cs.clone(), self.leaf_params)?;
         
         // alloc input
         // withdraw amount bit size of 64 can verify in contract, so no need constrain in circuit
-        let withdraw_amount = FpVar::new_input(cs.clone(), || Ok(F::from(self.withdraw_amount)))?;
+        let withdraw_amount = FpVar::new_input(cs.clone(), || Ok(P::BaseField::from(self.withdraw_amount)))?;
         let _receiver_input = FpVar::new_input(cs.clone(), || Ok(self.receiver))?;
         let nullifier_input = FpVar::new_input(cs.clone(), || Ok(self.nullifier))?;
-        let dst_leaf_index = FpVar::new_input(cs.clone(), || Ok(F::from(self.dst_leaf_index)))?;
+        let dst_leaf_index = FpVar::new_input(cs.clone(), || Ok(P::BaseField::from(self.dst_leaf_index)))?;
         let dst_leaf_input = FpVar::new_input(cs.clone(), || Ok(self.dst_leaf))?;
         let prev_root = FpVar::new_input(cs.clone(), || Ok(self.prev_root))?;
 
         // alloc witness
-        let src_leaf_index = FpVar::new_witness(cs.clone(), || Ok(F::from(self.src_leaf_index)))?;
+        let src_leaf_index = FpVar::new_witness(cs.clone(), || Ok(P::BaseField::from(self.src_leaf_index)))?;
         let balance = Uint64::new_witness(cs.clone(), || Ok(self.balance))?;
         let secret = FpVar::new_witness(cs.clone(), || Ok(self.secret))?;
 
@@ -86,41 +90,50 @@ where
         // hash new back deposit data leaf: hash(leaf_index | rest_amount | secret)
         let dst_leaf = FHG::hash_gadget(
             &leaf_params,
-            &[dst_leaf_index.clone(), rest_amount, secret],
+            &[dst_leaf_index.clone(), rest_amount, secret.clone()],
         )?;
         dst_leaf_input.enforce_equal(&dst_leaf)?;
         // gen add new leaf proof
-        self.dst_proof.synthesize(cs.clone(), dst_leaf_index, dst_leaf, prev_root)
+        self.dst_proof.synthesize(cs.clone(), dst_leaf_index.clone(), dst_leaf, prev_root)?;
+
+        // encrypt dst nullifier to commitment
+        if let Some(jubjub) = self.jubjub {
+            jubjub.synthesize(cs, dst_leaf_index, secret)?;
+        }
+
+        Ok(())
     }
 }
 
-impl<F, FH, FHG> WithdrawCircuit<F, FH, FHG>
+impl<P, FH, FHG> WithdrawCircuit<P, FH, FHG>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
-    FHG: FieldHasherGadget<F, FH>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    FHG: FieldHasherGadget<P::BaseField, FH>,
+    P::BaseField: PrimeField,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        nullifier_params: FH::Parameters,
-        leaf_params: FH::Parameters,
-        inner_params: FH::Parameters,
+        nullifier_params: Rc<FH::Parameters>,
+        leaf_params: Rc<FH::Parameters>,
+        inner_params: Rc<FH::Parameters>,
         src_leaf_index: u64,
         dst_leaf_index: u64,
         balance: u64,
         withdraw_amount: u64,
-        receiver: F,
-        nullifier: F,
-        secret: F,
-        prev_root: F,
-        dst_leaf: F,
-        update_nodes: Vec<F>,
-        src_neighbor_nodes: Vec<(bool, F)>,
-        dst_neighbor_nodes: Vec<(bool, F)>,
+        receiver: P::BaseField,
+        nullifier: P::BaseField,
+        prev_root: P::BaseField,
+        dst_leaf: P::BaseField,
+        update_nodes: Vec<P::BaseField>,
+        secret: P::BaseField,
+        src_neighbor_nodes: Vec<(bool, P::BaseField)>,
+        dst_neighbor_nodes: Vec<(bool, P::BaseField)>,
+        jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
     ) -> Self {
         Self {
-            nullifier_params: Rc::new(nullifier_params),
-            leaf_params: Rc::new(leaf_params),
+            nullifier_params,
+            leaf_params,
             src_leaf_index,
             dst_leaf_index,
             balance,
@@ -139,101 +152,102 @@ where
                 update_nodes,
                 inner_params,
             ),
+            jubjub,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::Fr;
-    use ark_std::rand::Rng;
-    use ark_std::{test_rng, UniformRand};
+    use ark_ed_on_bn254::{Fq as Fr, EdwardsParameters};
+    use ark_std::{rc::Rc, test_rng, UniformRand, rand::Rng};
     use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, ConstraintSynthesizer};
 	use arkworks_utils::utils::common::{Curve, setup_params_x5_3, setup_params_x5_4};
     use bitvec::{prelude::BitVec, field::BitField};
 
     use crate::circuits::poseidon::PoseidonHasherGadget;
-    use crate::vanilla::merkle::gen_merkle_path;
+    use crate::vanilla::VanillaProof;
     use crate::vanilla::hasher::{poseidon::PoseidonHasher, FieldHasher};
+    use crate::vanilla::withdraw::{WithdrawConstParams, WithdrawOriginInputs, WithdrawVanillaProof};
     use super::WithdrawCircuit;
 
     const HEIGHT: u8 = 24;
 
-    fn get_random_merkle_neighbors<R: Rng + ?Sized>(rng: &mut R) -> Vec<(bool, Fr)> {
-        let mut neighbor_nodes = vec![(bool::rand(rng), Fr::rand(rng))];
+    fn get_random_merkle_neighbors<R: Rng + ?Sized>(rng: &mut R) -> (Vec<bool>, Vec<Fr>) {
+        let mut neighbor_nodes = vec![Fr::rand(rng)];
+        let mut indexes = vec![bool::rand(rng)];
         for _ in 0..(HEIGHT - 1) {
-            neighbor_nodes.push((bool::rand(rng), Fr::rand(rng)));
+            indexes.push(bool::rand(rng));
+            neighbor_nodes.push(Fr::rand(rng));
         }
 
-        neighbor_nodes
+        (indexes, neighbor_nodes)
     }
 
-    fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, deposit_amount: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
+    fn test_withdraw_inner<R: Rng + ?Sized>(rng: &mut R, balance: u64, withdraw_amount: u64) -> ConstraintSystemRef<Fr> {
         let nullifier_params = setup_params_x5_3(Curve::Bn254);
         let leaf_params = setup_params_x5_4::<Fr>(Curve::Bn254);
         let inner_params = setup_params_x5_3(Curve::Bn254);
-        // deposit data
+        // withdraw data
         let secret = Fr::rand(rng);
-        let rest_amount = deposit_amount.saturating_sub(withdraw_amount);
+        let receiver = Fr::rand(rng);
 
-        let mut src_neighbor_nodes = get_random_merkle_neighbors(rng);
-        src_neighbor_nodes[0] = (false, PoseidonHasher::empty_hash());
-        let index_iter = src_neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
-        let src_index = BitVec::<u8>::from_iter(index_iter).load_le::<u64>();
+        let (mut src_indexes, mut src_neighbor_nodes) = get_random_merkle_neighbors(rng);
+        src_indexes[0] = false;
+        src_neighbor_nodes[0] = PoseidonHasher::empty_hash();
+        let src_leaf_index = BitVec::<u8>::from_iter(src_indexes).load_le::<u64>();
         let src_leaf = PoseidonHasher::hash(
             &leaf_params,
-            &[Fr::from(src_index), Fr::from(deposit_amount), secret],
+            &[Fr::from(src_leaf_index), Fr::from(balance), secret],
         ).unwrap();
 
         let mut dst_neighbor_nodes = src_neighbor_nodes.clone();
-        dst_neighbor_nodes[0] = (true, src_leaf);
-        let dst_index = src_index + 1;
-        let dst_leaf = PoseidonHasher::hash(
-            &leaf_params,
-            &[Fr::from(dst_index), Fr::from(rest_amount), secret],
-        ).unwrap();
+        dst_neighbor_nodes[0] = src_leaf;
+        let dst_leaf_index = src_leaf_index + 1;
 
-        let receiver = Fr::rand(rng);
-
-        let nullifier = PoseidonHasher::hash(
-            &nullifier_params,
-            &[Fr::from(src_index), secret],
-        ).unwrap();
-
-        let prev_root = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &inner_params,
-            &src_neighbor_nodes,
-            src_leaf,
-        )
-        .unwrap()
-        .last()
-        .unwrap()
-        .clone();
-
-        let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &inner_params,
-            &dst_neighbor_nodes,
-            dst_leaf,
-        ).unwrap();
-
-        let withdrawal = WithdrawCircuit::<_, _, PoseidonHasherGadget<_>>::new(
-            nullifier_params,
-            leaf_params,
-            inner_params,
-            src_index,
-            dst_index,
-            deposit_amount,
+        let params = WithdrawConstParams::<EdwardsParameters, _> {
+            nullifier_params: Rc::new(nullifier_params),
+            leaf_params: Rc::new(leaf_params),
+            inner_params: Rc::new(inner_params),
+            height: HEIGHT as usize,
+            jubjub: None,
+        };
+        let orig_in = WithdrawOriginInputs::<EdwardsParameters> {
+            balance,
             withdraw_amount,
+            src_leaf_index,
+            dst_leaf_index,
             receiver,
-            nullifier,
             secret,
-            prev_root,
-            dst_leaf,
-            update_nodes,
             src_neighbor_nodes,
             dst_neighbor_nodes,
-        );
+            jubjub: None,
+        };
+        // generate vanilla proof
+        let (pub_in, priv_in) = WithdrawVanillaProof::<_, PoseidonHasher<_>>::generate_vanilla_proof(
+            &params,
+            &orig_in,
+        ).unwrap();
 
+        let withdrawal = WithdrawCircuit::<EdwardsParameters, _, PoseidonHasherGadget<_>>::new(
+            params.nullifier_params,
+            params.leaf_params,
+            params.inner_params,
+            orig_in.src_leaf_index,
+            orig_in.dst_leaf_index,
+            orig_in.balance,
+            orig_in.withdraw_amount,
+            orig_in.receiver,
+            pub_in.nullifier,
+            pub_in.prev_root,
+            pub_in.dst_leaf,
+            pub_in.update_nodes,
+            priv_in.secret,
+            priv_in.src_neighbor_nodes,
+            priv_in.dst_neighbor_nodes,
+            None,
+        );
+        // generate snark proof
         let cs = ConstraintSystem::<_>::new_ref();
         withdrawal.generate_constraints(cs.clone()).unwrap();
 

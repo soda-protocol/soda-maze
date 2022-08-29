@@ -60,14 +60,14 @@ where
     pub fn new(
         neighbor_nodes: Vec<(bool, F)>,
         update_nodes: Vec<F>,
-        inner_params: FH::Parameters,
+        inner_params: Rc<FH::Parameters>,
     ) -> Self {
         assert_eq!(neighbor_nodes.len(), update_nodes.len(), "neighbor nodes length should equals to update nodes length");
 
         Self {
             neighbor_nodes,
             update_nodes,
-            inner_params: Rc::new(inner_params),
+            inner_params,
             _h: Default::default(),
         }
     }
@@ -147,11 +147,11 @@ where
 {
     pub fn new(
         neighbor_nodes: Vec<(bool, F)>,
-        inner_params: FH::Parameters,
+        inner_params: Rc<FH::Parameters>,
     ) -> Self {
         Self {
             neighbor_nodes,
-            inner_params: Rc::new(inner_params),
+            inner_params,
             _h: Default::default(),
         }
     }
@@ -196,9 +196,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::Fr;
+    use ark_ed_on_bn254::Fq as Fr;
     use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar};
-    use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
+    use ark_std::{rc::Rc, test_rng, UniformRand, rand::prelude::StdRng};
     use ark_relations::r1cs::ConstraintSystem;
 	use arkworks_utils::utils::common::{setup_params_x3_3, Curve};
     use bitvec::field::BitField;
@@ -236,7 +236,7 @@ mod tests {
         let root = merkle_path.last().unwrap().clone();
         let existance = LeafExistance::<_, _, PoseidonHasherGadget<Fr>>::new(
             neighbor_nodes,
-            inner_params,
+            Rc::new(inner_params),
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();
@@ -252,27 +252,27 @@ mod tests {
     #[test]
     fn test_add_new_leaf() {
         let rng = &mut test_rng();
-        let params = setup_params_x3_3(Curve::Bn254);
+        let inner_params = setup_params_x3_3(Curve::Bn254);
         let neighbor_nodes = get_random_merkle_neighbors(rng);
         let index_iter = neighbor_nodes.iter().map(|(is_left, _)| is_left).collect::<Vec<_>>();
         let index = BitVec::<u8>::from_iter(index_iter)
             .load_le::<u64>();
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &params,
+            &inner_params,
             &neighbor_nodes,
             PoseidonHasher::empty_hash(),
         ).unwrap();
         let prev_root = update_nodes.last().unwrap().clone();
         let new_leaf = Fr::rand(rng);
         let update_nodes = gen_merkle_path::<_, PoseidonHasher<Fr>>(
-            &params,
+            &inner_params,
             &neighbor_nodes,
             new_leaf.clone(),
         ).unwrap();
         let add_new_leaf = AddNewLeaf::<_, _, PoseidonHasherGadget<Fr>>::new(
             neighbor_nodes,
             update_nodes,
-            params,
+            Rc::new(inner_params),
         );
 
         let cs = ConstraintSystem::<Fr>::new_ref();

@@ -1,80 +1,90 @@
+use ark_std::{marker::PhantomData, rc::Rc};
 use anyhow::{anyhow, Result};
-use ark_std::marker::PhantomData;
+use ark_ec::TEModelParameters;
 use ark_ff::PrimeField;
+use num_traits::Zero;
 
 use super::{hasher::FieldHasher, VanillaProof, merkle::gen_merkle_path};
-use super::encryption;
-use super::encryption::{EncryptionConstParams, EncryptionOriginInputs};
-use super::encryption::{EncryptionPublicInputs, EncryptionPrivateInputs};
+use super::jubjub::{self, JubjubConstParams, JubjubOriginInputs, JubjubPrivateInputs, JubjubPublicInputs};
 
 #[derive(Default)]
-pub struct DepositVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
-    _f: PhantomData<F>,
+pub struct DepositVanillaProof<P, FH>
+where
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
+{
+    _p: PhantomData<P>,
     _fh: PhantomData<FH>,
 }
 
-pub struct DepositConstParams<F: PrimeField, FH: FieldHasher<F>> {
-    pub leaf_params: FH::Parameters,
-    pub inner_params: FH::Parameters,
-    pub height: usize,
-    pub encryption: Option<EncryptionConstParams<F, FH>>,
-}
-
-#[derive(Clone)]
-pub struct DepositOriginInputs<F: PrimeField> {
-    pub leaf_index: u64,
-    pub deposit_amount: u64,
-    pub secret: F,
-    pub neighbor_nodes: Vec<F>,
-    pub encryption: Option<EncryptionOriginInputs>,
-}
-
-#[derive(Clone)]
-pub struct DepositPublicInputs<F: PrimeField> {
-    pub deposit_amount: u64,
-    pub leaf_index: u64,
-    pub leaf: F,
-    pub prev_root: F,
-    pub update_nodes: Vec<F>,
-    pub encryption: Option<EncryptionPublicInputs<F>>,
-}
-
-#[derive(Clone)]
-pub struct DepositPrivateInputs<F: PrimeField> {
-    pub secret: F,
-    pub neighbor_nodes: Vec<(bool, F)>,
-    pub encryption: Option<EncryptionPrivateInputs>,
-}
-
-impl<F, FH> VanillaProof<F> for DepositVanillaProof<F, FH>
+#[derive(Debug)]
+pub struct DepositConstParams<P, FH>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
 {
-    type ConstParams = DepositConstParams<F, FH>;
-    type OriginInputs = DepositOriginInputs<F>;
-    type PublicInputs = DepositPublicInputs<F>;
-    type PrivateInputs = DepositPrivateInputs<F>;
+    pub leaf_params: Rc<FH::Parameters>,
+    pub inner_params: Rc<FH::Parameters>,
+    pub height: usize,
+    pub jubjub: Option<JubjubConstParams<P, FH>>,
+}
+
+#[derive(Debug)]
+pub struct DepositOriginInputs<P: TEModelParameters> {
+    pub leaf_index: u64,
+    pub deposit_amount: u64,
+    pub secret: P::BaseField,
+    pub neighbor_nodes: Vec<P::BaseField>,
+    pub jubjub: Option<JubjubOriginInputs<P>>,
+}
+
+#[derive(Debug)]
+pub struct DepositPublicInputs<P: TEModelParameters> {
+    pub deposit_amount: u64,
+    pub leaf_index: u64,
+    pub leaf: P::BaseField,
+    pub prev_root: P::BaseField,
+    pub update_nodes: Vec<P::BaseField>,
+    pub jubjub: Option<JubjubPublicInputs<P>>,
+}
+
+#[derive(Debug)]
+pub struct DepositPrivateInputs<P: TEModelParameters> {
+    pub secret: P::BaseField,
+    pub neighbor_nodes: Vec<(bool, P::BaseField)>,
+    pub jubjub: Option<JubjubPrivateInputs>,
+}
+
+impl<P, FH> VanillaProof<P::BaseField> for DepositVanillaProof<P, FH>
+where
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
+{
+    type ConstParams = DepositConstParams<P, FH>;
+    type OriginInputs = DepositOriginInputs<P>;
+    type PublicInputs = DepositPublicInputs<P>;
+    type PrivateInputs = DepositPrivateInputs<P>;
 
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
-        let enc_orig_in = params.encryption
-            .as_ref()
-            .map(|params| encryption::gen_origin_inputs(params));
-
         let origin_inputs = DepositOriginInputs {
             leaf_index: 0,
             deposit_amount: 1,
-            secret: F::zero(),
+            secret: P::BaseField::zero(),
             neighbor_nodes: vec![FH::empty_hash(); params.height],
-            encryption: enc_orig_in,
+            jubjub: params.jubjub.as_ref().and(Some(JubjubOriginInputs {
+                nonce: P::ScalarField::zero(),
+            })),
         };
 
         Self::generate_vanilla_proof(params, &origin_inputs)
     }
 
     fn generate_vanilla_proof(
-        params: &DepositConstParams<F, FH>,
-        orig_in: &DepositOriginInputs<F>,
+        params: &DepositConstParams<P, FH>,
+        orig_in: &DepositOriginInputs<P>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         assert_eq!(orig_in.neighbor_nodes.len(), params.height);
         assert!(orig_in.leaf_index < (1 << params.height));
@@ -89,30 +99,40 @@ where
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let leaf = FH::hash(&params.leaf_params,
-            &[F::from(orig_in.leaf_index), F::from(orig_in.deposit_amount), orig_in.secret],
-        ).map_err(|e| anyhow!("hash error: {}", e))?;
+        let leaf = FH::hash(&params.leaf_params, &[
+            P::BaseField::from(orig_in.leaf_index),
+            P::BaseField::from(orig_in.deposit_amount),
+            orig_in.secret,
+        ]).map_err(|e| anyhow!("hash error: {}", e))?;
 
-        let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &neighbor_nodes, FH::empty_hash())
-            .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
-            .last()
-            .unwrap()
-            .clone();
-        let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &neighbor_nodes, leaf)
-            .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
+        let prev_root = gen_merkle_path::<_, FH>(
+            &params.inner_params,
+            &neighbor_nodes,
+            FH::empty_hash(),
+        )
+        .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
+        .last()
+        .unwrap()
+        .clone();
+        let update_nodes = gen_merkle_path::<_, FH>(
+            &params.inner_params,
+            &neighbor_nodes,
+            leaf,
+        ).map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
-        let encryption = params.encryption
+        let jubjub = params.jubjub
             .as_ref()
-            .zip(orig_in.encryption.as_ref())
-            .map(|(enc_params, enc_orig_in)| {
-                encryption::generate_vanilla_proof(enc_params, enc_orig_in, orig_in.leaf_index, orig_in.secret)
+            .zip(orig_in.jubjub.as_ref())
+            .map(|(params, jj_orig_in)| {
+                jubjub::generate_vanilla_proof(params, jj_orig_in, orig_in.leaf_index, orig_in.secret)
             })
             .transpose()?;
-        let (enc_pub_in, enc_priv_in) = if let Some((pub_in, priv_in)) = encryption {
-            (Some(pub_in), Some(priv_in))
-        } else {
-            (None, None)
-        };
+        let (jj_pub_in, jj_priv_in) =
+            if let Some((pub_in, priv_in)) = jubjub {
+                (Some(pub_in), Some(priv_in))
+            } else {
+                (None, None)
+            };
 
         let pub_in = DepositPublicInputs {
             deposit_amount: orig_in.deposit_amount,
@@ -120,12 +140,12 @@ where
             leaf,
             prev_root,
             update_nodes,
-            encryption: enc_pub_in,
+            jubjub: jj_pub_in,
         };
         let priv_in = DepositPrivateInputs {
             secret: orig_in.secret,
             neighbor_nodes,
-            encryption: enc_priv_in,
+            jubjub: jj_priv_in,
         };
 
         Ok((pub_in, priv_in))

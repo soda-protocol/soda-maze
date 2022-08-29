@@ -20,8 +20,8 @@ num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-traits = "0.2.14"
 num-bigint-dig = { version = "0.8.1", features = ["prime"] }
-lazy_static = "1.4.0"
 
 [dev-dependencies]
-ark-bn254 = "0.3.0"
+ark-ed-on-bn254 = "0.3.0"
 rand_core = { version = "0.6.3", features = ["std"] }
+lazy_static = "1.4.0"

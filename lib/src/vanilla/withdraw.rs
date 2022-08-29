@@ -1,73 +1,93 @@
+use ark_std::rc::Rc;
 use anyhow::{anyhow, Result};
+use ark_ec::TEModelParameters;
 use ark_std::marker::PhantomData;
 use ark_ff::PrimeField;
+use num_traits::Zero;
 
 use super::{hasher::FieldHasher, VanillaProof, merkle::gen_merkle_path};
+use super::jubjub::{self, JubjubConstParams, JubjubOriginInputs, JubjubPrivateInputs, JubjubPublicInputs};
 
 #[derive(Default)]
-pub struct WithdrawVanillaProof<F: PrimeField, FH: FieldHasher<F>> {
-    _f: PhantomData<F>,
+pub struct WithdrawVanillaProof<P, FH>
+where
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
+{
+    _p: PhantomData<P>,
     _fh: PhantomData<FH>,
 }
 
-pub struct WithdrawConstParams<F: PrimeField, FH: FieldHasher<F>> {
-    pub nullifier_params: FH::Parameters,
-    pub leaf_params: FH::Parameters,
-    pub inner_params: FH::Parameters,
-    pub height: usize,
-}
-
-#[derive(Clone)]
-pub struct WithdrawOriginInputs<F: PrimeField> {
-    pub balance: u64,
-    pub withdraw_amount: u64,
-    pub src_leaf_index: u64,
-    pub dst_leaf_index: u64,
-    pub receiver: F,
-    pub secret: F,
-    pub src_neighbor_nodes: Vec<F>,
-    pub dst_neighbor_nodes: Vec<F>,
-}
-
-#[derive(Clone)]
-pub struct WithdrawPublicInputs<F: PrimeField> {
-    pub withdraw_amount: u64,
-    pub receiver: F,
-    pub nullifier: F,
-    pub prev_root: F,
-    pub dst_leaf_index: u64,
-    pub dst_leaf: F,
-    pub update_nodes: Vec<F>,
-}
-
-#[derive(Clone)]
-pub struct WithdrawPrivateInputs<F: PrimeField> {
-    pub balance: u64,
-    pub secret: F,
-    pub src_neighbor_nodes: Vec<(bool, F)>,
-    pub dst_neighbor_nodes: Vec<(bool, F)>,
-    pub src_leaf_index: u64,
-    pub src_leaf: F,
-}
-
-impl<F, FH> VanillaProof<F> for WithdrawVanillaProof<F, FH>
+#[derive(Debug)]
+pub struct WithdrawConstParams<P, FH>
 where
-    F: PrimeField,
-    FH: FieldHasher<F>,
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
 {
-    type ConstParams = WithdrawConstParams<F, FH>;
-    type OriginInputs = WithdrawOriginInputs<F>;
-    type PublicInputs = WithdrawPublicInputs<F>;
-    type PrivateInputs = WithdrawPrivateInputs<F>;
+    pub nullifier_params: Rc<FH::Parameters>,
+    pub leaf_params: Rc<FH::Parameters>,
+    pub inner_params: Rc<FH::Parameters>,
+    pub height: usize,
+    pub jubjub: Option<JubjubConstParams<P, FH>>,
+}
+
+#[derive(Debug)]
+pub struct WithdrawOriginInputs<P: TEModelParameters> {
+    pub balance: u64,
+    pub withdraw_amount: u64,
+    pub src_leaf_index: u64,
+    pub dst_leaf_index: u64,
+    pub receiver: P::BaseField,
+    pub secret: P::BaseField,
+    pub src_neighbor_nodes: Vec<P::BaseField>,
+    pub dst_neighbor_nodes: Vec<P::BaseField>,
+    pub jubjub: Option<JubjubOriginInputs<P>>,
+}
+
+#[derive(Debug)]
+pub struct WithdrawPublicInputs<P: TEModelParameters> {
+    pub withdraw_amount: u64,
+    pub receiver: P::BaseField,
+    pub nullifier: P::BaseField,
+    pub prev_root: P::BaseField,
+    pub dst_leaf_index: u64,
+    pub dst_leaf: P::BaseField,
+    pub update_nodes: Vec<P::BaseField>,
+    pub jubjub: Option<JubjubPublicInputs<P>>,
+}
+
+#[derive(Debug)]
+pub struct WithdrawPrivateInputs<P: TEModelParameters> {
+    pub balance: u64,
+    pub secret: P::BaseField,
+    pub src_neighbor_nodes: Vec<(bool, P::BaseField)>,
+    pub dst_neighbor_nodes: Vec<(bool, P::BaseField)>,
+    pub src_leaf_index: u64,
+    pub src_leaf: P::BaseField,
+    pub jubjub: Option<JubjubPrivateInputs>,
+}
+
+impl<P, FH> VanillaProof<P::BaseField> for WithdrawVanillaProof<P, FH>
+where
+    P: TEModelParameters,
+    FH: FieldHasher<P::BaseField>,
+    P::BaseField: PrimeField,
+{
+    type ConstParams = WithdrawConstParams<P, FH>;
+    type OriginInputs = WithdrawOriginInputs<P>;
+    type PublicInputs = WithdrawPublicInputs<P>;
+    type PrivateInputs = WithdrawPrivateInputs<P>;
 
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         let src_leaf_index = 0;
         let balance = 1;
-        let receiver = F::zero();
-        let secret = F::zero();
+        let receiver = P::BaseField::zero();
+        let secret = P::BaseField::zero();
         let leaf = FH::hash(
             &params.leaf_params,
-            &[F::from(src_leaf_index), F::from(balance), secret],
+            &[P::BaseField::from(src_leaf_index), P::BaseField::from(balance), secret],
         ).map_err(|e| anyhow!("hash error: {}", e))?;
 
         let src_neighbor_nodes = vec![FH::empty_hash(); params.height];
@@ -83,21 +103,23 @@ where
             secret,
             src_neighbor_nodes,
             dst_neighbor_nodes,
+            jubjub: params.jubjub.as_ref().and(Some(JubjubOriginInputs {
+                nonce: P::ScalarField::zero(),
+            })),
         };
 
         Self::generate_vanilla_proof(params, &origin_inputs)
     }
 
     fn generate_vanilla_proof(
-        params: &WithdrawConstParams<F, FH>,
-        orig_in: &WithdrawOriginInputs<F>,
+        params: &WithdrawConstParams<P, FH>,
+        orig_in: &WithdrawOriginInputs<P>,
     ) -> Result<(Self::PublicInputs, Self::PrivateInputs)> {
         assert_eq!(orig_in.src_neighbor_nodes.len(), params.height);
         assert_eq!(orig_in.dst_neighbor_nodes.len(), params.height);
         assert!(orig_in.dst_leaf_index < (1 << params.height));
         assert!(orig_in.src_leaf_index < orig_in.dst_leaf_index);
         assert!(orig_in.withdraw_amount > 0);
-        assert!(orig_in.balance >= orig_in.withdraw_amount);
 
         let src_neighbor_nodes = orig_in.src_neighbor_nodes
             .iter()
@@ -119,25 +141,38 @@ where
 
         let nullifier = FH::hash(
             &params.nullifier_params,
-            &[F::from(orig_in.src_leaf_index), orig_in.secret],
+            &[P::BaseField::from(orig_in.src_leaf_index), orig_in.secret],
         ).unwrap();
 
         let src_leaf = FH::hash(
             &params.leaf_params,
-            &[F::from(orig_in.src_leaf_index), F::from(orig_in.balance), orig_in.secret],
+            &[P::BaseField::from(orig_in.src_leaf_index), P::BaseField::from(orig_in.balance), orig_in.secret],
         ).unwrap();
         let prev_root = gen_merkle_path::<_, FH>(&params.inner_params, &src_neighbor_nodes, src_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?
             .last()
             .unwrap()
             .clone();
-        let rest_amount = orig_in.balance - orig_in.withdraw_amount;
+        let rest_amount = orig_in.balance.saturating_sub(orig_in.withdraw_amount);
         let dst_leaf = FH::hash(
             &params.leaf_params,
-            &[F::from(orig_in.dst_leaf_index), F::from(rest_amount), orig_in.secret],
+            &[P::BaseField::from(orig_in.dst_leaf_index), P::BaseField::from(rest_amount), orig_in.secret],
         ).unwrap();
         let update_nodes = gen_merkle_path::<_, FH>(&params.inner_params, &dst_neighbor_nodes, dst_leaf)
             .map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
+
+        let jubjub = params.jubjub
+            .as_ref()
+            .zip(orig_in.jubjub.as_ref())
+            .map(|(params, jj_orig_in)| {
+                jubjub::generate_vanilla_proof(params, jj_orig_in, orig_in.dst_leaf_index, orig_in.secret)
+            })
+            .transpose()?;
+        let (jj_pub_in, jj_priv_in) = if let Some((pub_in, priv_in)) = jubjub {
+            (Some(pub_in), Some(priv_in))
+        } else {
+            (None, None)
+        };
 
         let pub_in = WithdrawPublicInputs {
             withdraw_amount: orig_in.withdraw_amount,
@@ -147,6 +182,7 @@ where
             dst_leaf_index: orig_in.dst_leaf_index,
             dst_leaf,
             update_nodes,
+            jubjub: jj_pub_in,
         };
         let priv_in = WithdrawPrivateInputs {
             balance: orig_in.balance,
@@ -155,6 +191,7 @@ where
             dst_neighbor_nodes,
             src_leaf_index: orig_in.src_leaf_index,
             src_leaf,
+            jubjub: jj_priv_in,
         };
 
         Ok((pub_in, priv_in))

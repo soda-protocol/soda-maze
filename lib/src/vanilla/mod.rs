@@ -2,16 +2,16 @@ pub mod merkle;
 pub mod hasher;
 pub mod withdraw;
 pub mod deposit;
-pub mod encryption;
+pub mod jubjub;
 
 use anyhow::Result;
 use ark_ff::PrimeField;
 
 pub trait VanillaProof<F: PrimeField> {
     type ConstParams;
-    type OriginInputs: Clone;
-    type PublicInputs: Clone;
-    type PrivateInputs: Clone;
+    type OriginInputs;
+    type PublicInputs;
+    type PrivateInputs;
 
     fn blank_proof(params: &Self::ConstParams) -> Result<(Self::PublicInputs, Self::PrivateInputs)>;
 
