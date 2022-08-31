@@ -70,6 +70,10 @@ pub fn create_vault(
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
 
+    println!("vault {}", &vault);
+    println!("vailt signer {}", &vault_signer);
+    println!("vault token account {}", &vault_token_account);
+
     let data = MazeInstruction::CreateVault {
         min_deposit,
         min_withdraw,
@@ -442,10 +446,10 @@ mod tests {
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
     const DEVNET: &str = "https://api.devnet.solana.com";
-    const VAULT: Pubkey = pubkey!("EqzRjFAZ9yip1vRG2h9Tmw1o8u9X1DwjQF2nbfCY7YVF");
+    const VAULT: Pubkey = pubkey!("GhDjmnDESa9M6Pvo6ihLMcJpS7nUDV7RDGtudD7JtGvC");
     const TOKEN_MINT: Pubkey = pubkey!("GR6zSp8opYZh7H2ZFEJBbQYVjY4dkKc19iFoPEhWXTrV");
-    const VAULT_SIGNER: Pubkey = pubkey!("9PRMqsWfTTS6SXV2qiSN6E9JypCLtVPRQi8XRphnDbjK");
-    const VAULT_TOKEN_ACCOUNT: Pubkey = pubkey!("LMgmSJh5CaCah1bbQ3fENCN2c4kr2xy1gT9EzrhFLKq");
+    const VAULT_SIGNER: Pubkey = pubkey!("EtF8UoLMXZo2aDbdhpCF6CimqX2Jbx8FLf7r47MfyUQS");
+    const VAULT_TOKEN_ACCOUNT: Pubkey = pubkey!("FYGQw8kGMZsdktKMno9XLwKwpfBYxHmP5oC3C33xtC5e");
     const DELEGATOR: Pubkey = pubkey!("BpBhecn4QsGVmMVf9YdaeGYeWU7v6S5imj9ViorQbd82");
     const DELEGATOR_TOKEN_ACCOUNT: Pubkey = pubkey!("FKQ6KpRP9rqw8RRiCYs2ouDfMXQjMVJaMzGTUG5nzcW9");
     const LOOKUP_TABLE_ADDRESS: Pubkey = pubkey!("371wbLWY6KamPQ4QgRoZvajLQ72EJyGKu8GemV8scccP");
@@ -550,68 +554,55 @@ mod tests {
 
         let signer = Keypair::from_base58_string(USER_KEYPAIR);
         let deposit_amount = 100_000_000;
-        let leaf = BigInteger::new([14392718617516267739, 4117367152258354368, 13048248942299528132, 275835995219253522]);
+        let leaf = BigInteger::new([10238628474373320456, 14022387074461718602, 2475330134695199970, 1313074002618417116]);
         let updating_nodes = vec![
-            BigInteger::new([11947691383998103714, 4834784687492446865, 17565760189755216598, 1815046295569182153]),
-            BigInteger::new([8645684942477193265, 7905943051796661417, 6528092224781116422, 2051256550594740318]),
-            BigInteger::new([10249879271600987153, 17511956248817223433, 6616271735050988548, 2109218851817619759]),
-            BigInteger::new([8448122782359196270, 8340535543985565928, 9897188560453849320, 2190162733576042750]),
-            BigInteger::new([8816700128131285006, 17839287043591934199, 15784021022725366539, 3285764564905563918]),
-            BigInteger::new([17744508559234383345, 1255667884698858352, 14697296822926161220, 99018716785599322]),
-            BigInteger::new([17167806449891432911, 17973129001636925150, 4740278231544434876, 3064015020807185631]),
-            BigInteger::new([2899114760931472613, 11681371941517646843, 15887151360588940911, 1796744982683981404]),
-            BigInteger::new([16519950328213487594, 7963203300762907083, 6151628091267361781, 823209739378922314]),
-            BigInteger::new([16534649605174599196, 7077838796844029657, 12411398586322807656, 2056791905789759234]),
-            BigInteger::new([10714543179285979460, 16802667835348027855, 16048181783836509412, 2163735399925431133]),
-            BigInteger::new([11039148008277747653, 14515684053659732226, 4565294480802783748, 1800797764473376749]),
-            BigInteger::new([6584597753282041159, 6903601506459256157, 18296889677756858766, 123672224088465622]),
-            BigInteger::new([2193608732334948833, 18056198972504476827, 6072813893074928939, 2752142684812128493]),
-            BigInteger::new([5500438462734316668, 7967286443546677295, 16936464976013516822, 2560308542255029487]),
-            BigInteger::new([13504834167894707005, 952895469753334165, 12515518153860816089, 610351098299808924]),
-            BigInteger::new([5208257716809309234, 9087956109532476423, 10202835493222815786, 1249848730058881468]),
-            BigInteger::new([12342269562135234524, 3508693137102038809, 17476979880152927951, 1818098262011239368]),
-            BigInteger::new([13851103515797334303, 18034375457459603258, 16816139611627825534, 1428371779925500461]),
-            BigInteger::new([7536248216859598338, 15082775627295805689, 7476132733304418276, 88853755616718982]),
-            BigInteger::new([13249053961652768298, 13291940239181787728, 1860817987128102308, 2877374556902560019]),
+            BigInteger::new([13964979764574450530, 6814902463828884090, 3490476130675498614, 939454355663535017]),
+            BigInteger::new([12524172229863401954, 4796040823255991742, 4069760990520073033, 868000759613921587]),
+            BigInteger::new([1596125167915367140, 6156920030815160090, 10382505956980516360, 2927580863364086847]),
+            BigInteger::new([1765955334735741199, 1291223536655544861, 16639810887409821899, 880497050557539739]),
+            BigInteger::new([12643707220000567509, 11436727266683695517, 4732916465160176110, 1964838653473584553]),
+            BigInteger::new([15885659284373961508, 5471913312835855211, 2653419779047489694, 1900210723210987730]),
+            BigInteger::new([10596518041243485014, 11924227743320673010, 287941000929346776, 245476564885753827]),
+            BigInteger::new([9798514336536856130, 3632004711427197341, 11339261941566790797, 3119499272359887178]),
+            BigInteger::new([10570135904687397455, 18190639330091595662, 17985847417806757659, 2492070591683873349]),
+            BigInteger::new([13472515854679819921, 6007832876773512197, 945556273399982984, 126431182602079263]),
+            BigInteger::new([8536281558937608028, 12462637082463092570, 4313476410340840383, 2403661115683713579]),
+            BigInteger::new([7973243436672073066, 16221803217086044779, 1982661521783632814, 1972000485319446447]),
         ];
-        let commitment = vec![
-            BigInteger::new([10437330481268979932, 12637399075367306596, 17925499004937060610, 43109062172724378]),
-            BigInteger::new([3723484485398430089, 8836895555723216633, 5072668116932692222, 60243553184384418]),
-            BigInteger::new([14071866030200282407, 7408670030862157035, 11133746172882856372, 44081760986066742]),
-            BigInteger::new([2082073498537736028, 12619353522392355248, 10591825032917619336, 13565691543249673]),
-            BigInteger::new([16363300714787249707, 6675394386760951996, 10566344480761486673, 22560077838168059]),
-            BigInteger::new([11548199912325028952, 17349473935940255745, 11795241964892455949, 49506968083183593]),
-            BigInteger::new([16636577313445572925, 2713959106249749905, 9027771934823443219, 64044069060076236]),
-            BigInteger::new([7736568136752645350, 745746971169088330, 4170573071869497098, 64235486184972024]),
-            BigInteger::new([9839856130282344487, 6381701889713366087, 17866217982913531344, 12435661507173254]),
-            BigInteger::new([8614237325361520681, 10323540009524416591, 6270779451662671438, 66590805145651076]),
-            BigInteger::new([3406731390720981113, 12863445087551629487, 8414776910494561801, 42116836592826880]),
-            BigInteger::new([8200788463647772790, 5740871793957135462, 10963954186891381915, 11679620585476262]),
-        ];
+        let commitment = (
+            GroupAffine {
+                x: BigInteger::new([4426581770956920, 3780038317459993260, 5978800350633987884, 311273432824146036]),
+                y: BigInteger::new([8863000400804113423, 1348204775686030698, 8545119952742531791, 2800637279200743611]),
+            },
+            GroupAffine {
+                x: BigInteger::new([7215792706979548681, 9873107139232219479, 865173140646005947, 1248029139033987868]),
+                y: BigInteger::new([17291355517249880028, 3312550530945056926, 17870307985785161756, 610666079189054042]),
+            },
+        );
         let a = G1Affine254::new_const(
-            Fq::new(BigInteger::new([15568677173990575336, 2186744242756301183, 7034972976863812455, 946779767723997652])),
-            Fq::new(BigInteger::new([1636529597709563427, 6193268754008083554, 4088978364366093840, 504007410225757495])),
-            false
+            Fq::new(BigInteger::new([17381767644818340984, 3751637970425688463, 11897723137901410286, 2628054590150868757])),
+            Fq::new(BigInteger::new([12495087938492610491, 7315845434515123162, 14658457518751987503, 447599317579503610])),
+            false,
         );
         let b = G2Affine254::new_const(
             Fq2::new_const(
-                Fq::new(BigInteger::new([11090733676167549777, 8320377024161185998, 5474452348920797317, 1748225331844840031])),
-                Fq::new(BigInteger::new([5393178767358234798, 1681836280639821128, 6070567899537534495, 2278077674296131559])),
+                Fq::new(BigInteger::new([11289918167215668305, 5596130612184073396, 6192789515876855109, 3279723092958874358])),
+                Fq::new(BigInteger::new([17879507732148848603, 10369508746801824971, 17344640418009863013, 1539253996629113496])),
             ),
             Fq2::new_const(
-                Fq::new(BigInteger::new([3900019781423844887, 4066668982100900424, 3119663512138718042, 3328833002996618027])),
-                Fq::new(BigInteger::new([15074980976488288338, 2051110567283964016, 13195475350142858070, 3198122075496632996])),
+                Fq::new(BigInteger::new([6007973111967089812, 9258705278091649435, 7183941806421198646, 578300671118975326])),
+                Fq::new(BigInteger::new([12128663196347054577, 16180755230900641998, 6739960301757964946, 502830956916105034])),
             ),
-            false
+            false,
         );
         let c = G1Affine254::new_const(
-            Fq::new(BigInteger::new([1887250700042449245, 11576874002761642978, 9721462918489679054, 339549733113276013])),
-            Fq::new(BigInteger::new([1457776659484758236, 16189538327330444889, 2080080956326219177, 1335077747584534107])),
-            false
+            Fq::new(BigInteger::new([15171433465355968616, 7015032887021418538, 13285711323354563888, 1074691968068496779])),
+            Fq::new(BigInteger::new([13242131963254593196, 12366386926853818962, 14772137643134677909, 2758687257485180845])),
+            false,
         );
         let proof = Proof { a, b, c };
 
-        let instruction = create_vault(TOKEN_MINT, signer.pubkey(), 10000000, 10000000, 2000000).unwrap();
+        // let instruction = create_vault(TOKEN_MINT, signer.pubkey(), 10000000, 10000000, 2000000).unwrap();
 
         // let instruction = create_deposit_credential(
         //     VAULT,
@@ -619,42 +610,32 @@ mod tests {
         //     deposit_amount,
         //     leaf,
         //     Box::new(updating_nodes),
-        //     (
-        //         GroupAffine {
-        //             x: BigInteger::new([9937345704152478145, 9314084324993519784, 4650960096994973103, 1792071848348241559]),
-        //             y: BigInteger::new([11722303051848832630, 7572311277234810598, 16954647949269437362, 753104100070209652]),
-        //         },
-        //         GroupAffine {
-        //             x: BigInteger::new([4515014144544300005, 11814471430408547881, 14704958481266131368, 2093406152580753209]),
-        //             y: BigInteger::new([13627696931610010165, 17790297028960429577, 12496398370021154781, 3385890565756344617]),
-        //         },
-        //     )
+        //     commitment,
         // ).unwrap();
 
         // let instruction = create_deposit_verifier(
         //     VAULT,
         //     signer.pubkey(),
-        //     Box::new(commitment),
         //     Box::new(proof),
         // ).unwrap();
 
         // let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        // for _ in 0..207 {
-        //     let blockhash = client.get_latest_blockhash().unwrap();
-        //     let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
-        //     let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
-        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-        //     let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
-        //     let transaction = Transaction::new_signed_with_payer(
-        //         &[instruction_1, instruction_2],
-        //         Some(&signer.pubkey()),
-        //         &[&signer],
-        //         blockhash,
-        //     );
-        //     let res = client.send_transaction(&transaction).unwrap();
-        //     println!("{:?}", res);
-        // }
+        for _ in 0..200 {
+            let blockhash = client.get_latest_blockhash().unwrap();
+            let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
+            let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
+            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+            let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
+            let transaction = Transaction::new_signed_with_payer(
+                &[instruction_1, instruction_2],
+                Some(&signer.pubkey()),
+                &[&signer],
+                blockhash,
+            );
+            let res = client.send_transaction(&transaction).unwrap();
+            println!("{:?}", res);
+        }
 
         // let instruction = finalize_deposit(
         //     VAULT,
@@ -664,7 +645,15 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        let sig = send_v0_transaction(&client, &signer, &[instruction]);
-        println!("{}", sig);
+        // let blockhash = client.get_latest_blockhash().unwrap();
+        // let sig = client.send_and_confirm_transaction(&Transaction::new_signed_with_payer(
+        //     &[instruction],
+        //     Some(&signer.pubkey()),
+        //     &[&signer],
+        //     blockhash,
+        // )).unwrap();
+
+        // let sig = send_v0_transaction(&client, &signer, &[instruction]);
+        // println!("{}", sig);
     }
 }

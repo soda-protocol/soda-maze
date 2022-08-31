@@ -402,7 +402,7 @@ fn main() {
             println!("-----------------------------------------------------");
             println!("[");
             pub_in.update_nodes.iter().for_each(|p| {
-                println!("    BigInteger::new({:?})", p.into_repr().0);
+                println!("    BigInteger::new({:?}),", p.into_repr().0);
             });
             println!("]");
             println!("-----------------------------------------------------");
@@ -410,10 +410,14 @@ fn main() {
             println!("commitment");
             println!("-----------------------------------------------------");
             let commitment = pub_in.commit.as_ref().unwrap().commitment;
-            println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
+            println!("GroupAffine {{");
+            println!("    x: BigInteger::new({:?})", commitment.0.x.into_repr().0);
+            println!("    y: BigInteger::new({:?})", commitment.0.y.into_repr().0);
+            println!("}},");
+            println!("GroupAffine {{");
+            println!("    x: BigInteger::new({:?})", commitment.1.x.into_repr().0);
+            println!("    y: BigInteger::new({:?})", commitment.1.y.into_repr().0);
+            println!("}},");
             println!("-----------------------------------------------------");
         },
         Opt::VerifyWithdraw {
