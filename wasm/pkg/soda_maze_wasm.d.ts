@@ -17,18 +17,6 @@
 */
 export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
 /**
-* @param {Pubkey} vault
-* @param {Pubkey} token_mint
-* @param {Pubkey} depositor
-* @param {bigint} leaf_index
-* @param {bigint} deposit_amount
-* @param {Array<any>} neighbors
-* @param {Uint8Array} sig
-* @param {bigint} nonce
-* @returns {any}
-*/
-export function gen_deposit_proof(vault: Pubkey, token_mint: Pubkey, depositor: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
-/**
 * @param {Uint8Array} data
 * @returns {any}
 */
@@ -59,20 +47,17 @@ export function parse_utxo(sig: Uint8Array, vault: Pubkey, utxo: Uint8Array): an
 */
 export function get_nullifier(data: Uint8Array): boolean;
 /**
-* @param {Pubkey} payer
-* @param {Pubkey} lookup_table_key
-* @param {Array<any>} addresses
-* @param {Array<any>} instructions
-* @param {Hash} blockhash
-* @returns {Uint8Array}
-*/
-export function compile_versioned_message_data(payer: Pubkey, lookup_table_key: Pubkey, addresses: Array<any>, instructions: Array<any>, blockhash: Hash): Uint8Array;
-/**
-* @param {Uint8Array} message_data
+* @param {Pubkey} vault
+* @param {Pubkey} token_mint
+* @param {Pubkey} depositor
+* @param {bigint} leaf_index
+* @param {bigint} deposit_amount
+* @param {Array<any>} neighbors
 * @param {Uint8Array} sig
-* @returns {Uint8Array}
+* @param {bigint} nonce
+* @returns {any}
 */
-export function pack_versioned_transaction_data(message_data: Uint8Array, sig: Uint8Array): Uint8Array;
+export function gen_deposit_proof(vault: Pubkey, token_mint: Pubkey, depositor: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -381,15 +366,14 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
-  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => number;
   readonly get_vault_info: (a: number) => number;
   readonly get_merkle_neighbor_nodes: (a: number, b: number, c: number) => number;
   readonly get_utxo_keys: (a: number, b: number, c: number, d: number) => number;
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
-  readonly compile_versioned_message_data: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly pack_versioned_transaction_data: (a: number, b: number) => number;
+  readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => number;
   readonly __wbg_transaction_free: (a: number) => void;
+  readonly __wbg_keypair_free: (a: number) => void;
   readonly transaction_constructor: (a: number, b: number) => number;
   readonly transaction_message: (a: number) => number;
   readonly transaction_messageData: (a: number, b: number) => void;
@@ -398,12 +382,14 @@ export interface InitOutput {
   readonly transaction_isSigned: (a: number) => number;
   readonly transaction_toBytes: (a: number, b: number) => void;
   readonly transaction_fromBytes: (a: number, b: number, c: number) => void;
-  readonly __wbg_keypair_free: (a: number) => void;
   readonly keypair_constructor: () => number;
   readonly keypair_toBytes: (a: number, b: number) => void;
   readonly keypair_fromBytes: (a: number, b: number, c: number) => void;
   readonly keypair_pubkey: (a: number) => number;
   readonly __wbg_instruction_free: (a: number) => void;
+  readonly __wbg_instructions_free: (a: number) => void;
+  readonly instructions_constructor: () => number;
+  readonly instructions_push: (a: number, b: number) => void;
   readonly systeminstruction_createAccount: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly systeminstruction_createAccountWithSeed: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
   readonly systeminstruction_assign: (a: number, b: number) => number;
@@ -429,9 +415,6 @@ export interface InitOutput {
   readonly pubkey_createProgramAddress: (a: number, b: number, c: number, d: number) => void;
   readonly pubkey_findProgramAddress: (a: number, b: number, c: number, d: number) => void;
   readonly solana_program_init: () => void;
-  readonly __wbg_instructions_free: (a: number) => void;
-  readonly instructions_constructor: () => number;
-  readonly instructions_push: (a: number, b: number) => void;
   readonly hash_constructor: (a: number, b: number) => void;
   readonly hash_toString: (a: number, b: number) => void;
   readonly hash_equals: (a: number, b: number) => number;

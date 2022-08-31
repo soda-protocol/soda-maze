@@ -58,7 +58,7 @@ pub fn from_hex_string<D: CanonicalDeserialize>(s: String) -> Result<D> {
 
 pub fn to_hex_string<S: CanonicalSerialize>(se: &S) -> Result<String> {
     let mut buf = Vec::new();
-    se.serialize(&mut buf[..])?;
+    se.serialize(&mut buf)?;
     
     Ok(hex::encode(buf))
 }

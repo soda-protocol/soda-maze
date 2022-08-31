@@ -1,4 +1,3 @@
-use ark_ff::PrimeField;
 use ark_std::{collections::BTreeMap, path::PathBuf, UniformRand};
 use ark_ec::models::twisted_edwards_extended::GroupAffine;
 use ark_groth16::Groth16;
@@ -92,12 +91,8 @@ impl<'a> MerkleTree<'a> {
             .into_iter()
             .for_each(|_| {
                 nodes.push(hash);
-                hash = PoseidonHasher::hash_two(params, hash, hash)
-                    .expect("poseidon hash error");
+                hash = PoseidonHasher::hash_two(params, hash, hash).unwrap();
             });
-
-        let hash = hash.into_repr();
-        println!("Merkle Root: BigInteger::new({:?})", &hash.0);
 
         Self {
             params,
@@ -153,9 +148,9 @@ enum Opt {
         leaf_index: u64,
         #[clap(long = "viewing-pubkey", value_parser)]
         pubkey: Option<String>,
-        #[clap(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str), default_value = "pk-deposit")]
         pk_path: PathBuf,
-        #[clap(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str), default_value = "proof.json")]
         proof_path: PathBuf,
     },
     ProveWithdraw {
@@ -171,21 +166,21 @@ enum Opt {
         dst_index: u64,
         #[clap(long = "viewing-pubkey", value_parser)]
         pubkey: Option<String>,
-        #[clap(long = "pk-path", parse(from_os_str))]
+        #[clap(long = "pk-path", parse(from_os_str), default_value = "pk-withdraw")]
         pk_path: PathBuf,
-        #[clap(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str), default_value = "proof.json")]
         proof_path: PathBuf,
     },
     VerifyDeposit {
-        #[clap(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str), default_value = "vk-deposit")]
         vk_path: PathBuf,
-        #[clap(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str), default_value = "proof.json")]
         proof_path: PathBuf,
     },
     VerifyWithdraw {
-        #[clap(long = "vk-path", parse(from_os_str))]
+        #[clap(long = "vk-path", parse(from_os_str), default_value = "vk-withdraw")]
         vk_path: PathBuf,
-        #[clap(long = "proof-path", parse(from_os_str))]
+        #[clap(long = "proof-path", parse(from_os_str), default_value = "proof.json")]
         proof_path: PathBuf,
     }
 }
@@ -249,7 +244,7 @@ fn main() {
             proof_data.to_file(&proof_path).expect("write proof data to file error");
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
-            println!("proof time: {:?}", duration);
+            println!("prove time: {:?}", duration);
         }
         Opt::ProveWithdraw {
             height,
@@ -320,7 +315,7 @@ fn main() {
             proof_data.to_file(&proof_path).expect("write proof data to file error");
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
-            println!("proof time: {:?}", duration);
+            println!("prove time: {:?}", duration);
         },
         Opt::VerifyDeposit {
             vk_path,
@@ -351,74 +346,75 @@ fn main() {
             let result = DepositInstant::verify_snark_proof(&pub_in, &proof, &vk)
                 .expect("verify snark proof failed");
             if result {
-                println!("verify deposit proof success");
+                println!("verify proof passed");
             } else {
-                println!("verify deposit proof failed");
+                println!("verify proof failed");
             }
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
-            println!("proof time: {:?}", duration);
+            println!("verify time: {:?}", duration);
 
-            println!("proof a");
-            println!("-----------------------------------------------------");
-            println!("G1Affine254::new_const(");
-            println!("    Fr::new(BigInteger::new({:?})),", proof.a.x.0.0);
-            println!("    Fr::new(BigInteger::new({:?})),", proof.a.y.0.0);
-            println!("    {}", proof.a.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
+            // use ark_ff::PrimeField;
+            // println!("proof a");
+            // println!("-----------------------------------------------------");
+            // println!("G1Affine254::new_const(");
+            // println!("    Fr::new(BigInteger::new({:?})),", proof.a.x.0.0);
+            // println!("    Fr::new(BigInteger::new({:?})),", proof.a.y.0.0);
+            // println!("    {}", proof.a.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
 
-            println!("proof b");
-            println!("-----------------------------------------------------");
-            println!("G2Affine254::new_const(");
-            println!("    Fr2::new_const(");
-            println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
-            println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
-            println!("    ),");
-            println!("    Fr2::new_const(");
-            println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
-            println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
-            println!("    ),");
-            println!("    {}", proof.b.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
+            // println!("proof b");
+            // println!("-----------------------------------------------------");
+            // println!("G2Affine254::new_const(");
+            // println!("    Fr2::new_const(");
+            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
+            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
+            // println!("    ),");
+            // println!("    Fr2::new_const(");
+            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
+            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
+            // println!("    ),");
+            // println!("    {}", proof.b.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
 
-            println!("proof c");
-            println!("-----------------------------------------------------");
-            println!("G1Affine254::new_const(");
-            println!("    Fr::new(BigInteger::new({:?})),", proof.c.x.0.0);
-            println!("    Fr::new(BigInteger::new({:?})),", proof.c.y.0.0);
-            println!("    {}", proof.c.infinity);
-            println!(")");
-            println!("-----------------------------------------------------");
+            // println!("proof c");
+            // println!("-----------------------------------------------------");
+            // println!("G1Affine254::new_const(");
+            // println!("    Fr::new(BigInteger::new({:?})),", proof.c.x.0.0);
+            // println!("    Fr::new(BigInteger::new({:?})),", proof.c.y.0.0);
+            // println!("    {}", proof.c.infinity);
+            // println!(")");
+            // println!("-----------------------------------------------------");
 
-            println!("leaf");
-            println!("-----------------------------------------------------");
-            println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
-            println!("-----------------------------------------------------");
+            // println!("leaf");
+            // println!("-----------------------------------------------------");
+            // println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
+            // println!("-----------------------------------------------------");
 
-            println!("prev_root");
-            println!("-----------------------------------------------------");
-            println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
-            println!("-----------------------------------------------------");
+            // println!("prev_root");
+            // println!("-----------------------------------------------------");
+            // println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
+            // println!("-----------------------------------------------------");
 
-            println!("update_nodes");
-            println!("-----------------------------------------------------");
-            println!("[");
-            pub_in.update_nodes.iter().for_each(|p| {
-                println!("    BigInteger::new({:?})", p.into_repr().0);
-            });
-            println!("]");
-            println!("-----------------------------------------------------");
+            // println!("update_nodes");
+            // println!("-----------------------------------------------------");
+            // println!("[");
+            // pub_in.update_nodes.iter().for_each(|p| {
+            //     println!("    BigInteger::new({:?})", p.into_repr().0);
+            // });
+            // println!("]");
+            // println!("-----------------------------------------------------");
 
-            println!("commitment");
-            println!("-----------------------------------------------------");
-            let commitment = pub_in.commit.as_ref().unwrap().commitment;
-            println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
-            println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
-            println!("-----------------------------------------------------");
+            // println!("commitment");
+            // println!("-----------------------------------------------------");
+            // let commitment = pub_in.commit.as_ref().unwrap().commitment;
+            // println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
+            // println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
+            // println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
+            // println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
+            // println!("-----------------------------------------------------");
         },
         Opt::VerifyWithdraw {
             vk_path,
@@ -451,13 +447,13 @@ fn main() {
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)
                 .expect("verify snark proof failed");
             if result {
-                println!("verify withdraw proof success");
+                println!("verify proof passed");
             } else {
-                println!("verify withdraw proof failed");
+                println!("verify proof failed");
             }
 
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
-            println!("proof time: {:?}", duration);
+            println!("verify time: {:?}", duration);
         },
     }
 }
