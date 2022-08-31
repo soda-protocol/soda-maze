@@ -354,67 +354,67 @@ fn main() {
             let duration = std::time::SystemTime::now().duration_since(start_time).unwrap();
             println!("verify time: {:?}", duration);
 
-            // use ark_ff::PrimeField;
-            // println!("proof a");
-            // println!("-----------------------------------------------------");
-            // println!("G1Affine254::new_const(");
-            // println!("    Fr::new(BigInteger::new({:?})),", proof.a.x.0.0);
-            // println!("    Fr::new(BigInteger::new({:?})),", proof.a.y.0.0);
-            // println!("    {}", proof.a.infinity);
-            // println!(")");
-            // println!("-----------------------------------------------------");
+            use ark_ff::PrimeField;
+            println!("proof a");
+            println!("-----------------------------------------------------");
+            println!("G1Affine254::new_const(");
+            println!("    Fq::new(BigInteger::new({:?})),", proof.a.x.0.0);
+            println!("    Fq::new(BigInteger::new({:?})),", proof.a.y.0.0);
+            println!("    {}", proof.a.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
 
-            // println!("proof b");
-            // println!("-----------------------------------------------------");
-            // println!("G2Affine254::new_const(");
-            // println!("    Fr2::new_const(");
-            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
-            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
-            // println!("    ),");
-            // println!("    Fr2::new_const(");
-            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
-            // println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
-            // println!("    ),");
-            // println!("    {}", proof.b.infinity);
-            // println!(")");
-            // println!("-----------------------------------------------------");
+            println!("proof b");
+            println!("-----------------------------------------------------");
+            println!("G2Affine254::new_const(");
+            println!("    Fq2::new_const(");
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
+            println!("    ),");
+            println!("    Fq2::new_const(");
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
+            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
+            println!("    ),");
+            println!("    {}", proof.b.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
 
-            // println!("proof c");
-            // println!("-----------------------------------------------------");
-            // println!("G1Affine254::new_const(");
-            // println!("    Fr::new(BigInteger::new({:?})),", proof.c.x.0.0);
-            // println!("    Fr::new(BigInteger::new({:?})),", proof.c.y.0.0);
-            // println!("    {}", proof.c.infinity);
-            // println!(")");
-            // println!("-----------------------------------------------------");
+            println!("proof c");
+            println!("-----------------------------------------------------");
+            println!("G1Affine254::new_const(");
+            println!("    Fq::new(BigInteger::new({:?})),", proof.c.x.0.0);
+            println!("    Fq::new(BigInteger::new({:?})),", proof.c.y.0.0);
+            println!("    {}", proof.c.infinity);
+            println!(")");
+            println!("-----------------------------------------------------");
 
-            // println!("leaf");
-            // println!("-----------------------------------------------------");
-            // println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
-            // println!("-----------------------------------------------------");
+            println!("leaf");
+            println!("-----------------------------------------------------");
+            println!("BigInteger::new({:?})", pub_in.leaf.into_repr().0);
+            println!("-----------------------------------------------------");
 
-            // println!("prev_root");
-            // println!("-----------------------------------------------------");
-            // println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
-            // println!("-----------------------------------------------------");
+            println!("prev_root");
+            println!("-----------------------------------------------------");
+            println!("BigInteger::new({:?})", pub_in.prev_root.into_repr().0);
+            println!("-----------------------------------------------------");
 
-            // println!("update_nodes");
-            // println!("-----------------------------------------------------");
-            // println!("[");
-            // pub_in.update_nodes.iter().for_each(|p| {
-            //     println!("    BigInteger::new({:?})", p.into_repr().0);
-            // });
-            // println!("]");
-            // println!("-----------------------------------------------------");
+            println!("update_nodes");
+            println!("-----------------------------------------------------");
+            println!("[");
+            pub_in.update_nodes.iter().for_each(|p| {
+                println!("    BigInteger::new({:?})", p.into_repr().0);
+            });
+            println!("]");
+            println!("-----------------------------------------------------");
 
-            // println!("commitment");
-            // println!("-----------------------------------------------------");
-            // let commitment = pub_in.commit.as_ref().unwrap().commitment;
-            // println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
-            // println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
-            // println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
-            // println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
-            // println!("-----------------------------------------------------");
+            println!("commitment");
+            println!("-----------------------------------------------------");
+            let commitment = pub_in.commit.as_ref().unwrap().commitment;
+            println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
+            println!("-----------------------------------------------------");
         },
         Opt::VerifyWithdraw {
             vk_path,
