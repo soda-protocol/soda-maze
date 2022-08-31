@@ -66,7 +66,7 @@ fn gen_withdraw_instructions(
     let proof = to_maze_proof(proof);
     let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof)).unwrap();
 
-    let verify = (0..175u8).into_iter().map(|i| {
+    let verify = (0..160u8).into_iter().map(|i| {
         verify_withdraw_proof(vault, receiver, vec![i]).unwrap()
     }).collect::<Vec<_>>();
 

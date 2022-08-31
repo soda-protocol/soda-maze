@@ -60,7 +60,7 @@ fn gen_deposit_instructions(
     let proof = to_maze_proof(proof);
     let verifier = create_deposit_verifier(vault, depositor, Box::new(proof)).unwrap();
 
-    let verify = (0..200u8).into_iter().map(|i| {
+    let verify = (0..145u8).into_iter().map(|i| {
         verify_deposit_proof(vault, depositor, vec![i]).unwrap()
     }).collect::<Vec<_>>();
 

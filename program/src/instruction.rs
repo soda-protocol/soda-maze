@@ -621,7 +621,7 @@ mod tests {
 
         // let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..200 {
+        for _ in 0..145 {
             let blockhash = client.get_latest_blockhash().unwrap();
             let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
             let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
