@@ -3,9 +3,9 @@ mod merkle;
 mod deposit;
 mod withdraw;
 mod hasher;
-mod jubjub;
+mod commit;
 
 pub use hasher::*;
 pub use withdraw::*;
 pub use deposit::*;
-pub use jubjub::*;
+pub use commit::*;

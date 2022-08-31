@@ -15,8 +15,6 @@ pub enum MazeError {
     AlreadyInitialized,
     #[error("Vault is disabled")]
     DisbaledVault,
-    #[error("Commitment is missing")]
-    LackOfCommiment,
     #[error("Accounts are not matched")]
     UnmatchedAccounts,
     #[error("Vanilla proof data is invalid")]

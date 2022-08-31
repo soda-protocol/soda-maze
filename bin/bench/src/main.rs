@@ -1,46 +1,50 @@
-use std::{collections::BTreeMap, path::PathBuf, fs::OpenOptions};
-use ark_ff::{FpParameters, PrimeField};
-use ark_std::{UniformRand, rand::SeedableRng};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read};
-use arkworks_utils::poseidon::PoseidonParameters;
-use borsh::BorshDeserialize;
+use ark_ff::PrimeField;
+use ark_std::{collections::BTreeMap, path::PathBuf, UniformRand};
+use ark_ec::models::twisted_edwards_extended::GroupAffine;
+use ark_groth16::Groth16;
 use clap::Parser;
-use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
-use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
-use soda_maze_lib::vanilla::hasher::FieldHasher;
-use soda_maze_lib::vanilla::withdraw::{WithdrawConstParams, WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
-use soda_maze_lib::vanilla::deposit::{DepositConstParams, DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
-use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, EncryptionPublicInputs, EncryptionOriginInputs};
-use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
-use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
-use soda_maze_types::params::{RabinParameters, JsonParser};
+use soda_maze_lib::proof::{scheme::{DepositProof, WithdrawProof}, ProofScheme};
+use soda_maze_lib::vanilla::{hasher::FieldHasher, VanillaProof};
+use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
+use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
+use soda_maze_lib::vanilla::commit::{CommitOriginInputs, CommitPublicInputs};
+use soda_maze_types::{keys::{MazeProvingKey, MazeVerifyingKey}, parser::to_hex_string};
+use soda_maze_types::params::{gen_deposit_const_params, gen_withdraw_const_params};
+use soda_maze_types::parser::{JsonParser, from_hex_string, borsh_de_from_file};
+use rand_core::OsRng;
 use serde::{Serialize, Deserialize};
-use num_bigint::BigUint;
-use rand_core::{CryptoRng, RngCore, OsRng};
-use rand_xorshift::XorShiftRng;
+#[cfg(feature = "poseidon")]
+use arkworks_utils::poseidon::PoseidonParameters;
+#[cfg(feature = "poseidon")]
+use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
+#[cfg(feature = "poseidon")]
+use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
+
 
 #[cfg(feature = "bn254")]
-use ark_bn254::{Bn254, Fr, FrParameters};
+use ark_bn254::{Bn254, Fr};
+#[cfg(feature = "bn254")]
+use ark_ed_on_bn254::{EdwardsParameters, Fr as Frr};
 #[cfg(feature = "bls12-381")]
-use ark_bls12_381::{Bls12_381, Fr, FrParameters};
-#[cfg(feature = "groth16")]
-use ark_groth16::Groth16;
+use ark_bls12_381::{Bls12_381, Fr};
+#[cfg(feature = "bls12-381")]
+use ark_ed_on_bls12_381::{EdwardsParameters, Fr as Frr};
 
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+#[cfg(all(feature = "bn254", feature = "poseidon"))]
+type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon"))]
+type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+#[cfg(all(feature = "bn254", feature = "poseidon"))]
+type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon"))]
+type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
-#[cfg(all(feature = "poseidon"))]
-type DepositVanillaInstant = DepositVanillaProof::<Fr, PoseidonHasher<Fr>>;
+#[cfg(feature = "poseidon")]
+type DepositVanillaInstant = DepositVanillaProof::<EdwardsParameters, PoseidonHasher<Fr>>;
 
-#[cfg(all(feature = "poseidon"))]
-type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
+#[cfg(feature = "poseidon")]
+type WithdrawVanillaInstant = WithdrawVanillaProof::<EdwardsParameters, PoseidonHasher<Fr>>;
 
 #[derive(Serialize, Deserialize)]
 struct DepositProofData {
@@ -49,7 +53,7 @@ struct DepositProofData {
     leaf_index: u64,
     leaf: String,
     update_nodes: Vec<String>,
-    cipher_array: Option<Vec<String>>,
+    commitment: Option<String>,
     proof: String,
 }
 
@@ -59,113 +63,18 @@ impl JsonParser for DepositProofData {}
 struct WithdrawProofData {
     withdraw_amount: u64,
     receiver: String,
-    nullifier: String,
+    nullifier_point: String,
     prev_root: String,
     dst_leaf_index: u64,
     dst_leaf: String,
     update_nodes: Vec<String>,
+    commitment: Option<String>,
     proof: String,
 }
 
 impl JsonParser for WithdrawProofData {}
 
-fn read_from_file<De: BorshDeserialize>(path: &PathBuf) -> De {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .open(path)
-        .unwrap();
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).expect("read from file error");
-    BorshDeserialize::deserialize(&mut &buffer[..]).expect("failed to parse file")
-}
-
-fn from_hex<De: CanonicalDeserialize>(s: String) -> De {
-    let buf = hex::decode(s).expect("failed to parse hex");
-    CanonicalDeserialize::deserialize(&buf[..]).expect("deserialize failed")
-}
-
-fn to_hex<Se: CanonicalSerialize>(data: &Se) -> String {
-    let mut buf = Vec::new();
-    data.serialize(&mut buf).expect("serialize failed");
-    hex::encode(buf)
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::{params::poseidon::*, vanilla::encryption::biguint_to_biguint_array};
-
-    let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
-    let modulus = BigUint::from_bytes_le(&modulus);
-    let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
-
-    EncryptionConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        modulus_array,
-        modulus_len: params.modulus_len,
-        bit_size: params.bit_size,
-        cipher_batch: params.cipher_batch,
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_deposit_const_params(
-    height: usize,
-    encryption: Option<EncryptionConstParams<Fr, PoseidonHasher<Fr>>>,
-) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-
-    DepositConstParams {
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-        encryption,
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-    
-    WithdrawConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-    }
-}
-
-fn get_xorshift_rng(seed: Option<String>) -> XSRng {
-    if let Some(seed) = seed {
-        let mut s = [0u8; 16];
-        hex::decode_to_slice(seed.as_bytes(), &mut s).expect("invalid seed");
-        XSRng(XorShiftRng::from_seed(s))
-    } else {
-        XSRng(XorShiftRng::from_rng(OsRng).unwrap())
-    }
-}
-
-struct XSRng(XorShiftRng);
-
-impl RngCore for XSRng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill_bytes(dest)
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
-        self.0.try_fill_bytes(dest)
-    }
-}
-
-impl CryptoRng for XSRng {}
-
+#[cfg(feature = "poseidon")]
 struct MerkleTree<'a> {
     params: &'a PoseidonParameters<Fr>,
     height: usize,
@@ -173,6 +82,7 @@ struct MerkleTree<'a> {
     blank: Vec<Fr>,
 }
 
+#[cfg(feature = "poseidon")]
 impl<'a> MerkleTree<'a> {
     fn new(height: usize, params: &'a PoseidonParameters<Fr>) -> Self {
         let mut nodes = Vec::with_capacity(height);
@@ -235,24 +145,20 @@ impl<'a> MerkleTree<'a> {
 #[clap(name = "Soda Maze Setup", version = "0.0.1", about = "Soda Maze Setup Benchmark.", long_about = "")]
 enum Opt {
     ProveDeposit {
-        #[clap(long, short = 's', value_parser)]
-        seed: Option<String>,
         #[clap(long, value_parser, default_value = "21")]
         height: usize,
         #[clap(long = "deposit-amount", value_parser, default_value = "1")]
         deposit_amount: u64,
         #[clap(long = "leaf-index", value_parser, default_value = "0")]
         leaf_index: u64,
-        #[clap(long = "rabin-path", parse(from_os_str))]
-        rabin_path: Option<PathBuf>,
+        #[clap(long = "viewing-pubkey", value_parser)]
+        pubkey: Option<String>,
         #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[clap(long = "proof-path", parse(from_os_str))]
         proof_path: PathBuf,
     },
     ProveWithdraw {
-        #[clap(long, short = 's', value_parser)]
-        seed: Option<String>,
         #[clap(long, value_parser, default_value = "21")]
         height: usize,
         #[clap(long = "balance", value_parser, default_value = "1")]
@@ -263,6 +169,8 @@ enum Opt {
         src_index: u64,
         #[clap(long = "dst-index", value_parser, default_value = "1")]
         dst_index: u64,
+        #[clap(long = "viewing-pubkey", value_parser)]
+        pubkey: Option<String>,
         #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[clap(long = "proof-path", parse(from_os_str))]
@@ -287,42 +195,25 @@ fn main() {
 
     match opt {
         Opt::ProveDeposit {
-            seed,
             height,
             deposit_amount,
             leaf_index,
-            rabin_path,
+            pubkey,
             pk_path,
             proof_path,
         } => {
             let start_time = std::time::SystemTime::now();
+            let rng = &mut OsRng;
 
-            let const_params = rabin_path.as_ref().map(|rabin_path| {
-                let params = RabinParameters::from_file(&rabin_path).expect("read rabin params from file error");
-                get_encryption_const_params(params)
+            let pubkey = pubkey.map(|pubkey| {
+                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
             });
-            let const_params = get_deposit_const_params(
+            let const_params = gen_deposit_const_params(
                 height,
-                const_params,
+                pubkey,
             );
-
-            let rabin_orig_in = rabin_path.map(|rabin_path| {
-                let params = RabinParameters::from_file(&rabin_path).expect("read rabin params from file error");
-                let mut leaf_len = <FrParameters as FpParameters>::MODULUS_BITS as usize / params.bit_size;
-                if <FrParameters as FpParameters>::MODULUS_BITS as usize % params.bit_size != 0 {
-                    leaf_len += 1;
-                }
-                
-                let padding_array = (0..params.modulus_len - leaf_len).into_iter().map(|_| {
-                    use num_bigint_dig::RandBigInt;
-                    let r = OsRng.gen_biguint(params.bit_size);
-                    BigUint::from_bytes_le(&r.to_bytes_le())
-                }).collect::<Vec<_>>();
-
-                EncryptionOriginInputs { padding_array }
-            });
             
-            let secret = Fr::rand(&mut OsRng);
+            let secret = Fr::rand(rng);
             let merkle_tree = MerkleTree::new(height, &const_params.inner_params);
             let neighbor_nodes = merkle_tree.blank.clone();
 
@@ -331,30 +222,29 @@ fn main() {
                 deposit_amount,
                 secret,
                 neighbor_nodes,
-                encryption: rabin_orig_in,
+                commit: pubkey.and(Some(CommitOriginInputs { nonce: Frr::rand(rng) })),
             };
-            
-            let pk = read_from_file::<MazeProvingKey>(&pk_path);
+
+            let pk = borsh_de_from_file::<MazeProvingKey>(&pk_path).expect("invalid proving key file");
             let pk = pk.into();
             let (pub_in, priv_in) =
                 DepositVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
                     .expect("generate vanilla proof failed");
-
-            let mut rng = get_xorshift_rng(seed);
             let proof =
-                DepositInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
-            let cipher_array = pub_in.encryption
-                .map(|e| {
-                    e.cipher_field_array.iter().map(|c| to_hex(c)).collect::<Vec<_>>()
-                });
+                DepositInstant::generate_snark_proof(rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
+
             let proof_data = DepositProofData {
                 deposit_amount,
-                prev_root: to_hex(&pub_in.prev_root),
-                leaf: to_hex(&pub_in.leaf),
+                prev_root: to_hex_string(&pub_in.prev_root).unwrap(),
+                leaf: to_hex_string(&pub_in.leaf).unwrap(),
                 leaf_index: pub_in.leaf_index,
-                update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
-                cipher_array,
-                proof: to_hex(&proof),
+                update_nodes: pub_in.update_nodes.iter().map(|n| {
+                    to_hex_string(n).unwrap()
+                }).collect(),
+                commitment: pub_in.commit.as_ref().map(|commit| {
+                    to_hex_string(&commit.commitment).unwrap()
+                }),
+                proof: to_hex_string(&proof).unwrap(),
             };
             proof_data.to_file(&proof_path).expect("write proof data to file error");
 
@@ -362,25 +252,33 @@ fn main() {
             println!("proof time: {:?}", duration);
         }
         Opt::ProveWithdraw {
-            seed,
             height,
             balance,
             withdraw_amount,
             src_index,
             dst_index,
+            pubkey,
             pk_path,
             proof_path,
         } => {
             let start_time = std::time::SystemTime::now();
+            let rng = &mut OsRng;
 
-            let const_params = get_withdraw_const_params(height);
+            let pubkey = pubkey.map(|pubkey| {
+                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+            });
+            let const_params = gen_withdraw_const_params(
+                height,
+                pubkey,
+            );
+
             let mut merkle_tree = MerkleTree::new(height, &const_params.inner_params);
-            let receiver = Fr::rand(&mut OsRng);
-            let secret = Fr::rand(&mut OsRng);
+            let receiver = Fr::rand(rng);
+            let secret = Fr::rand(rng);
             let src_leaf = PoseidonHasher::hash(
                 &const_params.leaf_params,
                 &[Fr::from(src_index), Fr::from(balance), secret],
-            ).expect("hash failed");
+            ).unwrap();
             merkle_tree.add_leaf(src_index, src_leaf);
             let src_neighbor_nodes = merkle_tree.get_neighbors(src_index);
             let dst_neighbor_nodes = merkle_tree.get_neighbors(dst_index);
@@ -394,25 +292,30 @@ fn main() {
                 secret,
                 src_neighbor_nodes,
                 dst_neighbor_nodes,
+                commit: pubkey.and(Some(CommitOriginInputs { nonce: Frr::rand(rng) })),
             };
 
-            let pk = read_from_file::<MazeProvingKey>(&pk_path);
+            let pk = borsh_de_from_file::<MazeProvingKey>(&pk_path).expect("invalid proving key file");
             let pk = pk.into();
             let (pub_in, priv_in)
                 = WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs).expect("generate vanilla proof failed");
-
-            let mut rng = get_xorshift_rng(seed);
             let proof =
-                WithdrawInstant::generate_snark_proof(&mut rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
+                WithdrawInstant::generate_snark_proof(rng, &const_params, &pub_in, &priv_in, &pk).expect("generate snark proof failed");
+            
             let proof_data = WithdrawProofData {
                 withdraw_amount: pub_in.withdraw_amount,
-                receiver: to_hex(&pub_in.receiver), 
-                nullifier: to_hex(&pub_in.nullifier),
-                prev_root: to_hex(&pub_in.prev_root),
+                receiver: to_hex_string(&pub_in.receiver).unwrap(), 
+                prev_root: to_hex_string(&pub_in.prev_root).unwrap(),
                 dst_leaf_index: pub_in.dst_leaf_index,
-                dst_leaf: to_hex(&pub_in.dst_leaf),
-                update_nodes: pub_in.update_nodes.iter().map(|n| to_hex(n)).collect(),
-                proof: to_hex(&proof),
+                dst_leaf: to_hex_string(&pub_in.dst_leaf).unwrap(),
+                nullifier_point: to_hex_string(&pub_in.nullifier_point).unwrap(),
+                update_nodes: pub_in.update_nodes.iter().map(|n| {
+                    to_hex_string(n).unwrap()
+                }).collect(),
+                commitment: pub_in.commit.as_ref().map(|commit| {
+                    to_hex_string(&commit.commitment).unwrap()
+                }),
+                proof: to_hex_string(&proof).unwrap(),
             };
             proof_data.to_file(&proof_path).expect("write proof data to file error");
 
@@ -425,26 +328,25 @@ fn main() {
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
+            let vk = borsh_de_from_file::<MazeVerifyingKey>(&vk_path).expect("invalid verifying key file");
             let vk = vk.into();
             let proof_data = DepositProofData::from_file(&proof_path).expect("read proof data from file error");
 
-            let proof = from_hex(proof_data.proof);
-            let cipher_field_array = proof_data.cipher_array
-                .map(|c| {
-                    c.into_iter().map(|s| from_hex(s)).collect::<Vec<_>>()
-                });
-            let encryption = cipher_field_array.map(|c| {
-                EncryptionPublicInputs { cipher_field_array: c }
-            });
             let pub_in = DepositPublicInputs {
                 leaf_index: proof_data.leaf_index,
                 deposit_amount: proof_data.deposit_amount,
-                leaf: from_hex(proof_data.leaf),
-                prev_root: from_hex(proof_data.prev_root),
-                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
-                encryption,
+                leaf: from_hex_string(proof_data.leaf).expect("invalid leaf string"),
+                prev_root: from_hex_string(proof_data.prev_root).expect("invalid prev root string"),
+                update_nodes: proof_data.update_nodes.into_iter().map(|n| {
+                    from_hex_string(n).expect("invalid node string")
+                }).collect(),
+                commit: proof_data.commitment.map(|commitment| {
+                    CommitPublicInputs {
+                        commitment: from_hex_string(commitment).expect("invalid commitment string"),
+                    }
+                }),
             };
+            let proof = from_hex_string(proof_data.proof).expect("invalid proof string");
 
             let result = DepositInstant::verify_snark_proof(&pub_in, &proof, &vk)
                 .expect("verify snark proof failed");
@@ -460,8 +362,8 @@ fn main() {
             println!("proof a");
             println!("-----------------------------------------------------");
             println!("G1Affine254::new_const(");
-            println!("    Fq::new(BigInteger::new({:?})),", proof.a.x.0.0);
-            println!("    Fq::new(BigInteger::new({:?})),", proof.a.y.0.0);
+            println!("    Fr::new(BigInteger::new({:?})),", proof.a.x.0.0);
+            println!("    Fr::new(BigInteger::new({:?})),", proof.a.y.0.0);
             println!("    {}", proof.a.infinity);
             println!(")");
             println!("-----------------------------------------------------");
@@ -469,13 +371,13 @@ fn main() {
             println!("proof b");
             println!("-----------------------------------------------------");
             println!("G2Affine254::new_const(");
-            println!("    Fq2::new_const(");
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
+            println!("    Fr2::new_const(");
+            println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c0.0.0);
+            println!("        Fr::new(BigInteger::new({:?})),", proof.b.x.c1.0.0);
             println!("    ),");
-            println!("    Fq2::new_const(");
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
-            println!("        Fq::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
+            println!("    Fr2::new_const(");
+            println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c0.0.0);
+            println!("        Fr::new(BigInteger::new({:?})),", proof.b.y.c1.0.0);
             println!("    ),");
             println!("    {}", proof.b.infinity);
             println!(")");
@@ -484,8 +386,8 @@ fn main() {
             println!("proof c");
             println!("-----------------------------------------------------");
             println!("G1Affine254::new_const(");
-            println!("    Fq::new(BigInteger::new({:?})),", proof.c.x.0.0);
-            println!("    Fq::new(BigInteger::new({:?})),", proof.c.y.0.0);
+            println!("    Fr::new(BigInteger::new({:?})),", proof.c.x.0.0);
+            println!("    Fr::new(BigInteger::new({:?})),", proof.c.y.0.0);
             println!("    {}", proof.c.infinity);
             println!(")");
             println!("-----------------------------------------------------");
@@ -509,13 +411,13 @@ fn main() {
             println!("]");
             println!("-----------------------------------------------------");
 
-            println!("encryption");
+            println!("commitment");
             println!("-----------------------------------------------------");
-            println!("[");
-            pub_in.encryption.as_ref().unwrap().cipher_field_array.iter().for_each(|p| {
-                println!("    BigInteger::new({:?})", p.into_repr().0);
-            });
-            println!("]");
+            let commitment = pub_in.commit.as_ref().unwrap().commitment;
+            println!("BigInteger::new({:?})", commitment.0.x.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.0.y.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.1.x.into_repr().0);
+            println!("BigInteger::new({:?})", commitment.1.y.into_repr().0);
             println!("-----------------------------------------------------");
         },
         Opt::VerifyWithdraw {
@@ -524,20 +426,27 @@ fn main() {
         } => {
             let start_time = std::time::SystemTime::now();
 
-            let vk = read_from_file::<MazeVerifyingKey>(&vk_path);
+            let vk = borsh_de_from_file::<MazeVerifyingKey>(&vk_path).expect("invalid verifying key file");
             let vk = vk.into();
             let proof_data = WithdrawProofData::from_file(&proof_path).expect("read proof data from file error");
 
-            let proof = from_hex(proof_data.proof);
             let pub_in = WithdrawPublicInputs {
                 withdraw_amount: proof_data.withdraw_amount,
-                receiver: from_hex(proof_data.receiver),
-                nullifier: from_hex(proof_data.nullifier),
-                prev_root: from_hex(proof_data.prev_root),
+                receiver: from_hex_string(proof_data.receiver).expect("invalid receiver string"),
+                prev_root: from_hex_string(proof_data.prev_root).expect("invalid prev root string"),
                 dst_leaf_index: proof_data.dst_leaf_index,
-                dst_leaf: from_hex(proof_data.dst_leaf),
-                update_nodes: proof_data.update_nodes.into_iter().map(|n| from_hex(n)).collect(),
+                dst_leaf: from_hex_string(proof_data.dst_leaf).expect("invalid dst leaf string"),
+                nullifier_point: from_hex_string(proof_data.nullifier_point).expect("invalid nullifier string"),
+                update_nodes: proof_data.update_nodes.into_iter().map(|n| {
+                    from_hex_string(n).expect("invalid node string")
+                }).collect(),
+                commit: proof_data.commitment.map(|commitment| {
+                    CommitPublicInputs {
+                        commitment: from_hex_string(commitment).expect("invalid commitment string"),
+                    }
+                }),
             };
+            let proof = from_hex_string(proof_data.proof).expect("invalid proof string");
 
             let result = WithdrawInstant::verify_snark_proof(&pub_in, &proof, &vk)
                 .expect("verify snark proof failed");

@@ -1,103 +1,92 @@
-use std::{fs::OpenOptions, path::PathBuf, io::Write};
-use borsh::BorshSerialize;
-use ark_ff::PrimeField;
-use ark_ec::AffineCurve;
-use ark_groth16::PreparedVerifyingKey;
+use std::{fs::OpenOptions, path::PathBuf, io::{Write, Result}};
+use ark_ec::{AffineCurve, ProjectiveCurve, models::twisted_edwards_extended::{GroupAffine, GroupProjective}};
+use ark_ff::{PrimeField, UniformRand};
 use ark_crypto_primitives::snark::*;
-use num_integer::Integer;
-use num_bigint::BigUint;
-use num_bigint_dig::BigUint as BigUintDig;
-use rand_core::{CryptoRng, RngCore, SeedableRng, OsRng};
-use rand_xorshift::XorShiftRng;
+use ark_groth16::{Groth16, PreparedVerifyingKey};
 use clap::Parser;
-use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
-use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
-use soda_maze_lib::vanilla::deposit::DepositConstParams;
-use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
-use soda_maze_lib::vanilla::encryption::{EncryptionConstParams, biguint_to_biguint_array};
 use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
-use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
+use soda_maze_types::parser::{to_hex_string, from_hex_string, borsh_se_to_file};
+use soda_maze_types::params::{gen_deposit_const_params, gen_withdraw_const_params};
+use soda_maze_types::rand::get_xorshift_rng;
+
+#[cfg(feature = "poseidon")]
+use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
+#[cfg(feature = "poseidon")]
+use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
+#[cfg(feature = "bn254")]
+use ark_ed_on_bn254::{EdwardsParameters, Fr as Frr};
 #[cfg(feature = "bls12-381")]
 use ark_bls12_381::{Bls12_381, Fr};
+#[cfg(feature = "bls12-381")]
+use ark_ed_on_bls12_381::{EdwardsParameters, Fr as Frr};
 
-#[cfg(feature = "groth16")]
-use ark_groth16::Groth16;
+#[cfg(all(feature = "bn254", feature = "poseidon"))]
+type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon"))]
+type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type DepositInstant = DepositProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
+#[cfg(all(feature = "bn254", feature = "poseidon"))]
+type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+#[cfg(all(feature = "bls12-381", feature = "poseidon"))]
+type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
 
-#[cfg(all(feature = "bn254", feature = "poseidon", feature = "groth16"))]
-type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
-#[cfg(all(feature = "bls12-381", feature = "poseidon", feature = "groth16"))]
-type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bls12_381>>;
-
-fn write_to_file<Se: BorshSerialize>(path: &PathBuf, data: &Se) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(path)
-        .unwrap();
-    data.serialize(&mut file).expect("serialize failed");
-}
-
-fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> std::io::Result<()> {
+#[cfg(feature = "bn254")]
+fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(path)?;
 
-    writeln!(&mut file, "use crate::{{params::bn::{{G1Projective254, Fq, G1Affine254, G2Prepared254, Fq2, Fqk254, Fq6}}, bn::BigInteger256 as BigInteger}};\n")?;
+    writeln!(&mut file, "use crate::{{params::bn::{{G1Projective254, Fr, G1Affine254, G2Prepared254, Fr2, Frk254, Fr6}}, bn::BigInteger256 as BigInteger}};\n")?;
 
     let g_ic_init = pvk.vk.gamma_abc_g1[0].into_projective();
     writeln!(&mut file, "pub const G_IC_INIT: &G1Projective254 = &G1Projective254::new_const(")?;
-    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.x.0.0)?;
-    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.y.0.0)?;
-    writeln!(&mut file, "    Fq::new(BigInteger::new({:?})),", g_ic_init.z.0.0)?;
+    writeln!(&mut file, "    Fr::new(BigInteger::new({:?})),", g_ic_init.x.0.0)?;
+    writeln!(&mut file, "    Fr::new(BigInteger::new({:?})),", g_ic_init.y.0.0)?;
+    writeln!(&mut file, "    Fr::new(BigInteger::new({:?})),", g_ic_init.z.0.0)?;
     writeln!(&mut file, ");\n")?;
         
     writeln!(&mut file, "pub const GAMMA_ABC_G1: &[G1Affine254] = &[")?;
     for g_ic in pvk.vk.gamma_abc_g1[1..].iter() {
         writeln!(&mut file, "    G1Affine254::new_const(")?;
-        writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.x.0.0)?;
-        writeln!(&mut file, "        Fq::new(BigInteger::new({:?})),", g_ic.y.0.0)?;
+        writeln!(&mut file, "        Fr::new(BigInteger::new({:?})),", g_ic.x.0.0)?;
+        writeln!(&mut file, "        Fr::new(BigInteger::new({:?})),", g_ic.y.0.0)?;
         writeln!(&mut file, "        {},", g_ic.infinity)?;
         writeln!(&mut file, "    ),")?;
     }
     writeln!(&mut file, "];\n")?;
 
-    writeln!(&mut file, "pub const ALPHA_G1_BETA_G2: &Fqk254 = &Fqk254::new_const(")?;
-    writeln!(&mut file, "    Fq6::new_const(")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
+    writeln!(&mut file, "pub const ALPHA_G1_BETA_G2: &Frk254 = &Frk254::new_const(")?;
+    writeln!(&mut file, "    Fr6::new_const(")?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c0.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c1.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c0.c2.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
     writeln!(&mut file, "    ),")?;
-    writeln!(&mut file, "    Fq6::new_const(")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c0.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c0.c1.0.0)?;
+    writeln!(&mut file, "    Fr6::new_const(")?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c0.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c0.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c1.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c1.c1.0.0)?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c1.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c1.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
-    writeln!(&mut file, "        Fq2::new_const(")?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c2.c0.0.0)?;
-    writeln!(&mut file, "            Fq::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c2.c1.0.0)?;
+    writeln!(&mut file, "        Fr2::new_const(")?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c2.c0.0.0)?;
+    writeln!(&mut file, "            Fr::new(BigInteger::new({:?})),", pvk.alpha_g1_beta_g2.c1.c2.c1.0.0)?;
     writeln!(&mut file, "        ),")?;
     writeln!(&mut file, "    ),")?;
     writeln!(&mut file, ");\n")?;
@@ -106,17 +95,17 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
     writeln!(&mut file, "    ell_coeffs: &[")?;
     for (a, b, c) in pvk.gamma_g2_neg_pc.ell_coeffs.iter() {
         writeln!(&mut file, "        (")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", a.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", b.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", c.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
         writeln!(&mut file, "       ),")?;
     }
@@ -128,17 +117,17 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
     writeln!(&mut file, "    ell_coeffs: &[")?;
     for (a, b, c) in pvk.delta_g2_neg_pc.ell_coeffs.iter() {
         writeln!(&mut file, "        (")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", a.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", a.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", a.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", b.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", b.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", b.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
-        writeln!(&mut file, "            Fq2::new_const(")?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c0.0.0)?;
-        writeln!(&mut file, "                Fq::new(BigInteger::new({:?})),", c.c1.0.0)?;
+        writeln!(&mut file, "            Fr2::new_const(")?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", c.c0.0.0)?;
+        writeln!(&mut file, "                Fr::new(BigInteger::new({:?})),", c.c1.0.0)?;
         writeln!(&mut file, "            ),")?;
         writeln!(&mut file, "        ),")?;
     }
@@ -149,107 +138,20 @@ fn write_pvk_to_rust_file(path: &PathBuf, pvk: &PreparedVerifyingKey<Bn254>) -> 
     file.flush()
 }
 
-struct XSRng(XorShiftRng);
-
-impl RngCore for XSRng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill_bytes(dest)
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
-        self.0.try_fill_bytes(dest)
-    }
-}
-
-impl CryptoRng for XSRng {}
-
-fn get_xorshift_rng(seed: Option<String>) -> XorShiftRng {
-    if let Some(seed) = seed {
-        let mut s = [0u8; 16];
-        hex::decode_to_slice(seed.as_bytes(), &mut s).expect("invalid seed");
-        XorShiftRng::from_seed(s)
-    } else {
-        XorShiftRng::from_rng(OsRng).unwrap()
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_encryption_const_params(params: RabinParameters) -> EncryptionConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-
-    let modulus = hex::decode(params.modulus).expect("modulus is an invalid hex string");
-    let modulus = BigUint::from_bytes_le(&modulus);
-    let modulus_array = biguint_to_biguint_array(modulus, params.modulus_len, params.bit_size);
-
-    EncryptionConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        modulus_array,
-        modulus_len: params.modulus_len,
-        bit_size: params.bit_size,
-        cipher_batch: params.cipher_batch,
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_deposit_const_params(
-    height: usize,
-    encryption: Option<EncryptionConstParams<Fr, PoseidonHasher<Fr>>>,
-) -> DepositConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-
-    DepositConstParams {
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-        encryption,
-    }
-}
-
-#[cfg(all(feature = "poseidon", feature = "bn254"))]
-fn get_withdraw_const_params(height: usize) -> WithdrawConstParams<Fr, PoseidonHasher<Fr>> {
-    use soda_maze_lib::params::poseidon::*;
-    
-    WithdrawConstParams {
-        nullifier_params: get_poseidon_bn254_for_nullifier(),
-        leaf_params: get_poseidon_bn254_for_leaf(),
-        inner_params: get_poseidon_bn254_for_merkle(),
-        height,
-    }
-}
-
-
 #[derive(Parser, Debug)]
 #[clap(name = "Soda Maze Gen Parameters", version = "0.0.1", about = "Soda Maze Gen Parameters Benchmark.", long_about = "")]
 enum Opt {
-    GenRabinParam {
+    GenViewingKey {
         #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[clap(long = "bit-size", value_parser, default_value = "124")]
-        bit_size: usize,
-        #[clap(long = "prime-len", value_parser, default_value = "12")]
-        prime_len: usize,
-        #[clap(long = "cipher-batch", value_parser, default_value = "2")]
-        cipher_batch: usize,
-        #[clap(long = "prime-path", parse(from_os_str))]
-        prime_path: PathBuf,
-        #[clap(long = "param-path", parse(from_os_str))]
-        param_path: PathBuf,
     },
     SetupDeposit {
         #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[clap(long, short = 'h', value_parser, default_value = "21")]
+        #[clap(long, value_parser, default_value = "21")]
         height: usize,
-        #[clap(long = "rabin-path", parse(from_os_str))]
-        rabin_path: Option<PathBuf>,
+        #[clap(long = "viewing-pubkey", value_parser)]
+        pubkey: Option<String>,
         #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[clap(long = "vk-path", parse(from_os_str))]
@@ -260,8 +162,10 @@ enum Opt {
     SetupWithdraw {
         #[clap(long, short = 's', value_parser)]
         seed: Option<String>,
-        #[clap(long, short = 'h', value_parser, default_value = "21")]
+        #[clap(long, value_parser, default_value = "21")]
         height: usize,
+        #[clap(long = "viewing-pubkey", value_parser)]
+        pubkey: Option<String>,
         #[clap(long = "pk-path", parse(from_os_str))]
         pk_path: PathBuf,
         #[clap(long = "vk-path", parse(from_os_str))]
@@ -275,84 +179,36 @@ fn main() {
     let opt = Opt::parse();
 
     match opt {
-        Opt::GenRabinParam {
-            seed,
-            bit_size,
-            prime_len,
-            cipher_batch,
-            prime_path,
-            param_path,
-        } => {
-            use num_bigint_dig::RandPrime;
+        Opt::GenViewingKey { seed } => {
+            let rng = &mut get_xorshift_rng(seed);
 
-            let mut rng = get_xorshift_rng(seed);
-            let bit_len = bit_size * prime_len;
+            let privkey = Frr::rand(rng);
+            let privkey_int: <Frr as PrimeField>::BigInt = privkey.into();
+            let generator = GroupProjective::<EdwardsParameters>::prime_subgroup_generator();
+            let pubkey: GroupAffine<_> = generator.mul(&privkey_int).into();
 
-            let (p1, p2): (BigUintDig, BigUintDig);
-            let div = BigUintDig::from(4u64);
-            let rem = BigUintDig::from(3u64);
-            loop {
-                let v = rng.gen_prime(bit_len);
-                let (_, r) = v.div_rem(&div);
-                if &r == &rem {
-                    p1 = v;
-                    break;
-                }
-            };
-            loop {
-                let v = rng.gen_prime(bit_len);
-                let (_, r) = v.div_rem(&div);
-                if &r == &rem {
-                    p2 = v;
-                    break;
-                }
-            };
-            let modulus = &p1 * &p2;
-
-            let primes = RabinPrimes {
-                prime_a: hex::encode(p1.to_bytes_le()),
-                prime_b: hex::encode(p2.to_bytes_le()),
-            };
-            primes.to_file(&prime_path).expect("write rabin primes to file error");
-    
-            let modulus = BigUint::from_bytes_le(&modulus.to_bytes_le());
-            let modulus_array = biguint_to_biguint_array(modulus.clone(), prime_len * 2, bit_size);
-            modulus_array.chunks(cipher_batch).for_each(|chunk| {
-                let mut base = BigUint::from(1u64);
-                let val = chunk.iter().fold(BigUint::from(0u64), |sum, s| {
-                    let sum = &sum + s * &base;
-                    base <<= bit_size;
-                    sum
-                });
-                let val = Fr::from(val).into_repr();
-                println!("    BigInteger::new({:?}),", &val.0);
-            });
-
-            let rabin_parameters = RabinParameters {
-                modulus: hex::encode(modulus.to_bytes_le()),
-                modulus_len: prime_len * 2,
-                bit_size,
-                cipher_batch,
-            };
-            rabin_parameters.to_file(&param_path).expect("write rabin paramters to file error");
+            println!("private key: {}", to_hex_string(&privkey).unwrap());
+            println!("public key: {}", to_hex_string(&pubkey).unwrap());
         },
         Opt::SetupDeposit {
             seed,
             height,
-            rabin_path,
+            pubkey,
             pk_path,
             vk_path,
             pvk_path,
         } => {
-            let const_params = rabin_path.map(|rabin_path| {
-                let params = RabinParameters::from_file(&rabin_path).expect("read rabin paramters from file error");
-                get_encryption_const_params(params)
+            let pubkey = pubkey.map(|pubkey| {
+                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
             });
-            let const_params = get_deposit_const_params(height, const_params);
+            let const_params = gen_deposit_const_params(
+                height,
+                pubkey,
+            );
 
-            let mut rng = XSRng(get_xorshift_rng(seed));
+            let rng = &mut get_xorshift_rng(seed);
             let (pk, vk) =
-                DepositInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
+                DepositInstant::parameters_setup(rng, &const_params).expect("parameters setup failed");
 
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
             write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
@@ -360,21 +216,28 @@ fn main() {
             let pk = MazeProvingKey::from(pk);
             let vk = MazeVerifyingKey::from(vk);
 
-            write_to_file(&pk_path, &pk);
-            write_to_file(&vk_path, &vk);
+            borsh_se_to_file(&pk, &pk_path).unwrap();
+            borsh_se_to_file(&vk, &vk_path).unwrap();
         }
         Opt::SetupWithdraw {
             height,
             seed,
+            pubkey,
             pk_path,
             vk_path,
             pvk_path,
         } => {
-            let const_params = get_withdraw_const_params(height);
+            let pubkey = pubkey.map(|pubkey| {
+                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+            });
+            let const_params = gen_withdraw_const_params(
+                height,
+                pubkey,
+            );
             
-            let mut rng = XSRng(get_xorshift_rng(seed));
+            let rng = &mut get_xorshift_rng(seed);
             let (pk, vk) =
-                WithdrawInstant::parameters_setup(&mut rng, &const_params).expect("parameters setup failed");
+                WithdrawInstant::parameters_setup(rng, &const_params).expect("parameters setup failed");
 
             let pvk = <Groth16<Bn254> as SNARK<Fr>>::process_vk(&vk).unwrap();
             write_pvk_to_rust_file(&pvk_path, &pvk).expect("write pvk to file error");
@@ -382,8 +245,8 @@ fn main() {
             let pk = MazeProvingKey::from(pk);
             let vk = MazeVerifyingKey::from(vk);
             
-            write_to_file(&pk_path, &pk);
-            write_to_file(&vk_path, &vk);
+            borsh_se_to_file(&pk, &pk_path).unwrap();
+            borsh_se_to_file(&vk, &vk_path).unwrap();
         }
     }
 }

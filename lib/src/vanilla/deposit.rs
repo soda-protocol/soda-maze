@@ -5,7 +5,7 @@ use ark_ff::PrimeField;
 use num_traits::Zero;
 
 use super::{hasher::FieldHasher, VanillaProof, merkle::gen_merkle_path};
-use super::jubjub::{self, JubjubConstParams, JubjubOriginInputs, JubjubPrivateInputs, JubjubPublicInputs};
+use super::commit::{self, CommitConstParams, CommitOriginInputs, CommitPrivateInputs, CommitPublicInputs};
 
 #[derive(Default)]
 pub struct DepositVanillaProof<P, FH>
@@ -28,7 +28,7 @@ where
     pub leaf_params: Rc<FH::Parameters>,
     pub inner_params: Rc<FH::Parameters>,
     pub height: usize,
-    pub jubjub: Option<JubjubConstParams<P, FH>>,
+    pub commit: Option<CommitConstParams<P, FH>>,
 }
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub struct DepositOriginInputs<P: TEModelParameters> {
     pub deposit_amount: u64,
     pub secret: P::BaseField,
     pub neighbor_nodes: Vec<P::BaseField>,
-    pub jubjub: Option<JubjubOriginInputs<P>>,
+    pub commit: Option<CommitOriginInputs<P>>,
 }
 
 #[derive(Debug)]
@@ -47,14 +47,14 @@ pub struct DepositPublicInputs<P: TEModelParameters> {
     pub leaf: P::BaseField,
     pub prev_root: P::BaseField,
     pub update_nodes: Vec<P::BaseField>,
-    pub jubjub: Option<JubjubPublicInputs<P>>,
+    pub commit: Option<CommitPublicInputs<P>>,
 }
 
 #[derive(Debug)]
 pub struct DepositPrivateInputs<P: TEModelParameters> {
     pub secret: P::BaseField,
     pub neighbor_nodes: Vec<(bool, P::BaseField)>,
-    pub jubjub: Option<JubjubPrivateInputs>,
+    pub commit: Option<CommitPrivateInputs>,
 }
 
 impl<P, FH> VanillaProof<P::BaseField> for DepositVanillaProof<P, FH>
@@ -74,7 +74,7 @@ where
             deposit_amount: 1,
             secret: P::BaseField::zero(),
             neighbor_nodes: vec![FH::empty_hash(); params.height],
-            jubjub: params.jubjub.as_ref().and(Some(JubjubOriginInputs {
+            commit: params.commit.as_ref().and(Some(CommitOriginInputs {
                 nonce: P::ScalarField::zero(),
             })),
         };
@@ -120,15 +120,15 @@ where
             leaf,
         ).map_err(|e| anyhow!("gen merkle path error: {:?}", e))?;
 
-        let jubjub = params.jubjub
+        let commit = params.commit
             .as_ref()
-            .zip(orig_in.jubjub.as_ref())
+            .zip(orig_in.commit.as_ref())
             .map(|(params, jj_orig_in)| {
-                jubjub::generate_vanilla_proof(params, jj_orig_in, orig_in.leaf_index, orig_in.secret)
+                commit::generate_vanilla_proof(params, jj_orig_in, orig_in.leaf_index, orig_in.secret)
             })
             .transpose()?;
         let (jj_pub_in, jj_priv_in) =
-            if let Some((pub_in, priv_in)) = jubjub {
+            if let Some((pub_in, priv_in)) = commit {
                 (Some(pub_in), Some(priv_in))
             } else {
                 (None, None)
@@ -140,12 +140,12 @@ where
             leaf,
             prev_root,
             update_nodes,
-            jubjub: jj_pub_in,
+            commit: jj_pub_in,
         };
         let priv_in = DepositPrivateInputs {
             secret: orig_in.secret,
             neighbor_nodes,
-            jubjub: jj_priv_in,
+            commit: jj_priv_in,
         };
 
         Ok((pub_in, priv_in))

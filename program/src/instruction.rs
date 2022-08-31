@@ -9,10 +9,10 @@ use crate::{
     core::{
         nullifier::get_nullifier_pda,
         credential::{get_deposit_credential_pda, get_withdraw_credential_pda},
-        commitment::get_commitment_pda,
+        commitment::{get_commitment_pda, InnerCommitment},
         vault::{get_vault_pda, get_vault_authority_pda},
         node::{get_merkle_node_pda, gen_merkle_path_from_leaf_index},
-        utxo::get_utxo_pda,
+        utxo::get_utxo_pda, GroupAffine,
     },
     error::MazeError,
 };
@@ -24,9 +24,9 @@ pub enum MazeInstruction {
         deposit_amount: u64,
         leaf: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
+        commitment: InnerCommitment,
     },
     CreateDepositVerifier {
-        commitment: Box<Vec<BigInteger>>,
         proof: Box<Proof>,
     },
     VerifyDepositProof,
@@ -37,9 +37,10 @@ pub enum MazeInstruction {
     CreateWithdrawCredential {
         withdraw_amount: u64,
         receiver: Pubkey,
-        nullifier: BigInteger,
+        nullifier: GroupAffine,
         leaf: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
+        commitment: InnerCommitment,
     },
     CreateWithdrawVerifier {
         proof: Box<Proof>,
@@ -131,6 +132,7 @@ pub fn create_deposit_credential(
     deposit_amount: u64,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
+    commitment: InnerCommitment,
 ) -> Result<Instruction, MazeError> {
     let (credential, _) = get_deposit_credential_pda(&vault, &depositor, &ID);
 
@@ -138,6 +140,7 @@ pub fn create_deposit_credential(
         deposit_amount,
         leaf,
         updating_nodes,
+        commitment,
     }.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
 
     Ok(Instruction {
@@ -156,14 +159,12 @@ pub fn create_deposit_credential(
 pub fn create_deposit_verifier(
     vault: Pubkey,
     depositor: Pubkey,
-    commitment: Box<Vec<BigInteger>>,
     proof: Box<Proof>,
 ) -> Result<Instruction, MazeError> {
     let (credential, _) = get_deposit_credential_pda(&vault, &depositor, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
     
     let data = MazeInstruction::CreateDepositVerifier {
-        commitment,
         proof,
     }.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
 
@@ -284,9 +285,10 @@ pub fn create_withdraw_credential(
     receiver: Pubkey,
     delegator: Pubkey,
     withdraw_amount: u64,
-    nullifier: BigInteger,
+    nullifier: GroupAffine,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
+    commitment: InnerCommitment,
 ) -> Result<Instruction, MazeError> {
     let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
 
@@ -296,6 +298,7 @@ pub fn create_withdraw_credential(
         nullifier,
         leaf,
         updating_nodes,
+        commitment,
     }.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
 
     Ok(Instruction {
@@ -363,7 +366,7 @@ pub fn finalize_withdraw(
     receiver: Pubkey,
     delegator: Pubkey,
     leaf_index: u64,
-    nullifier: BigInteger,
+    nullifier: GroupAffine,
     utxo: [u8; 32],
     balance_cipher: u128,
 ) -> Result<Instruction, MazeError> {

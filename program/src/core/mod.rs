@@ -10,27 +10,38 @@ pub mod utxo;
 use std::fmt::Debug;
 use arrayref::array_refs;
 use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::{entrypoint::ProgramResult, hash::hash, pubkey::Pubkey};
+use solana_program::{hash::hash, pubkey::Pubkey};
 
 use crate::bn::{BigInteger256 as BigInteger, FpParameters};
 use crate::params::bn::FrParameters;
 use crate::params::{verify::ProofType, verify::PreparedVerifyingKey};
 use crate::verifier::{Proof, Verifier, program::Program, prepare_inputs::PrepareInputs};
 
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+pub struct GroupAffine {
+    pub x: BigInteger,
+    pub y: BigInteger,
+}
+
 #[inline]
-pub fn pubkey_to_fr_repr(pubkey: &Pubkey) -> [u64; 4] {
+pub fn is_affine_valid(point: &GroupAffine) -> bool {
+    is_fr_valid(&point.x) && is_fr_valid(&point.y)
+}
+
+#[inline]
+pub fn pubkey_to_fr_repr(pubkey: &Pubkey) -> BigInteger {
     let h = hash(pubkey.as_ref()).to_bytes();
     let (d0, d1, d2, d3) = array_refs![&h, 8, 8, 8, 8];    
     
-    [
+    BigInteger::new([
         u64::from_le_bytes(*d0),
         u64::from_le_bytes(*d1),
         u64::from_le_bytes(*d2),
         u64::from_le_bytes(*d3) & ((1u64 << 61) - 1),
-    ]
+    ])
 }
 
-#[inline(always)]
+#[inline]
 pub fn is_fr_valid(fr: &BigInteger) -> bool {
     fr < &<FrParameters as FpParameters>::MODULUS
 }
@@ -38,10 +49,8 @@ pub fn is_fr_valid(fr: &BigInteger) -> bool {
 pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
     const PROOF_TYPE: ProofType;
     const PVK: &'static PreparedVerifyingKey<'static> = Self::PROOF_TYPE.pvk();
-    const INPUTS_LEN: usize = Self::PROOF_TYPE.inputs_len();
+    const INPUTS_LEN: usize;
     const SIZE: usize;
-
-    fn check_valid(&self) -> ProgramResult;
 
     fn to_public_inputs(self) -> Box<Vec<BigInteger>>;
 

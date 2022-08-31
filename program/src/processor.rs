@@ -10,8 +10,9 @@ use crate::{
     verifier::{Proof, Verifier, get_verifier_pda},
     core::{
         VanillaData,
+        GroupAffine,
         nullifier::{get_nullifier_pda, Nullifier},
-        commitment::{get_commitment_pda, Commitment},
+        commitment::{get_commitment_pda, Commitment, InnerCommitment},
         credential::{get_deposit_credential_pda, get_withdraw_credential_pda},
         deposit::{DepositCredential, DepositVanillaData},
         withdraw::{WithdrawCredential, WithdrawVanillaData},
@@ -40,11 +41,11 @@ pub fn process_instruction(
             deposit_amount,
             leaf,
             updating_nodes,
-        } => process_create_deposit_credential(program_id, accounts, deposit_amount, leaf, updating_nodes),
-        MazeInstruction::CreateDepositVerifier {
             commitment,
+        } => process_create_deposit_credential(program_id, accounts, deposit_amount, leaf, updating_nodes, commitment),
+        MazeInstruction::CreateDepositVerifier {
             proof,
-        } => process_create_deposit_verifier(program_id, accounts, commitment, proof),
+        } => process_create_deposit_verifier(program_id, accounts, proof),
         MazeInstruction::VerifyDepositProof => process_verify_deposit_proof(program_id, accounts),
         MazeInstruction::FinalizeDeposit {
             utxo,
@@ -56,7 +57,8 @@ pub fn process_instruction(
             nullifier,
             leaf,
             updating_nodes,
-        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, receiver, nullifier, leaf, updating_nodes),
+            commitment,
+        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, receiver, nullifier, leaf, updating_nodes, commitment),
         MazeInstruction::CreateWithdrawVerifier {
             proof,
         } => process_create_withdraw_verifier(program_id, accounts, proof),
@@ -127,6 +129,7 @@ fn process_create_deposit_credential(
     deposit_amount: u64,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
+    commitment: InnerCommitment,
 ) -> ProgramResult {
     msg!("Creating deposit credential: deposit amount {}", deposit_amount);
 
@@ -161,16 +164,19 @@ fn process_create_deposit_credential(
         &[],
         &[seed_1, seed_2, seed_3, &seed_4],
     )?;
+
+    let vanilla_data = DepositVanillaData::new(
+        deposit_amount,
+        vault.index,
+        leaf,
+        vault.root,
+        updating_nodes,
+        commitment,
+    )?;
     let credential = DepositCredential::new(
         *vault_info.key,
         *depositor_info.key,
-        DepositVanillaData::new(
-            deposit_amount,
-            vault.index,
-            leaf,
-            vault.root,
-            updating_nodes,
-        ),
+        vanilla_data,
     );
     credential.initialize_to_account_info(credential_info)
 }
@@ -179,7 +185,6 @@ fn process_create_deposit_credential(
 fn process_create_deposit_verifier(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    commitment: Box<Vec<BigInteger>>,
     proof: Box<Proof>,
 ) -> ProgramResult {
     msg!("Creating deposit verifier");
@@ -196,7 +201,7 @@ fn process_create_deposit_verifier(
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
 
-    let mut credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
+    let credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
     if &credential.vault != vault_info.key {
         msg!("Vault pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
@@ -207,11 +212,6 @@ fn process_create_deposit_verifier(
     }
     // check consistency
     vault.check_consistency(credential.vanilla_data.leaf_index, &credential.vanilla_data.prev_root)?;
-    // fill commitment
-    credential.vanilla_data.fill_commitment(commitment)?;
-    // check if vanilla data is valid
-    credential.vanilla_data.check_valid()?;
-    credential.pack_to_account_info(credential_info)?;
 
     let (verifier_key, (seed_1, seed_2)) = get_verifier_pda(
         credential_info.key,
@@ -341,9 +341,7 @@ fn process_finalize_deposit(
         &[],
         &[&seed_1, &seed_2],
     )?;
-    // fill commitment 
-    let commitment = credential.vanilla_data.commitment.ok_or(MazeError::LackOfCommiment)?;
-    Commitment::new(commitment).initialize_to_account_info(commitment_info)?;
+    Commitment::new(credential.vanilla_data.commitment).initialize_to_account_info(commitment_info)?;
     
     // store uxto on chain
     let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo, program_id);
@@ -468,9 +466,10 @@ fn process_create_withdraw_credential(
     accounts: &[AccountInfo],
     withdraw_amount: u64,
     receiver: Pubkey,
-    nullifier: BigInteger,
+    nullifier: GroupAffine,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
+    commitment: InnerCommitment,
 ) -> ProgramResult {
     msg!("Creating withdraw credential: withdraw amount {}", withdraw_amount);
 
@@ -505,20 +504,22 @@ fn process_create_withdraw_credential(
         &[],
         &[seed_1, seed_2, seed_3, &seed_4],
     )?;
+
+    let vanilla_data = WithdrawVanillaData::new(
+        receiver,
+        withdraw_amount,
+        nullifier,
+        vault.index,
+        leaf,
+        vault.root,
+        updating_nodes,
+        commitment,
+    )?;
     let credential = WithdrawCredential::new(
         *vault_info.key,
         *delegator_info.key,
-        WithdrawVanillaData::new(
-            receiver,
-            withdraw_amount,
-            nullifier,
-            vault.index,
-            leaf,
-            vault.root,
-            updating_nodes,
-        ),
+        vanilla_data,
     );
-    credential.vanilla_data.check_valid()?;
     credential.initialize_to_account_info(credential_info)
 }
 
@@ -633,6 +634,7 @@ fn process_finalize_withdraw(
     let credential_info = next_account_info(accounts_iter)?;
     let verifier_info = next_account_info(accounts_iter)?;
     let nullifier_info = next_account_info(accounts_iter)?;
+    let commitment_info = next_account_info(accounts_iter)?;
     let vault_token_account_info = next_account_info(accounts_iter)?;
     let dst_token_account_info = next_account_info(accounts_iter)?;
     let delegator_token_account_info = next_account_info(accounts_iter)?;
@@ -679,7 +681,7 @@ fn process_finalize_withdraw(
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
     verifier.program.check_verified()?;
 
-    let (nullifier_key, (seed_1, seed_2)) = get_nullifier_pda(
+    let (nullifier_key, (seed_1, seed_2, seed_3)) = get_nullifier_pda(
         &credential.vanilla_data.nullifier,
         program_id,
     );
@@ -695,9 +697,28 @@ fn process_finalize_withdraw(
         program_id,
         Nullifier::LEN,
         &[],
+        &[&seed_1, &seed_2, &seed_3],
+    )?;
+    Nullifier::new(credential.vanilla_data.receiver).initialize_to_account_info(nullifier_info)?;
+
+    let (commitment_key, (seed_1, seed_2)) = get_commitment_pda(
+        &credential.vanilla_data.leaf,
+        program_id,
+    );
+    if &commitment_key != commitment_info.key {
+        return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    process_optimal_create_account(
+        rent_info,
+        commitment_info,
+        delegator_info,
+        system_program_info,
+        program_id,
+        Commitment::LEN,
+        &[],
         &[&seed_1, &seed_2],
     )?;
-    Nullifier::new().initialize_to_account_info(nullifier_info)?;
+    Commitment::new(credential.vanilla_data.commitment).initialize_to_account_info(commitment_info)?;
 
     process_optimal_create_token_account(
         rent_info,

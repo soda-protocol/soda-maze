@@ -16,10 +16,7 @@ ark-ec = "0.3.0"
 ark-std = "0.3.0"
 ark-crypto-primitives = "0.3.0"
 bitvec = "1.0.0"
-num-bigint = "0.4.3"
-num-integer = "0.1.45"
 num-traits = "0.2.14"
-num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 
 [dev-dependencies]
 ark-ed-on-bn254 = "0.3.0"

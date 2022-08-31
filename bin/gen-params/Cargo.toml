@@ -7,27 +7,23 @@ edition = "2021"
 
 [dependencies]
 soda-maze-lib = { path = "../../lib" }
-soda-maze-types = { path = "../../types" }
+soda-maze-types = { path = "../../types", optional = true }
 borsh = "0.9.3"
 clap = { version = "3.2", features = ["std", "color", "derive"] }
 ark-std = "0.3.0"
 ark-ff = "0.3.0"
 ark-ec = "0.3.0"
 ark-bn254 = { version = "0.3.0", optional = true }
+ark-ed-on-bn254 = { version = "0.3.0", optional = true }
 ark-bls12-381 = { version = "0.3.0", optional = true }
-ark-groth16 = { version = "0.3.0", optional = true }
+ark-ed-on-bls12-381 = { version = "0.3.0", optional = true }
+ark-groth16 = "0.3.0"
 ark-serialize = "0.3.0"
 ark-crypto-primitives = "0.3.0"
-rand_xorshift = "0.3.0"
-rand_core = { version = "0.6.3", features = ["std"] }
-num-bigint = "0.4.3"
-num-integer = "0.1.45"
-num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 hex = "0.4.3"
 
 [features]
-default = ["bn254", "groth16", "poseidon"]
-bn254 = ["ark-bn254"]
-bls12-381 = ["ark-bls12-381"]
-groth16 = ["ark-groth16"]
-poseidon = []
+default = ["bn254", "poseidon"]
+bn254 = ["ark-bn254", "ark-ed-on-bn254", "soda-maze-types/bn254"]
+bls12-381 = ["ark-bls12-381", "ark-ed-on-bls12-381", "soda-maze-types/bls12-381"]
+poseidon = ["soda-maze-types/poseidon"]

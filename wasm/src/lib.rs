@@ -3,17 +3,15 @@ pub mod withdraw;
 pub mod params;
 pub mod utils;
 
-use ark_bn254::Fr;
-use ark_ff::PrimeField;
 use js_sys::{Uint8Array, Array};
 use serde::{Serialize, Deserialize};
 use wasm_bindgen::{JsValue, prelude::*};
-use solana_program::{pubkey::Pubkey, hash::Hash, instruction::Instruction, message::{v0::Message as V0Message, VersionedMessage}};
-use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, signature::Signature, transaction::VersionedTransaction};
-use soda_maze_program::{Packer, ID};
-use soda_maze_program::params::HEIGHT;
-use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda, nullifier::Nullifier, utxo::{UTXO, Amount, get_utxo_pda}};
-use utils::{decrypt_balance, gen_utxo_key, gen_secret};
+use solana_program::pubkey::Pubkey;
+use solana_sdk::signature::Signature;
+use soda_maze_program::{Packer, ID, params::HEIGHT};
+use soda_maze_program::core::{vault::Vault, node::get_merkle_node_pda};
+use soda_maze_program::core::{nullifier::Nullifier, utxo::{UTXO, Amount, get_utxo_pda}};
+use utils::{decrypt_balance, gen_utxo_key, gen_secret, get_nullifier_pubkey};
 
 #[wasm_bindgen]
 extern "C" {
@@ -29,20 +27,6 @@ struct Utxo {
     leaf_index: u64,
     amount: u64,
     nullifier: Pubkey,
-}
-
-fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
-    use soda_maze_lib::params::poseidon::get_poseidon_bn254_for_nullifier;
-    use soda_maze_lib::vanilla::hasher::{FieldHasher, poseidon::PoseidonHasher};
-    use soda_maze_program::bn::BigInteger256;
-    use soda_maze_program::core::nullifier::get_nullifier_pda;
-
-    let ref params = get_poseidon_bn254_for_nullifier();
-    let nullifier = PoseidonHasher::hash(params, &[Fr::from(leaf_index), secret]).unwrap();
-    let nullifier = BigInteger256::new(nullifier.into_repr().0);
-    let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
-
-    nullifier
 }
 
 #[wasm_bindgen]
@@ -78,11 +62,10 @@ pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> Array {
 pub fn get_utxo_keys(sig: &Uint8Array, vault: &Pubkey, num: u64) -> Array {
     console_error_panic_hook::set_once();
 
-    let sig = &sig.to_vec()[..];
-    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+    let sig = Signature::new(&sig.to_vec());
 
     let pubkeys = (0..num).map(|nonce| {
-        let key = gen_utxo_key(sig, &vault, nonce);
+        let key = gen_utxo_key(&sig, &vault, nonce);
         let (pubkey, _) = get_utxo_pda(key.as_ref(), &ID);
         
         JsValue::from_serde(&pubkey).unwrap()
@@ -100,10 +83,10 @@ pub fn parse_utxo(sig: &Uint8Array, vault: &Pubkey, utxo: &Uint8Array) -> JsValu
     let utxo = UTXO::unpack(&utxo.to_vec())
         .expect("Error: UTXO data can not unpack");
     let amount = match utxo.amount {
-        Amount::Cipher(cipher) => decrypt_balance(sig.as_ref(), &vault, cipher),
+        Amount::Cipher(cipher) => decrypt_balance(&sig, &vault, cipher),
         Amount::Origin(amount) => amount,
     };
-    let secret = gen_secret(sig.as_ref(), &vault);
+    let secret = gen_secret(&sig, &vault);
     let nullifier = get_nullifier_pubkey(utxo.leaf_index, secret);
 
     let utxo = Utxo {
@@ -131,57 +114,57 @@ pub fn get_nullifier(data: &Uint8Array) -> bool {
     }
 }
 
-#[wasm_bindgen]
-pub fn compile_versioned_message_data(
-    payer: &Pubkey,
-    lookup_table_key: &Pubkey,
-    addresses: &Array,
-    instructions: &Array,
-    blockhash: &Hash,
-) -> Uint8Array {
-    console_error_panic_hook::set_once();
+// #[wasm_bindgen]
+// pub fn compile_versioned_message_data(
+//     payer: &Pubkey,
+//     lookup_table_key: &Pubkey,
+//     addresses: &Array,
+//     instructions: &Array,
+//     blockhash: &Hash,
+// ) -> Uint8Array {
+//     console_error_panic_hook::set_once();
 
-    let addresses = addresses.iter().map(|address| {
-        address.into_serde().expect("Error: unparse addresses error")
-    }).collect::<Vec<Pubkey>>();
-    let address_lookup_table_account = AddressLookupTableAccount {
-        key: *lookup_table_key,
-        addresses,
-    };
+//     let addresses = addresses.iter().map(|address| {
+//         address.into_serde().expect("Error: unparse addresses error")
+//     }).collect::<Vec<Pubkey>>();
+//     let address_lookup_table_account = AddressLookupTableAccount {
+//         key: *lookup_table_key,
+//         addresses,
+//     };
 
-    let instructions = instructions.iter().map(|instruction| {
-        instruction.into_serde().expect("Error: unparse instructions error")
-    }).collect::<Vec<Instruction>>();
+//     let instructions = instructions.iter().map(|instruction| {
+//         instruction.into_serde().expect("Error: unparse instructions error")
+//     }).collect::<Vec<Instruction>>();
 
-    let message = V0Message::try_compile(
-        payer,
-        &instructions,
-        &[address_lookup_table_account],
-        *blockhash,
-    ).expect("Error: try compile v0 message error");
-    let message_data = VersionedMessage::V0(message).serialize();
+//     let message = V0Message::try_compile(
+//         payer,
+//         &instructions,
+//         &[address_lookup_table_account],
+//         *blockhash,
+//     ).expect("Error: try compile v0 message error");
+//     let message_data = VersionedMessage::V0(message).serialize();
 
-    Uint8Array::from(&message_data[..])
-}
+//     Uint8Array::from(&message_data[..])
+// }
 
-#[wasm_bindgen]
-pub fn pack_versioned_transaction_data(
-    message_data: &Uint8Array,
-    sig: &Uint8Array,
-) -> Uint8Array {
-    console_error_panic_hook::set_once();
+// #[wasm_bindgen]
+// pub fn pack_versioned_transaction_data(
+//     message_data: &Uint8Array,
+//     sig: &Uint8Array,
+// ) -> Uint8Array {
+//     console_error_panic_hook::set_once();
 
-    let message_data = message_data.to_vec();
-    let message = bincode::deserialize(&message_data).expect("Error: deserialize message data error");
+//     let message_data = message_data.to_vec();
+//     let message = bincode::deserialize(&message_data).expect("Error: deserialize message data error");
 
-    let sig = Signature::new(&sig.to_vec());
+//     let sig = Signature::new(&sig.to_vec());
 
-    let tx = VersionedTransaction {
-        message,
-        signatures: vec![sig],
-    };
-    assert!(tx.verify_with_results().into_iter().all(|ok| ok), "Error: signature is invalid");
-    let tx_data = bincode::serialize(&tx).unwrap();
+//     let tx = VersionedTransaction {
+//         message,
+//         signatures: vec![sig],
+//     };
+//     assert!(tx.verify_with_results().into_iter().all(|ok| ok), "Error: signature is invalid");
+//     let tx_data = bincode::serialize(&tx).unwrap();
 
-    Uint8Array::from(&tx_data[..])
-}
+//     Uint8Array::from(&tx_data[..])
+// }

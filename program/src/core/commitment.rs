@@ -1,43 +1,24 @@
-use std::cmp::Ordering;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::program_pack::IsInitialized;
 use solana_program::pubkey::Pubkey;
 
 use crate::Packer;
 use crate::bn::{BigInteger256, BigInteger};
-use crate::params::rabin::{RABIN_MODULUS, RABIN_MODULUS_LEN};
-use super::is_fr_valid;
+use super::{is_affine_valid, GroupAffine};
 
-pub fn is_commitment_valid(commitment: &[BigInteger256]) -> bool {
-    if commitment.len() != RABIN_MODULUS_LEN {
-        return false;
-    }
-
-    let is_valid = commitment.iter().all(|c| is_fr_valid(c));
-    if is_valid {
-        for (c, m) in commitment.iter().rev().zip(RABIN_MODULUS.iter().rev()) {
-            match c.cmp(m) {
-                Ordering::Less => return true,
-                Ordering::Greater => return false,
-                Ordering::Equal => continue,
-            }
-        }
-    }
-
-    false
-}
+pub type InnerCommitment = (GroupAffine, GroupAffine);
 
 #[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct Commitment {
     is_initialized: bool,
-    pub cipher: Box<Vec<BigInteger256>>,
+    pub inner: InnerCommitment,
 }
 
 impl Commitment {
-    pub fn new(cipher: Box<Vec<BigInteger256>>) -> Self {
+    pub fn new(inner: InnerCommitment) -> Self {
         Commitment {
             is_initialized: true,
-            cipher,
+            inner,
         }
     }
 }
@@ -49,7 +30,12 @@ impl IsInitialized for Commitment {
 }
 
 impl Packer for Commitment {
-    const LEN: usize = 1 + 4 + 32 * RABIN_MODULUS_LEN;
+    const LEN: usize = 1 + 32 * 2 * 2;
+}
+
+#[inline]
+pub fn is_commitment_valid(inner: &InnerCommitment) -> bool {
+    is_affine_valid(&inner.0) && is_affine_valid(&inner.1)
 }
 
 pub fn get_commitment_pda<'a>(

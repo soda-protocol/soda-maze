@@ -2,7 +2,7 @@ pub mod merkle;
 pub mod hasher;
 pub mod withdraw;
 pub mod deposit;
-pub mod jubjub;
+pub mod commit;
 
 use anyhow::Result;
 use ark_ff::PrimeField;

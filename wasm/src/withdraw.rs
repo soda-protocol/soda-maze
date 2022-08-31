@@ -1,23 +1,25 @@
-use ark_ff::{BigInteger256, PrimeField};
-use ark_bn254::{Fr, Bn254};
+use ark_ff::UniformRand;
+use ark_bn254::Bn254;
+use ark_ed_on_bn254::{Fq as Fr, Fr as Frr, EdwardsParameters};
 use ark_groth16::{Groth16, Proof};
 use serde::{Serialize, Deserialize};
 use js_sys::{Uint8Array, Array};
 use rand_core::OsRng;
+use solana_sdk::signature::Signature;
 use wasm_bindgen::{JsValue, prelude::*};
 use solana_program::{pubkey::Pubkey, instruction::Instruction};
 use soda_maze_program::{Packer, params::HEIGHT, core::node::MerkleNode, core::pubkey_to_fr_repr};
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
-use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, VanillaProof};
+use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, commit::CommitOriginInputs, VanillaProof};
 
 use crate::info;
 use crate::utils::*;
 use crate::params::*;
 
-type WithdrawVanillaInstant = WithdrawVanillaProof::<Fr, PoseidonHasher<Fr>>;
-type WithdrawInstant = WithdrawProof::<Fr, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
+type WithdrawVanillaInstant = WithdrawVanillaProof::<EdwardsParameters, PoseidonHasher<Fr>>;
+type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
 
 #[derive(Serialize, Deserialize)]
 struct Instructions {
@@ -35,51 +37,33 @@ fn gen_withdraw_instructions(
     receiver: Pubkey,
     delegator: Pubkey,
     proof: Proof<Bn254>,
-    pub_in: WithdrawPublicInputs<Fr>,
-    sig: &[u8],
+    pub_in: WithdrawPublicInputs<EdwardsParameters>,
+    sig: &Signature,
     nonce: u64,
     balance: u64,
 ) -> Instructions {
-    use soda_maze_program::bn::BigInteger256;
-    use soda_maze_program::verifier::Proof;
-    use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
     use soda_maze_program::instruction::*;
 
     let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).unwrap();
 
-    let dst_leaf = BigInteger256::new(pub_in.dst_leaf.into_repr().0);
-    let nullifier = BigInteger256::new(pub_in.nullifier.into_repr().0);
+    let dst_leaf = to_maze_fr_repr(pub_in.dst_leaf);
+    let nullifier_point = to_maze_group_affine(pub_in.nullifier_point);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
-        BigInteger256::new(node.into_repr().0)
+        to_maze_fr_repr(node)
     }).collect::<Vec<_>>();
+    let commitment = to_maze_commitment(pub_in.commit.unwrap().commitment);
     let credential = create_withdraw_credential(
         vault,
         receiver,
         delegator,
         pub_in.withdraw_amount,
-        nullifier,
+        nullifier_point.clone(),
         dst_leaf,
         Box::new(updating_nodes),
+        commitment,
     ).unwrap();
 
-    let proof = Proof {
-        a: G1Affine254::new(
-            Fq::new(BigInteger256::new(proof.a.x.0.0)),
-            Fq::new(BigInteger256::new(proof.a.y.0.0)),
-            proof.a.infinity,
-        ),
-        b: G2Affine254::new(
-            Fq2::new(Fq::new(BigInteger256::new(proof.b.x.c0.0.0)), Fq::new(BigInteger256::new(proof.b.x.c1.0.0))),
-            Fq2::new(Fq::new(BigInteger256::new(proof.b.y.c0.0.0)), Fq::new(BigInteger256::new(proof.b.y.c1.0.0))),
-            proof.b.infinity,
-        ),
-        c: G1Affine254::new(
-            Fq::new(BigInteger256::new(proof.c.x.0.0)),
-            Fq::new(BigInteger256::new(proof.c.y.0.0)),
-            proof.c.infinity,
-        ),
-    };
-
+    let proof = to_maze_proof(proof);
     let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof)).unwrap();
 
     let verify = (0..175u8).into_iter().map(|i| {
@@ -94,7 +78,7 @@ fn gen_withdraw_instructions(
         receiver,
         delegator,
         pub_in.dst_leaf_index,
-        nullifier,
+        nullifier_point,
         utxo,
         balance_cipher,
     ).unwrap();
@@ -126,10 +110,11 @@ pub fn gen_withdraw_proof(
 ) -> JsValue {
     console_error_panic_hook::set_once();
 
-    info("Preparing params and datas...");
+    info("Preparing parameters and inputs...");
+
+    let rng = &mut OsRng;
     
-    let sig = sig.to_vec();
-    assert_eq!(sig.len(), 64, "Error: sig length should be 64");
+    let sig = Signature::new(&sig.to_vec());
     let secret = gen_secret(&sig, &vault);
 
     let ref nodes_hashes = get_default_node_hashes();
@@ -139,7 +124,7 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).unwrap()
+            from_maze_fr_repr(node.hash)
         }
     }).collect::<Vec<_>>();
     assert_eq!(src_neighbor_nodes.len(), HEIGHT, "Error: invalid src neighbors array length");
@@ -150,12 +135,14 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            Fr::from_repr(BigInteger256::new(node.hash.0)).unwrap()
+            from_maze_fr_repr(node.hash)
         }
     }).collect::<Vec<_>>();
     assert_eq!(dst_neighbor_nodes.len(), HEIGHT, "Error: invalid dst neighbors array length");
 
-    let receiver_fr = Fr::from_repr(BigInteger256::new(pubkey_to_fr_repr(&receiver))).unwrap();
+    let withdraw_const_params = get_withdraw_const_params();
+
+    let receiver_fr = from_maze_fr_repr(pubkey_to_fr_repr(&receiver));
     let origin_inputs = WithdrawOriginInputs {
         balance,
         withdraw_amount,
@@ -165,9 +152,10 @@ pub fn gen_withdraw_proof(
         secret,
         src_neighbor_nodes,
         dst_neighbor_nodes,
+        commit: Some(CommitOriginInputs {
+            nonce: Frr::rand(rng),
+        }),
     };
-
-    let withdraw_const_params = get_withdraw_const_params();
 
     let pk = get_withdraw_pk();
     let pk = pk.into();
@@ -181,7 +169,7 @@ pub fn gen_withdraw_proof(
     info("Generating snark proof...");
 
     let proof =
-        WithdrawInstant::generate_snark_proof(&mut OsRng, &withdraw_const_params, &pub_in, &priv_in, &pk)
+        WithdrawInstant::generate_snark_proof(rng, &withdraw_const_params, &pub_in, &priv_in, &pk)
             .expect("Error: generate snark proof failed");
 
     info("Generating solana instructions...");

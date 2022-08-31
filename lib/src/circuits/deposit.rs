@@ -6,7 +6,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, ConstraintSynthesizer, Result};
 
 use crate::vanilla::hasher::FieldHasher;
 use super::merkle::AddNewLeaf;
-use super::{FieldHasherGadget, JubjubEncrypt};
+use super::{FieldHasherGadget, Commit};
 
 pub struct DepositCircuit<P, FH, FHG>
 where
@@ -22,7 +22,7 @@ where
     prev_root: P::BaseField,
     secret: P::BaseField,
     proof: AddNewLeaf<P::BaseField, FH, FHG>,
-    jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
+    commit: Option<Commit<P, FH, FHG>>,
 }
 
 impl<P, FH, FHG> ConstraintSynthesizer<P::BaseField> for DepositCircuit<P, FH, FHG>
@@ -55,9 +55,9 @@ where
         // add new leaf proof
         self.proof.synthesize(cs.clone(), leaf_index.clone(), leaf, prev_root)?;
 
-        // encrypt nullifier to commitment
-        if let Some(jubjub) = self.jubjub {
-            jubjub.synthesize(cs, leaf_index, secret)?;
+        // commit commitment
+        if let Some(commit) = self.commit {
+            commit.synthesize(cs, leaf_index, secret)?;
         }
 
         Ok(())
@@ -82,7 +82,7 @@ where
         update_nodes: Vec<P::BaseField>,
         secret: P::BaseField,
         neighbor_nodes: Vec<(bool, P::BaseField)>,
-        jubjub: Option<JubjubEncrypt<P, FH, FHG>>,
+        commit: Option<Commit<P, FH, FHG>>,
     ) -> Self {
         Self {
             leaf_params,
@@ -96,7 +96,7 @@ where
                 update_nodes,
                 inner_params,
             ),
-            jubjub,
+            commit,
         }
     }
 }
@@ -144,14 +144,14 @@ mod tests {
             leaf_params: Rc::new(leaf_params),
             inner_params: Rc::new(inner_params),
             height: HEIGHT as usize,
-            jubjub: None,
+            commit: None,
         };
         let orig_in = DepositOriginInputs {
             leaf_index,
             deposit_amount,
             secret,
             neighbor_nodes,
-            jubjub: None,
+            commit: None,
         };
         // generate vanilla proof
         let (pub_in, priv_in) = DepositVanillaProof::<_, PoseidonHasher<_>>::generate_vanilla_proof(
@@ -162,8 +162,8 @@ mod tests {
         let deposit = DepositCircuit::<EdwardsParameters, _, PoseidonHasherGadget<_>>::new(
             params.leaf_params,
             params.inner_params,
-            orig_in.deposit_amount,
-            orig_in.leaf_index,
+            pub_in.deposit_amount,
+            pub_in.leaf_index,
             pub_in.leaf,
             pub_in.prev_root,
             pub_in.update_nodes,

@@ -11,13 +11,12 @@ rand_core = { path = "./rand_core-0.6.3" }
 aes = "0.8.1"
 ark-ff = "0.3.0"
 ark-std = "0.3.0"
+ark-ec = "0.3.0"
 ark-bn254 = "0.3.0"
+ark-ed-on-bn254 = "0.3.0"
 ark-groth16 = { version = "0.3.0", default-features = false }
 borsh = "0.9.3"
-bincode = "1.3.3"
 num-traits = "0.2.15"
-num-bigint = "0.4.3"
-num-bigint-dig = { version = "0.8.1", features = ["prime"] }
 rand_core = { version = "0.6.3", features = ["std"] }
 hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
@@ -30,7 +29,7 @@ rust-embed = "6.4.0"
 console_error_panic_hook = "0.1.6"
 soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
-soda-maze-types = { path = "../types", default-features = false }
+soda-maze-types = { path = "../types" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.26"

@@ -6,15 +6,27 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+soda-maze-lib = { path = "../lib" }
 soda-maze-program = { path = "../program", features = ["no-entrypoint"] }
 anyhow = "1.0.61"
 borsh = "0.9.3"
 borsh-derive = "0.9.3"
 ark-ff = "0.3.0"
-ark-bn254 = "0.3.0"
+ark-ec = "0.3.0"
+ark-bn254 = { version = "0.3.0", optional = true }
+ark-ed-on-bn254 = { version = "0.3.0", optional = true }
+ark-bls12-381 = { version = "0.3.0", optional = true }
+ark-ed-on-bls12-381 = { version = "0.3.0", optional = true }
 ark-groth16 = { version = "0.3.0", default-features = false }
+ark-serialize = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.71"
+hex = "0.4.3"
+rand_xorshift = "0.3.0"
+rand_core = { version = "0.6.3", features = ["std"] }
 
 [features]
-default = ["ark-groth16/parallel"]
+default = ["bn254", "poseidon"]
+bn254 = ["ark-bn254", "ark-ed-on-bn254"]
+bls12-381 = ["ark-bls12-381", "ark-ed-on-bls12-381"]
+poseidon = []
