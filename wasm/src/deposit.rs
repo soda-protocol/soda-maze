@@ -79,13 +79,13 @@ fn gen_deposit_instructions(
 #[wasm_bindgen]
 #[allow(clippy::too_many_arguments)]
 pub fn gen_deposit_proof(
-    vault: Pubkey,
-    token_mint: Pubkey,
-    depositor: Pubkey,
+    vault: &Pubkey,
+    token_mint: &Pubkey,
+    depositor: &Pubkey,
     leaf_index: u64, // from vault info
     deposit_amount: u64,
-    neighbors: Array, // get_merkle_neighbor_nodes(vault, leaf_index)
-    sig: Uint8Array,
+    neighbors: &Array, // get_merkle_neighbor_nodes(vault, leaf_index)
+    sig: &Uint8Array,
     nonce: u64,
 ) -> JsValue {
     console_error_panic_hook::set_once();
@@ -139,7 +139,15 @@ pub fn gen_deposit_proof(
 
     info("Generating solana instructions...");
 
-    let instructions = gen_deposit_instructions(vault, token_mint, depositor, proof, pub_in, &sig, nonce);
+    let instructions = gen_deposit_instructions(
+        *vault,
+        *token_mint,
+        *depositor,
+        proof,
+        pub_in,
+        &sig,
+        nonce,
+    );
 
     JsValue::from_serde(&instructions).unwrap()
 }

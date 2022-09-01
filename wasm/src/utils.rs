@@ -69,6 +69,7 @@ pub fn gen_utxo_key(sig: &Signature, vault: &Pubkey, nonce: u64) -> [u8; 32] {
     key.to_bytes()
 }
 
+#[inline]
 pub fn from_maze_fr_repr(fr: MazeBigInteger) -> Fr {
     Fr::from_repr(BigInteger256::new(fr.0)).expect("Error: invalid fr repr")
 }

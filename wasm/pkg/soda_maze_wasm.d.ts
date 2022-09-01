@@ -1,22 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
-* @param {Pubkey} vault
-* @param {Pubkey} token_mint
-* @param {Pubkey} receiver
-* @param {Pubkey} delegator
-* @param {bigint} src_leaf_index
-* @param {bigint} balance
-* @param {bigint} dst_leaf_index
-* @param {bigint} withdraw_amount
-* @param {Uint8Array} sig
-* @param {Array<any>} src_neighbors
-* @param {Array<any>} dst_neighbors
-* @param {bigint} nonce
-* @returns {any}
-*/
-export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
-/**
 * @param {Uint8Array} data
 * @returns {any}
 */
@@ -58,6 +42,22 @@ export function get_nullifier(data: Uint8Array): boolean;
 * @returns {any}
 */
 export function gen_deposit_proof(vault: Pubkey, token_mint: Pubkey, depositor: Pubkey, leaf_index: bigint, deposit_amount: bigint, neighbors: Array<any>, sig: Uint8Array, nonce: bigint): any;
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} token_mint
+* @param {Pubkey} receiver
+* @param {Pubkey} delegator
+* @param {bigint} src_leaf_index
+* @param {bigint} balance
+* @param {bigint} dst_leaf_index
+* @param {bigint} withdraw_amount
+* @param {Uint8Array} sig
+* @param {Array<any>} src_neighbors
+* @param {Array<any>} dst_neighbors
+* @param {bigint} nonce
+* @returns {any}
+*/
+export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: Pubkey, delegator: Pubkey, src_leaf_index: bigint, balance: bigint, dst_leaf_index: bigint, withdraw_amount: bigint, sig: Uint8Array, src_neighbors: Array<any>, dst_neighbors: Array<any>, nonce: bigint): any;
 /**
 * Initialize Javascript logging and panic handler
 */
@@ -365,13 +365,13 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
   readonly get_vault_info: (a: number) => number;
   readonly get_merkle_neighbor_nodes: (a: number, b: number, c: number) => number;
   readonly get_utxo_keys: (a: number, b: number, c: number, d: number) => number;
   readonly parse_utxo: (a: number, b: number, c: number) => number;
   readonly get_nullifier: (a: number) => number;
   readonly gen_deposit_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => number;
+  readonly gen_withdraw_proof: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => number;
   readonly __wbg_transaction_free: (a: number) => void;
   readonly __wbg_keypair_free: (a: number) => void;
   readonly transaction_constructor: (a: number, b: number) => number;

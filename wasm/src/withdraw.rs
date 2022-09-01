@@ -95,17 +95,17 @@ fn gen_withdraw_instructions(
 #[wasm_bindgen]
 #[allow(clippy::too_many_arguments)]
 pub fn gen_withdraw_proof(
-    vault: Pubkey,
-    token_mint: Pubkey,
-    receiver: Pubkey,
-    delegator: Pubkey,
+    vault: &Pubkey,
+    token_mint: &Pubkey,
+    receiver: &Pubkey,
+    delegator: &Pubkey,
     src_leaf_index: u64, // selected utxo index
     balance: u64, // selected utxo balance
     dst_leaf_index: u64, // from vault info
     withdraw_amount: u64,
-    sig: Uint8Array,
-    src_neighbors: Array, // get_merkle_neighbor_nodes(vault, src_leaf_index)
-    dst_neighbors: Array, // get_merkle_neighbor_nodes(vault, dst_leaf_index)
+    sig: &Uint8Array,
+    src_neighbors: &Array, // get_merkle_neighbor_nodes(vault, src_leaf_index)
+    dst_neighbors: &Array, // get_merkle_neighbor_nodes(vault, dst_leaf_index)
     nonce: u64,
 ) -> JsValue {
     console_error_panic_hook::set_once();
@@ -175,10 +175,10 @@ pub fn gen_withdraw_proof(
     info("Generating solana instructions...");
 
     let instructions = gen_withdraw_instructions(
-        vault,
-        token_mint,
-        receiver,
-        delegator,
+        *vault,
+        *token_mint,
+        *receiver,
+        *delegator,
         proof,
         pub_in,
         &sig,

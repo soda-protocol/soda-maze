@@ -189,6 +189,26 @@ function debugString(val) {
     return className;
 }
 
+let stack_pointer = 32;
+
+function addBorrowedObject(obj) {
+    if (stack_pointer == 1) throw new Error('out of js stack');
+    heap[--stack_pointer] = obj;
+    return stack_pointer;
+}
+/**
+* @param {Uint8Array} data
+* @returns {any}
+*/
+export function get_vault_info(data) {
+    try {
+        const ret = wasm.get_vault_info(addBorrowedObject(data));
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
+}
+
 function _assertClass(instance, klass) {
     if (!(instance instanceof klass)) {
         throw new Error(`expected instance of ${klass.name}`);
@@ -199,6 +219,102 @@ function _assertClass(instance, klass) {
 const u32CvtShim = new Uint32Array(2);
 
 const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
+/**
+* @param {Pubkey} vault_key
+* @param {bigint} leaf_index
+* @returns {Array<any>}
+*/
+export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
+    _assertClass(vault_key, Pubkey);
+    uint64CvtShim[0] = leaf_index;
+    const low0 = u32CvtShim[0];
+    const high0 = u32CvtShim[1];
+    const ret = wasm.get_merkle_neighbor_nodes(vault_key.ptr, low0, high0);
+    return takeObject(ret);
+}
+
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {bigint} num
+* @returns {Array<any>}
+*/
+export function get_utxo_keys(sig, vault, num) {
+    try {
+        _assertClass(vault, Pubkey);
+        uint64CvtShim[0] = num;
+        const low0 = u32CvtShim[0];
+        const high0 = u32CvtShim[1];
+        const ret = wasm.get_utxo_keys(addBorrowedObject(sig), vault.ptr, low0, high0);
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
+}
+
+/**
+* @param {Uint8Array} sig
+* @param {Pubkey} vault
+* @param {Uint8Array} utxo
+* @returns {any}
+*/
+export function parse_utxo(sig, vault, utxo) {
+    try {
+        _assertClass(vault, Pubkey);
+        const ret = wasm.parse_utxo(addBorrowedObject(sig), vault.ptr, addBorrowedObject(utxo));
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
+}
+
+/**
+* @param {Uint8Array} data
+* @returns {boolean}
+*/
+export function get_nullifier(data) {
+    try {
+        const ret = wasm.get_nullifier(addBorrowedObject(data));
+        return ret !== 0;
+    } finally {
+        heap[stack_pointer++] = undefined;
+    }
+}
+
+/**
+* @param {Pubkey} vault
+* @param {Pubkey} token_mint
+* @param {Pubkey} depositor
+* @param {bigint} leaf_index
+* @param {bigint} deposit_amount
+* @param {Array<any>} neighbors
+* @param {Uint8Array} sig
+* @param {bigint} nonce
+* @returns {any}
+*/
+export function gen_deposit_proof(vault, token_mint, depositor, leaf_index, deposit_amount, neighbors, sig, nonce) {
+    try {
+        _assertClass(vault, Pubkey);
+        _assertClass(token_mint, Pubkey);
+        _assertClass(depositor, Pubkey);
+        uint64CvtShim[0] = leaf_index;
+        const low0 = u32CvtShim[0];
+        const high0 = u32CvtShim[1];
+        uint64CvtShim[0] = deposit_amount;
+        const low1 = u32CvtShim[0];
+        const high1 = u32CvtShim[1];
+        uint64CvtShim[0] = nonce;
+        const low2 = u32CvtShim[0];
+        const high2 = u32CvtShim[1];
+        const ret = wasm.gen_deposit_proof(vault.ptr, token_mint.ptr, depositor.ptr, low0, high0, low1, high1, addBorrowedObject(neighbors), addBorrowedObject(sig), low2, high2);
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
+}
+
 /**
 * @param {Pubkey} vault
 * @param {Pubkey} token_mint
@@ -215,134 +331,33 @@ const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
 * @returns {any}
 */
 export function gen_withdraw_proof(vault, token_mint, receiver, delegator, src_leaf_index, balance, dst_leaf_index, withdraw_amount, sig, src_neighbors, dst_neighbors, nonce) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    _assertClass(token_mint, Pubkey);
-    var ptr1 = token_mint.ptr;
-    token_mint.ptr = 0;
-    _assertClass(receiver, Pubkey);
-    var ptr2 = receiver.ptr;
-    receiver.ptr = 0;
-    _assertClass(delegator, Pubkey);
-    var ptr3 = delegator.ptr;
-    delegator.ptr = 0;
-    uint64CvtShim[0] = src_leaf_index;
-    const low4 = u32CvtShim[0];
-    const high4 = u32CvtShim[1];
-    uint64CvtShim[0] = balance;
-    const low5 = u32CvtShim[0];
-    const high5 = u32CvtShim[1];
-    uint64CvtShim[0] = dst_leaf_index;
-    const low6 = u32CvtShim[0];
-    const high6 = u32CvtShim[1];
-    uint64CvtShim[0] = withdraw_amount;
-    const low7 = u32CvtShim[0];
-    const high7 = u32CvtShim[1];
-    uint64CvtShim[0] = nonce;
-    const low8 = u32CvtShim[0];
-    const high8 = u32CvtShim[1];
-    const ret = wasm.gen_withdraw_proof(ptr0, ptr1, ptr2, ptr3, low4, high4, low5, high5, low6, high6, low7, high7, addHeapObject(sig), addHeapObject(src_neighbors), addHeapObject(dst_neighbors), low8, high8);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} data
-* @returns {any}
-*/
-export function get_vault_info(data) {
-    const ret = wasm.get_vault_info(addHeapObject(data));
-    return takeObject(ret);
-}
-
-/**
-* @param {Pubkey} vault_key
-* @param {bigint} leaf_index
-* @returns {Array<any>}
-*/
-export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
-    _assertClass(vault_key, Pubkey);
-    var ptr0 = vault_key.ptr;
-    vault_key.ptr = 0;
-    uint64CvtShim[0] = leaf_index;
-    const low1 = u32CvtShim[0];
-    const high1 = u32CvtShim[1];
-    const ret = wasm.get_merkle_neighbor_nodes(ptr0, low1, high1);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} sig
-* @param {Pubkey} vault
-* @param {bigint} num
-* @returns {Array<any>}
-*/
-export function get_utxo_keys(sig, vault, num) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    uint64CvtShim[0] = num;
-    const low1 = u32CvtShim[0];
-    const high1 = u32CvtShim[1];
-    const ret = wasm.get_utxo_keys(addHeapObject(sig), ptr0, low1, high1);
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} sig
-* @param {Pubkey} vault
-* @param {Uint8Array} utxo
-* @returns {any}
-*/
-export function parse_utxo(sig, vault, utxo) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    const ret = wasm.parse_utxo(addHeapObject(sig), ptr0, addHeapObject(utxo));
-    return takeObject(ret);
-}
-
-/**
-* @param {Uint8Array} data
-* @returns {boolean}
-*/
-export function get_nullifier(data) {
-    const ret = wasm.get_nullifier(addHeapObject(data));
-    return ret !== 0;
-}
-
-/**
-* @param {Pubkey} vault
-* @param {Pubkey} token_mint
-* @param {Pubkey} depositor
-* @param {bigint} leaf_index
-* @param {bigint} deposit_amount
-* @param {Array<any>} neighbors
-* @param {Uint8Array} sig
-* @param {bigint} nonce
-* @returns {any}
-*/
-export function gen_deposit_proof(vault, token_mint, depositor, leaf_index, deposit_amount, neighbors, sig, nonce) {
-    _assertClass(vault, Pubkey);
-    var ptr0 = vault.ptr;
-    vault.ptr = 0;
-    _assertClass(token_mint, Pubkey);
-    var ptr1 = token_mint.ptr;
-    token_mint.ptr = 0;
-    _assertClass(depositor, Pubkey);
-    var ptr2 = depositor.ptr;
-    depositor.ptr = 0;
-    uint64CvtShim[0] = leaf_index;
-    const low3 = u32CvtShim[0];
-    const high3 = u32CvtShim[1];
-    uint64CvtShim[0] = deposit_amount;
-    const low4 = u32CvtShim[0];
-    const high4 = u32CvtShim[1];
-    uint64CvtShim[0] = nonce;
-    const low5 = u32CvtShim[0];
-    const high5 = u32CvtShim[1];
-    const ret = wasm.gen_deposit_proof(ptr0, ptr1, ptr2, low3, high3, low4, high4, addHeapObject(neighbors), addHeapObject(sig), low5, high5);
-    return takeObject(ret);
+    try {
+        _assertClass(vault, Pubkey);
+        _assertClass(token_mint, Pubkey);
+        _assertClass(receiver, Pubkey);
+        _assertClass(delegator, Pubkey);
+        uint64CvtShim[0] = src_leaf_index;
+        const low0 = u32CvtShim[0];
+        const high0 = u32CvtShim[1];
+        uint64CvtShim[0] = balance;
+        const low1 = u32CvtShim[0];
+        const high1 = u32CvtShim[1];
+        uint64CvtShim[0] = dst_leaf_index;
+        const low2 = u32CvtShim[0];
+        const high2 = u32CvtShim[1];
+        uint64CvtShim[0] = withdraw_amount;
+        const low3 = u32CvtShim[0];
+        const high3 = u32CvtShim[1];
+        uint64CvtShim[0] = nonce;
+        const low4 = u32CvtShim[0];
+        const high4 = u32CvtShim[1];
+        const ret = wasm.gen_withdraw_proof(vault.ptr, token_mint.ptr, receiver.ptr, delegator.ptr, low0, high0, low1, high1, low2, high2, low3, high3, addBorrowedObject(sig), addBorrowedObject(src_neighbors), addBorrowedObject(dst_neighbors), low4, high4);
+        return takeObject(ret);
+    } finally {
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+        heap[stack_pointer++] = undefined;
+    }
 }
 
 function getArrayU8FromWasm0(ptr, len) {
