@@ -1,11 +1,10 @@
-use aes::{Aes256Enc, Aes256Dec};
-use aes::cipher::{generic_array::GenericArray, KeyInit, BlockEncrypt, BlockDecrypt};
+use aes::{Aes256Enc, Aes256Dec, cipher::{generic_array::GenericArray, KeyInit, BlockEncrypt, BlockDecrypt}};
 use ark_bn254::Bn254;
 use ark_ec::{twisted_edwards_extended::{GroupProjective, GroupAffine}, ProjectiveCurve};
 use ark_ed_on_bn254::{Fq as Fr, Fr as Frr, EdwardsParameters};
-use ark_ff::{PrimeField, BigInteger, BigInteger256, FpParameters};
+use ark_ff::{PrimeField, BigInteger, BigInteger256, FpParameters, UniformRand};
 use ark_groth16::Proof;
-use num_traits::ToPrimitive;
+use rand_core::OsRng;
 use solana_program::{pubkey::Pubkey, hash::hash};
 use soda_maze_program::core::{GroupAffine as MazeGroupAffine, commitment::InnerCommitment};
 use soda_maze_program::{verifier::Proof as MazeProof, bn::BigInteger256 as MazeBigInteger};
@@ -34,7 +33,10 @@ pub fn encrypt_balance(sig: &Signature, vault: &Pubkey, balance: u64) -> u128 {
     let key = hash(&[sig.as_ref(), vault.as_ref()].concat()).to_bytes();
     let key = GenericArray::from(key);
     let encryptor = Aes256Enc::new(&key);
-    let mut block = GenericArray::from((balance as u128).to_le_bytes());
+
+    let padding = u64::rand(&mut OsRng);
+    let text = (balance as u128) + ((padding as u128) << 64);
+    let mut block = GenericArray::from(text.to_le_bytes());
     encryptor.encrypt_block(&mut block);
     u128::from_le_bytes(<[u8; 16]>::try_from(block.as_ref()).unwrap())
 }
@@ -45,9 +47,9 @@ pub fn decrypt_balance(sig: &Signature, vault: &Pubkey, cipher: u128) -> u64 {
     let decryptor = Aes256Dec::new(&key);
     let mut block = GenericArray::from(cipher.to_le_bytes());
     decryptor.decrypt_block(&mut block);
-    u128::from_le_bytes(<[u8; 16]>::try_from(block.as_ref()).unwrap())
-        .to_u64()
-        .expect("Error: invalid balance cipher")
+    
+    let text = u128::from_le_bytes(<[u8; 16]>::try_from(block.as_ref()).unwrap());
+    text as u64
 }
 
 pub fn gen_secret(sig: &Signature, vault: &Pubkey) -> Fr {
@@ -138,3 +140,12 @@ pub fn to_maze_proof(p: Proof<Bn254>) -> MazeProof {
 //         println!("{:?}", amount);
 //     }
 // }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test() {
+        let a = 257u32;
+        println!("{}", a as u8);
+    }
+}
