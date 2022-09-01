@@ -78,8 +78,8 @@ impl VanillaData for WithdrawVanillaData {
     fn to_public_inputs(self) -> Box<Vec<BigInteger>> {
         let mut inputs = Box::new(Vec::with_capacity(Self::INPUTS_LEN));
 
-        inputs.push(pubkey_to_fr_repr(&self.receiver));
         inputs.push(BigInteger::from(self.withdraw_amount));
+        inputs.push(pubkey_to_fr_repr(&self.receiver));
         inputs.push(BigInteger::from(self.leaf_index));
         inputs.push(self.leaf);
         inputs.push(self.prev_root);

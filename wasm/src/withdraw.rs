@@ -66,7 +66,7 @@ fn gen_withdraw_instructions(
     let proof = to_maze_proof(proof);
     let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof)).unwrap();
 
-    let verify = (0..160u8).into_iter().map(|i| {
+    let verify = (0..155u8).into_iter().map(|i| {
         verify_withdraw_proof(vault, receiver, vec![i]).unwrap()
     }).collect::<Vec<_>>();
 
@@ -141,7 +141,7 @@ pub fn gen_withdraw_proof(
     }).collect::<Vec<_>>();
     assert_eq!(dst_neighbor_nodes.len(), HEIGHT, "Error: invalid dst neighbors array length");
 
-    let withdraw_const_params = get_withdraw_const_params();
+    let const_params = get_withdraw_const_params();
 
     let receiver_fr = from_maze_fr_repr(pubkey_to_fr_repr(&receiver));
     let origin_inputs = WithdrawOriginInputs {
@@ -164,13 +164,13 @@ pub fn gen_withdraw_proof(
     info("Generating vanilla proof...");
 
     let (pub_in, priv_in) =
-        WithdrawVanillaInstant::generate_vanilla_proof(&withdraw_const_params, &origin_inputs)
+        WithdrawVanillaInstant::generate_vanilla_proof(&const_params, &origin_inputs)
             .expect("Error: generate vanilla proof failed");
 
     info("Generating snark proof...");
 
     let proof =
-        WithdrawInstant::generate_snark_proof(rng, &withdraw_const_params, &pub_in, &priv_in, &pk)
+        WithdrawInstant::generate_snark_proof(rng, &const_params, &pub_in, &priv_in, &pk)
             .expect("Error: generate snark proof failed");
 
     info("Generating solana instructions...");
