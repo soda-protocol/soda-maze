@@ -36,7 +36,6 @@ pub fn process_instruction(
 ) -> ProgramResult {
     let instruction = MazeInstruction::deserialize(&mut input.as_ref())?;
     match instruction {
-        MazeInstruction::ResetDepositAccounts => process_reset_deposit_buffer_accounts(program_id, accounts),
         MazeInstruction::CreateDepositCredential {
             deposit_amount,
             leaf,
@@ -50,7 +49,6 @@ pub fn process_instruction(
         MazeInstruction::FinalizeDeposit {
             utxo,
         } => process_finalize_deposit(program_id, accounts, utxo),
-        MazeInstruction::ResetWithdrawAccounts => process_reset_withdraw_buffer_accounts(program_id, accounts),
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
             receiver,
@@ -78,50 +76,6 @@ pub fn process_instruction(
 
 /////////////////////////////////// Deposit Actions ////////////////////////////////////////
 
-fn process_reset_deposit_buffer_accounts(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    msg!("Reset credential account");
-
-    let accounts_iter = &mut accounts.iter();
-
-    let credential_info = next_account_info(accounts_iter)?;
-    let verifier_info = next_account_info(accounts_iter)?;
-    let depositor_info = next_account_info(accounts_iter)?;
-
-    if !depositor_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
-
-    if credential_info.try_data_is_empty()? {
-        return Ok(());
-    }
-
-    let credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
-    if &credential.owner != depositor_info.key {
-        msg!("Depositor pubkey is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
-    }
-    // clear credential
-    process_rent_refund(credential_info, depositor_info);
-
-    let (verifier_key, _) = get_verifier_pda(
-        credential_info.key,
-        program_id,
-    );
-    if verifier_info.key != &verifier_key {
-        msg!("Verifier pubkey is invalid");
-        return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !verifier_info.try_data_is_empty()? {
-        // clear verifier
-        process_rent_refund(verifier_info, depositor_info);
-    }
-
-    Ok(())
-}
-
 #[inline(never)]
 fn process_create_deposit_credential(
     program_id: &Pubkey,
@@ -145,6 +99,10 @@ fn process_create_deposit_credential(
     vault.check_enable()?;
     vault.check_deposit(deposit_amount)?;
 
+    if !depositor_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
     let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_deposit_credential_pda(
         vault_info.key,
         depositor_info.key,
@@ -153,6 +111,10 @@ fn process_create_deposit_credential(
     if credential_info.key != &credential_key {
         msg!("Credential pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    if !credential_info.try_data_is_empty()? {
+        // clear credential
+        process_rent_refund(credential_info, depositor_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -173,6 +135,7 @@ fn process_create_deposit_credential(
         updating_nodes,
         commitment,
     )?;
+    // create credential
     let credential = DepositCredential::new(
         *vault_info.key,
         *depositor_info.key,
@@ -221,6 +184,10 @@ fn process_create_deposit_verifier(
         msg!("Verifier pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
     }
+    if !verifier_info.try_data_is_empty()? {
+        // clear verifier
+        process_rent_refund(verifier_info, depositor_info);
+    }
     process_optimal_create_account(
         rent_info,
         verifier_info,
@@ -231,7 +198,6 @@ fn process_create_deposit_verifier(
         &[],
         &[seed_1, &seed_2],
     )?;
-
     // create verifier
     let verifier = credential.vanilla_data.to_verifier(proof);
     verifier.initialize_to_account_info(verifier_info)
@@ -416,49 +382,6 @@ fn process_finalize_deposit(
 
 /////////////////////////////////// Withdraw Actions ////////////////////////////////////////
 
-fn process_reset_withdraw_buffer_accounts(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    msg!("Reset credential account");
-
-    let accounts_iter = &mut accounts.iter();
-
-    let credential_info = next_account_info(accounts_iter)?;
-    let verifier_info = next_account_info(accounts_iter)?;
-    let delegator_info = next_account_info(accounts_iter)?;
-
-    if credential_info.try_data_is_empty()? {
-        return Ok(());
-    }
-
-    let credential = WithdrawCredential::unpack_from_account_info(credential_info, program_id)?;
-    if &credential.owner != delegator_info.key {
-        msg!("Delegator pubkey is invalid");
-        return Err(MazeError::UnmatchedAccounts.into());
-    }
-    // clear credential
-    process_rent_refund(credential_info, delegator_info);
-
-    let (verifier_key, _) = get_verifier_pda(
-        credential_info.key,
-        program_id,
-    );
-    if verifier_info.key != &verifier_key {
-        msg!("Verifier pubkey is invalid");
-        return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !verifier_info.try_data_is_empty()? {
-        // clear verifier
-        process_rent_refund(verifier_info, delegator_info);
-    }
-
-    Ok(())
-}
-
-/// TODO: create credential and verifier in one function
-// fn process_create_withdraw_credential_and_verifier() {}
-
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 fn process_create_withdraw_credential(
@@ -485,14 +408,23 @@ fn process_create_withdraw_credential(
     vault.check_enable()?;
     vault.check_withdraw(withdraw_amount)?;
 
-    let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_withdraw_credential_pda(
+    if !delegator_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
+    let (credential_key, (seed_1, seed_2, seed_3, seed_4, seed_5)) = get_withdraw_credential_pda(
         vault_info.key,
+        delegator_info.key,
         &receiver,
         program_id,
     );
     if credential_info.key != &credential_key {
         msg!("Credential pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
+    }
+    if !credential_info.try_data_is_empty()? {
+        // clear credential
+        process_rent_refund(credential_info, delegator_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -502,7 +434,7 @@ fn process_create_withdraw_credential(
         program_id,
         WithdrawCredential::LEN,
         &[],
-        &[seed_1, seed_2, seed_3, &seed_4],
+        &[seed_1, seed_2, seed_3, seed_4, &seed_5],
     )?;
 
     let vanilla_data = WithdrawVanillaData::new(
@@ -515,6 +447,7 @@ fn process_create_withdraw_credential(
         updating_nodes,
         commitment,
     )?;
+    // create credential
     let credential = WithdrawCredential::new(
         *vault_info.key,
         *delegator_info.key,
@@ -562,6 +495,10 @@ fn process_create_withdraw_verifier(
     if verifier_info.key != &verifier_key {
         msg!("Verifier pubkey is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
+    }
+    if !verifier_info.try_data_is_empty()? {
+        // clear verifier
+        process_rent_refund(verifier_info, delegator_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -810,8 +747,8 @@ fn process_finalize_withdraw(
 
     // transfer `SOL` as fee from delegator to owner if there is less balance.
     const FEE: u64 = 1_000_000;
-    if receiver_info.lamports() < FEE {
-        let lamports = FEE - receiver_info.lamports();
+    if receiver_info.try_lamports()? < FEE {
+        let lamports = FEE - receiver_info.try_lamports()?;
         process_transfer(delegator_info, receiver_info, system_program_info, &[], lamports)?;
     }
     // clear verifier

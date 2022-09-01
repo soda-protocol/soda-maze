@@ -26,18 +26,20 @@ pub fn get_deposit_credential_pda<'a>(
 
 pub fn get_withdraw_credential_pda<'a>(
     vault: &'a Pubkey,
+    delegator: &'a Pubkey,
     receiver: &'a Pubkey,
     program_id: &Pubkey,
-) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], [u8; 1])) {
+) -> (Pubkey, (&'a [u8], &'static [u8], &'a [u8], &'a [u8], [u8; 1])) {
     let vault_ref = vault.as_ref();
+    let delegator_ref = delegator.as_ref();
     let receiver_ref = receiver.as_ref();
 
     let (key, seed) = Pubkey::find_program_address(
-        &[vault_ref, &WITHDRAW_TAG, receiver_ref],
+        &[vault_ref, &WITHDRAW_TAG, delegator_ref, receiver_ref],
         program_id,
     );
 
-    (key, (vault_ref, WITHDRAW_TAG, receiver_ref, [seed]))
+    (key, (vault_ref, WITHDRAW_TAG, delegator_ref, receiver_ref, [seed]))
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]

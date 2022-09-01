@@ -23,7 +23,6 @@ type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, Pose
 
 #[derive(Serialize, Deserialize)]
 struct Instructions {
-    pub reset: Instruction,
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
@@ -40,8 +39,6 @@ fn gen_deposit_instructions(
     nonce: u64,
 ) -> Instructions {
     use soda_maze_program::instruction::*;
-
-    let reset = reset_deposit_buffer_accounts(vault, depositor).unwrap();
 
     let leaf = to_maze_fr_repr(pub_in.leaf);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
@@ -68,7 +65,6 @@ fn gen_deposit_instructions(
     let finalize = finalize_deposit(vault, token_mint, depositor, pub_in.leaf_index, leaf, utxo).unwrap();
 
     Instructions {
-        reset,
         credential,
         verifier,
         verify,

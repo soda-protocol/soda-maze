@@ -23,7 +23,6 @@ type WithdrawInstant = WithdrawProof::<EdwardsParameters, PoseidonHasher<Fr>, Po
 
 #[derive(Serialize, Deserialize)]
 struct Instructions {
-    pub reset: Instruction,
     pub credential: Instruction,
     pub verifier: Instruction,
     pub verify: Vec<Instruction>,
@@ -43,8 +42,6 @@ fn gen_withdraw_instructions(
     balance: u64,
 ) -> Instructions {
     use soda_maze_program::instruction::*;
-
-    let reset = reset_withdraw_buffer_accounts(vault, receiver, delegator).unwrap();
 
     let dst_leaf = to_maze_fr_repr(pub_in.dst_leaf);
     let nullifier_point = to_maze_group_affine(pub_in.nullifier_point);
@@ -67,7 +64,7 @@ fn gen_withdraw_instructions(
     let verifier = create_withdraw_verifier(vault, receiver, delegator, Box::new(proof)).unwrap();
 
     let verify = (0..155u8).into_iter().map(|i| {
-        verify_withdraw_proof(vault, receiver, vec![i]).unwrap()
+        verify_withdraw_proof(vault, &delegator, receiver, vec![i]).unwrap()
     }).collect::<Vec<_>>();
 
     let balance_cipher = encrypt_balance(sig, &vault, balance);
@@ -85,7 +82,6 @@ fn gen_withdraw_instructions(
     ).unwrap();
 
     Instructions {
-        reset,
         credential,
         verifier,
         verify,

@@ -19,7 +19,6 @@ use crate::{
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum MazeInstruction {
-    ResetDepositAccounts,
     CreateDepositCredential {
         deposit_amount: u64,
         leaf: BigInteger,
@@ -33,7 +32,6 @@ pub enum MazeInstruction {
     FinalizeDeposit {
         utxo: [u8; 32],
     },
-    ResetWithdrawAccounts,
     CreateWithdrawCredential {
         withdraw_amount: u64,
         receiver: Pubkey,
@@ -105,26 +103,6 @@ pub fn control_vault(vault: Pubkey, admin: Pubkey, enable: bool) -> Result<Instr
         accounts: vec![
             AccountMeta::new(vault, false),
             AccountMeta::new_readonly(admin, true),
-        ],
-        data,
-    })
-}
-
-pub fn reset_deposit_buffer_accounts(
-    vault: Pubkey,
-    depositor: Pubkey,
-) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_deposit_credential_pda(&vault, &depositor, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-
-    let data = MazeInstruction::ResetDepositAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts: vec![
-            AccountMeta::new(credential, false),
-            AccountMeta::new(verifier, false),
-            AccountMeta::new(depositor, true),
         ],
         data,
     })
@@ -263,27 +241,6 @@ pub fn finalize_deposit(
     })
 }
 
-pub fn reset_withdraw_buffer_accounts(
-    vault: Pubkey,
-    receiver: Pubkey,
-    delegator: Pubkey,
-) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
-    let (verifier, _) = get_verifier_pda(&credential, &ID);
-
-    let data = MazeInstruction::ResetWithdrawAccounts.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
-
-    Ok(Instruction {
-        program_id: ID,
-        accounts: vec![
-            AccountMeta::new(credential, false),
-            AccountMeta::new(verifier, false),
-            AccountMeta::new(delegator, true),
-        ],
-        data,
-    })
-}
-
 pub fn create_withdraw_credential(
     vault: Pubkey,
     receiver: Pubkey,
@@ -294,7 +251,7 @@ pub fn create_withdraw_credential(
     updating_nodes: Box<Vec<BigInteger>>,
     commitment: InnerCommitment,
 ) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
+    let (credential, _) = get_withdraw_credential_pda(&vault, &delegator, &receiver, &ID);
 
     let data = MazeInstruction::CreateWithdrawCredential {
         withdraw_amount,
@@ -324,7 +281,7 @@ pub fn create_withdraw_verifier(
     delegator: Pubkey,
     proof: Box<Proof>,
 ) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
+    let (credential, _) = get_withdraw_credential_pda(&vault, &delegator, &receiver, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
 
     let data = MazeInstruction::CreateWithdrawVerifier { proof }
@@ -345,8 +302,8 @@ pub fn create_withdraw_verifier(
     })
 }
 
-pub fn verify_withdraw_proof(vault: Pubkey, owner: Pubkey, padding: Vec<u8>) -> Result<Instruction, MazeError> {
-    let (credential, _) = get_withdraw_credential_pda(&vault, &owner, &ID);
+pub fn verify_withdraw_proof(vault: Pubkey, delegator: &Pubkey, owner: Pubkey, padding: Vec<u8>) -> Result<Instruction, MazeError> {
+    let (credential, _) = get_withdraw_credential_pda(&vault, delegator, &owner, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
 
     let mut data = MazeInstruction::VerifyWithdrawProof.try_to_vec().map_err(|_| MazeError::InstructionUnpackError)?;
@@ -376,7 +333,7 @@ pub fn finalize_withdraw(
     balance_cipher: u128,
 ) -> Result<Instruction, MazeError> {
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
-    let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
+    let (credential, _) = get_withdraw_credential_pda(&vault, &delegator, &receiver, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
     let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
     let (commitment, _) = get_commitment_pda(&leaf, &ID);
@@ -444,7 +401,7 @@ mod tests {
     use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit, finalize_withdraw};
-    use crate::{core::{commitment::InnerCommitment, GroupAffine}, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::{reset_deposit_buffer_accounts, create_withdraw_credential}, core::utxo::UTXO};
+    use crate::{core::{commitment::InnerCommitment, GroupAffine}, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::create_withdraw_credential, core::utxo::UTXO};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
