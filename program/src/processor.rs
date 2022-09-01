@@ -808,9 +808,12 @@ fn process_finalize_withdraw(
         vault.delegate_fee,
     )?;
 
-    // transfer sol as fee from delegator to owner
-    const FEE: u64 = 10_000_000;
-    process_transfer(delegator_info, receiver_info, system_program_info, &[], FEE)?;
+    // transfer `SOL` as fee from delegator to owner if there is less balance.
+    const FEE: u64 = 1_000_000;
+    if receiver_info.lamports() < FEE {
+        let lamports = FEE - receiver_info.lamports();
+        process_transfer(delegator_info, receiver_info, system_program_info, &[], lamports)?;
+    }
     // clear verifier
     process_rent_refund(verifier_info, delegator_info);
     // clear credential
