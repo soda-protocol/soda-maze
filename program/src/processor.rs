@@ -720,18 +720,6 @@ fn process_finalize_withdraw(
     )?;
     Commitment::new(credential.vanilla_data.commitment).initialize_to_account_info(commitment_info)?;
 
-    process_optimal_create_token_account(
-        rent_info,
-        token_mint_info,
-        dst_token_account_info,
-        delegator_info,
-        receiver_info,
-        token_program_info,
-        system_program_info,
-        spl_associated_program_info,
-        &[],
-    )?;
-
     // store uxto on chain
     let (utxo_pubkey, (seed_1, seed_2)) = get_utxo_pda(&utxo, program_id);
     if &utxo_pubkey != utxo_info.key {
@@ -786,10 +774,22 @@ fn process_finalize_withdraw(
     vault.update(new_root);
     vault.pack_to_account_info(vault_info)?;
 
+    process_optimal_create_token_account(
+        rent_info,
+        token_mint_info,
+        dst_token_account_info,
+        delegator_info,
+        receiver_info,
+        token_program_info,
+        system_program_info,
+        spl_associated_program_info,
+        &[],
+    )?;
+
     let receive_amount = credential.vanilla_data.withdraw_amount
         .checked_sub(vault.delegate_fee)
         .ok_or(MazeError::Overflow)?;
-    // transfer token from vault to user
+    // transfer token from vault to receiver
     process_token_transfer(
         token_program_info,
         vault_token_account_info,

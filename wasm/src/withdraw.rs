@@ -78,6 +78,7 @@ fn gen_withdraw_instructions(
         receiver,
         delegator,
         pub_in.dst_leaf_index,
+        dst_leaf,
         nullifier_point,
         utxo,
         balance_cipher,

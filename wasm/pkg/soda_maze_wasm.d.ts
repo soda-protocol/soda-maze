@@ -22,11 +22,11 @@ export function gen_withdraw_proof(vault: Pubkey, token_mint: Pubkey, receiver: 
 */
 export function get_vault_info(data: Uint8Array): any;
 /**
-* @param {Pubkey} vault_key
+* @param {Pubkey} vault
 * @param {bigint} leaf_index
 * @returns {Array<any>}
 */
-export function get_merkle_neighbor_nodes(vault_key: Pubkey, leaf_index: bigint): Array<any>;
+export function get_merkle_neighbor_nodes(vault: Pubkey, leaf_index: bigint): Array<any>;
 /**
 * @param {Uint8Array} sig
 * @param {Pubkey} vault

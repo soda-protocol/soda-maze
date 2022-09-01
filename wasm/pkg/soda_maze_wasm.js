@@ -256,16 +256,16 @@ export function get_vault_info(data) {
 }
 
 /**
-* @param {Pubkey} vault_key
+* @param {Pubkey} vault
 * @param {bigint} leaf_index
 * @returns {Array<any>}
 */
-export function get_merkle_neighbor_nodes(vault_key, leaf_index) {
-    _assertClass(vault_key, Pubkey);
+export function get_merkle_neighbor_nodes(vault, leaf_index) {
+    _assertClass(vault, Pubkey);
     uint64CvtShim[0] = leaf_index;
     const low0 = u32CvtShim[0];
     const high0 = u32CvtShim[1];
-    const ret = wasm.get_merkle_neighbor_nodes(vault_key.ptr, low0, high0);
+    const ret = wasm.get_merkle_neighbor_nodes(vault.ptr, low0, high0);
     return takeObject(ret);
 }
 

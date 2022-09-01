@@ -370,6 +370,7 @@ pub fn finalize_withdraw(
     receiver: Pubkey,
     delegator: Pubkey,
     leaf_index: u64,
+    leaf: BigInteger,
     nullifier: GroupAffine,
     utxo: [u8; 32],
     balance_cipher: u128,
@@ -378,6 +379,7 @@ pub fn finalize_withdraw(
     let (credential, _) = get_withdraw_credential_pda(&vault, &receiver, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
     let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
+    let (commitment, _) = get_commitment_pda(&leaf, &ID);
     let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
     let user_token_account = get_associated_token_address(&receiver, &token_mint);
     let delegator_token_account = get_associated_token_address(&delegator, &token_mint);
@@ -404,6 +406,7 @@ pub fn finalize_withdraw(
         AccountMeta::new(credential, false),
         AccountMeta::new(verifier, false),
         AccountMeta::new(nullifier, false),
+        AccountMeta::new(commitment, false),
         AccountMeta::new(vault_token_account, false),
         AccountMeta::new(user_token_account, false),
         AccountMeta::new(delegator_token_account, false),
@@ -440,7 +443,7 @@ mod tests {
     use rand_core::{OsRng, RngCore};
     use ark_std::UniformRand;
 
-    use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit};
+    use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit, finalize_withdraw};
     use crate::{core::{commitment::InnerCommitment, GroupAffine}, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::{reset_deposit_buffer_accounts, create_withdraw_credential}, core::utxo::UTXO};
     use crate::bn::BigInteger256 as BigInteger;
 
@@ -621,21 +624,21 @@ mod tests {
 
         // let instruction = reset_deposit_buffer_accounts(VAULT, signer.pubkey()).unwrap();
 
-        for _ in 0..145 {
-            let blockhash = client.get_latest_blockhash().unwrap();
-            let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
-            let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
-            let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
-            let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
-            let transaction = Transaction::new_signed_with_payer(
-                &[instruction_1, instruction_2],
-                Some(&signer.pubkey()),
-                &[&signer],
-                blockhash,
-            );
-            let res = client.send_transaction(&transaction).unwrap();
-            println!("{:?}", res);
-        }
+        // for _ in 0..145 {
+        //     let blockhash = client.get_latest_blockhash().unwrap();
+        //     let data = ComputeBudgetInstruction::RequestUnitsDeprecated { units: 1_400_000, additional_fee: 5000 };
+        //     let instruction_1 = Instruction::new_with_borsh(compute_budget::ID, &data, vec![]);
+        //     let padding = u64::rand(&mut OsRng).to_le_bytes().to_vec();
+        //     let instruction_2 = verify_deposit_proof(VAULT, signer.pubkey(), padding).unwrap();
+        //     let transaction = Transaction::new_signed_with_payer(
+        //         &[instruction_1, instruction_2],
+        //         Some(&signer.pubkey()),
+        //         &[&signer],
+        //         blockhash,
+        //     );
+        //     let res = client.send_transaction(&transaction).unwrap();
+        //     println!("{:?}", res);
+        // }
 
         // let instruction = finalize_deposit(
         //     VAULT,
@@ -645,13 +648,25 @@ mod tests {
         //     leaf,
         // ).unwrap();
 
-        // let blockhash = client.get_latest_blockhash().unwrap();
-        // let sig = client.send_and_confirm_transaction(&Transaction::new_signed_with_payer(
-        //     &[instruction],
-        //     Some(&signer.pubkey()),
-        //     &[&signer],
-        //     blockhash,
-        // )).unwrap();
+        let instruction = finalize_withdraw(
+            VAULT,
+            TOKEN_MINT,
+            DELEGATOR,
+            signer.pubkey(),
+            0,
+            leaf,
+            commitment.0,
+            [1u8; 32],
+            100_000_000,
+        ).unwrap();
+
+        let blockhash = client.get_latest_blockhash().unwrap();
+        let sig = client.send_and_confirm_transaction(&Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        )).unwrap();
 
         // let sig = send_v0_transaction(&client, &signer, &[instruction]);
         // println!("{}", sig);

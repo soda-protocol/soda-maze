@@ -38,7 +38,7 @@ pub fn get_vault_info(data: Uint8Array) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> Array {
+pub fn get_merkle_neighbor_nodes(vault: &Pubkey, leaf_index: u64) -> Array {
     console_error_panic_hook::set_once();
 
     let neighbors = (0..HEIGHT)
@@ -50,7 +50,7 @@ pub fn get_merkle_neighbor_nodes(vault_key: &Pubkey, leaf_index: u64) -> Array {
             } else {
                 (layer as u8, index - 1)
             };
-            let (neighbor, _) = get_merkle_node_pda(&vault_key, layer, index, &ID);
+            let (neighbor, _) = get_merkle_node_pda(&vault, layer, index, &ID);
             
             JsValue::from_serde(&neighbor).unwrap()
         });
