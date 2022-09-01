@@ -4,12 +4,13 @@ pub mod miller_loop;
 pub mod final_exponent;
 
 use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::program_pack::IsInitialized;
-use solana_program::pubkey::Pubkey;
+use solana_program::{msg, pubkey::Pubkey, hash::Hash, program_pack::IsInitialized, entrypoint::ProgramResult};
 
+use crate::core::VanillaData;
+use crate::error::MazeError;
 use crate::{Packer, params::verify::ProofType};
 use crate::params::bn::{G1Affine254, G2Affine254};
-use self::program::Program;
+use program::Program;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Proof {
@@ -35,6 +36,7 @@ pub fn get_verifier_pda<'a>(
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Verifier {
     pub is_initialized: bool,
+    pub credential_hash: Hash,
     pub proof_type: ProofType,
     pub program: Program,
 }
@@ -50,11 +52,21 @@ impl Packer for Verifier {
 }
 
 impl Verifier {
-    pub fn new(proof_type: ProofType, program: Program) -> Self {
+    pub fn new(proof_type: ProofType, credential_hash: Hash, program: Program) -> Self {
         Self {
             is_initialized: true,
             proof_type,
+            credential_hash,
             program,
+        }
+    }
+
+    pub fn check_consistency<V: VanillaData>(&self, credential: &V) -> ProgramResult {
+        if credential.hash()? != self.credential_hash {
+            msg!("credential hash is not matched");
+            Err(MazeError::InvalidVanillaData.into())
+        } else {
+            Ok(())
         }
     }
 
@@ -65,6 +77,7 @@ impl Verifier {
         Self {
             is_initialized: self.is_initialized,
             proof_type: self.proof_type,
+            credential_hash: self.credential_hash,
             program,
         }
     }

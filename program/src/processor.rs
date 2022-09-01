@@ -199,7 +199,7 @@ fn process_create_deposit_verifier(
         &[seed_1, &seed_2],
     )?;
     // create verifier
-    let verifier = credential.vanilla_data.to_verifier(proof);
+    let verifier = credential.vanilla_data.to_verifier(proof)?;
     verifier.initialize_to_account_info(verifier_info)
 }
 
@@ -235,6 +235,8 @@ fn process_verify_deposit_proof(
         return Err(MazeError::InvalidPdaPubkey.into());
     }
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
+    verifier.check_consistency(&credential.vanilla_data)?;
+
     let verifier = verifier.process();
     verifier.pack_to_account_info(verifier_info)
 }
@@ -288,6 +290,7 @@ fn process_finalize_deposit(
         return Err(MazeError::InvalidPdaPubkey.into());
     }
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
+    verifier.check_consistency(&credential.vanilla_data)?;
     verifier.program.check_verified()?;
 
     let (commitment_key, (seed_1, seed_2)) = get_commitment_pda(
@@ -511,7 +514,7 @@ fn process_create_withdraw_verifier(
         &[seed_1, &seed_2],
     )?;
     // create verifier
-    let verifier = credential.vanilla_data.to_verifier(proof);
+    let verifier = credential.vanilla_data.to_verifier(proof)?;
     verifier.initialize_to_account_info(verifier_info)
 }
 
@@ -547,6 +550,8 @@ fn process_verify_withdraw_proof(
         return Err(MazeError::InvalidPdaPubkey.into());
     }
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
+    verifier.check_consistency(&credential.vanilla_data)?;
+
     let verifier = verifier.process();
     verifier.pack_to_account_info(verifier_info)
 }
@@ -616,6 +621,7 @@ fn process_finalize_withdraw(
         return Err(MazeError::InvalidPdaPubkey.into());
     }
     let verifier = Verifier::unpack_from_account_info(verifier_info, program_id)?;
+    verifier.check_consistency(&credential.vanilla_data)?;
     verifier.program.check_verified()?;
 
     let (nullifier_key, (seed_1, seed_2, seed_3)) = get_nullifier_pda(

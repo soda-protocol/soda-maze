@@ -10,7 +10,7 @@ pub mod utxo;
 use std::fmt::Debug;
 use arrayref::array_refs;
 use borsh::{BorshSerialize, BorshDeserialize};
-use solana_program::{hash::hash, pubkey::Pubkey};
+use solana_program::{hash::{hash, Hash}, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::bn::{BigInteger256 as BigInteger, FpParameters};
 use crate::params::bn::FrParameters;
@@ -54,7 +54,13 @@ pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
 
     fn to_public_inputs(self) -> Box<Vec<BigInteger>>;
 
-    fn to_verifier(self, proof: Box<Proof>) -> Verifier {
+    fn hash(&self) -> Result<Hash, ProgramError> {
+        let data = self.try_to_vec()?;
+        Ok(hash(&data))
+    }
+
+    fn to_verifier(self, proof: Box<Proof>) -> Result<Verifier, ProgramError> {
+        let credential_hash = self.hash()?;
         let public_inputs = self.to_public_inputs();
         let program = Program::PrepareInputs(PrepareInputs::new(
             Self::PVK,
@@ -62,6 +68,6 @@ pub trait VanillaData: Debug + Clone + BorshSerialize + BorshDeserialize {
             proof,
         ));
 
-        Verifier::new(Self::PROOF_TYPE, program)
+        Ok(Verifier::new(Self::PROOF_TYPE, credential_hash, program))
     }
 }
