@@ -99,6 +99,10 @@ fn process_create_deposit_credential(
     vault.check_enable()?;
     vault.check_deposit(deposit_amount)?;
 
+    if !depositor_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
     let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_deposit_credential_pda(
         vault_info.key,
         depositor_info.key,
@@ -133,7 +137,7 @@ fn process_create_deposit_credential(
         *depositor_info.key,
         vanilla_data,
     );
-    credential.initialize_to_account_info(credential_info)
+    credential.pack_to_account_info(credential_info)
 }
 
 #[inline(never)]
@@ -155,6 +159,10 @@ fn process_create_deposit_verifier(
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
+
+    if !depositor_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
 
     let credential = DepositCredential::unpack_from_account_info(credential_info, program_id)?;
     if &credential.vault != vault_info.key {
@@ -188,7 +196,7 @@ fn process_create_deposit_verifier(
     )?;
     // create verifier
     let verifier = credential.vanilla_data.to_verifier(proof)?;
-    verifier.initialize_to_account_info(verifier_info)
+    verifier.pack_to_account_info(verifier_info)
 }
 
 fn process_verify_deposit_proof(
@@ -399,6 +407,10 @@ fn process_create_withdraw_credential(
     vault.check_enable()?;
     vault.check_withdraw(withdraw_amount)?;
 
+    if !delegator_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
+
     let (credential_key, (seed_1, seed_2, seed_3, seed_4, seed_5)) = get_withdraw_credential_pda(
         vault_info.key,
         delegator_info.key,
@@ -436,7 +448,7 @@ fn process_create_withdraw_credential(
         *delegator_info.key,
         vanilla_data,
     );
-    credential.initialize_to_account_info(credential_info)
+    credential.pack_to_account_info(credential_info)
 }
 
 #[inline(never)]
@@ -458,6 +470,10 @@ fn process_create_withdraw_verifier(
 
     let vault = Vault::unpack_from_account_info(vault_info, program_id)?;
     vault.check_enable()?;
+
+    if !delegator_info.is_signer {
+        return Err(MazeError::InvalidAuthority.into());
+    }
 
     let credential = WithdrawCredential::unpack_from_account_info(credential_info, program_id)?;
     if &credential.vault != vault_info.key {
@@ -491,7 +507,7 @@ fn process_create_withdraw_verifier(
     )?;
     // create verifier
     let verifier = credential.vanilla_data.to_verifier(proof)?;
-    verifier.initialize_to_account_info(verifier_info)
+    verifier.pack_to_account_info(verifier_info)
 }
 
 fn process_verify_withdraw_proof(
