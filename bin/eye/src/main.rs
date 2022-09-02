@@ -49,7 +49,7 @@ enum Opt {
         #[clap(short = 'u', long, value_parser, default_value = "https://api.devnet.solana.com")]
         url: String,
         #[clap(short = 's', long, value_parser)]
-        states: Vec<String>,
+        state: Vec<String>,
         #[clap(short = 'c', long = "commitment-1", value_parser)]
         commitment_1: String,
     }
@@ -122,11 +122,11 @@ fn main() {
         }
         Opt::Reveal {
             url,
-            states,
+            state,
             commitment_1,
         } => {
-            let states = states.into_iter().enumerate().map(|(i, state)| {
-                from_hex_string(state).expect(format!("invalid state at {}", i).as_str())
+            let states = state.into_iter().enumerate().map(|(i, s)| {
+                from_hex_string(s).expect(format!("invalid state at {}", i).as_str())
             });
             let commitment_1 = from_hex_string(commitment_1).expect("invalid commitment 1");
             let client = RpcClient::new_with_commitment(
