@@ -64,7 +64,7 @@ pub fn process_optimal_create_account<'a>(
                 msg!("minimum rent: {}", &rent.minimum_balance(data_len));
                 return Err(MazeError::NotRentExempt.into());
             } else {
-                return Ok(());
+                return target_account_info.realloc(data_len, true);
             }
         }
     } else if target_account_info.owner != system_program_info.key {

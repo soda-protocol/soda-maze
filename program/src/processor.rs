@@ -99,10 +99,6 @@ fn process_create_deposit_credential(
     vault.check_enable()?;
     vault.check_deposit(deposit_amount)?;
 
-    if !depositor_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
-
     let (credential_key, (seed_1, seed_2, seed_3, seed_4)) = get_deposit_credential_pda(
         vault_info.key,
         depositor_info.key,
@@ -111,11 +107,6 @@ fn process_create_deposit_credential(
     if credential_info.key != &credential_key {
         msg!("Credential pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !credential_info.try_data_is_empty()? {
-        // clear credential
-        credential_info.realloc(0, true)?;
-        process_rent_refund(credential_info, depositor_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -184,11 +175,6 @@ fn process_create_deposit_verifier(
     if verifier_info.key != &verifier_key {
         msg!("Verifier pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !verifier_info.try_data_is_empty()? {
-        // clear verifier
-        verifier_info.realloc(0, true)?;
-        process_rent_refund(verifier_info, depositor_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -413,10 +399,6 @@ fn process_create_withdraw_credential(
     vault.check_enable()?;
     vault.check_withdraw(withdraw_amount)?;
 
-    if !delegator_info.is_signer {
-        return Err(MazeError::InvalidAuthority.into());
-    }
-
     let (credential_key, (seed_1, seed_2, seed_3, seed_4, seed_5)) = get_withdraw_credential_pda(
         vault_info.key,
         delegator_info.key,
@@ -426,11 +408,6 @@ fn process_create_withdraw_credential(
     if credential_info.key != &credential_key {
         msg!("Credential pubkey is invalid");
         return Err(MazeError::InvalidPdaPubkey.into());
-    }
-    if !credential_info.try_data_is_empty()? {
-        // clear credential
-        credential_info.realloc(0, true);
-        process_rent_refund(credential_info, delegator_info);
     }
     process_optimal_create_account(
         rent_info,
@@ -501,11 +478,6 @@ fn process_create_withdraw_verifier(
     if verifier_info.key != &verifier_key {
         msg!("Verifier pubkey is invalid");
         return Err(MazeError::UnmatchedAccounts.into());
-    }
-    if !verifier_info.try_data_is_empty()? {
-        // clear verifier
-        verifier_info.realloc(0, true);
-        process_rent_refund(verifier_info, delegator_info);
     }
     process_optimal_create_account(
         rent_info,
