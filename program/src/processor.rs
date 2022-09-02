@@ -114,6 +114,7 @@ fn process_create_deposit_credential(
     }
     if !credential_info.try_data_is_empty()? {
         // clear credential
+        credential_info.realloc(0, true)?;
         process_rent_refund(credential_info, depositor_info);
     }
     process_optimal_create_account(
@@ -186,6 +187,7 @@ fn process_create_deposit_verifier(
     }
     if !verifier_info.try_data_is_empty()? {
         // clear verifier
+        verifier_info.realloc(0, true)?;
         process_rent_refund(verifier_info, depositor_info);
     }
     process_optimal_create_account(
@@ -427,6 +429,7 @@ fn process_create_withdraw_credential(
     }
     if !credential_info.try_data_is_empty()? {
         // clear credential
+        credential_info.realloc(0, true);
         process_rent_refund(credential_info, delegator_info);
     }
     process_optimal_create_account(
@@ -501,6 +504,7 @@ fn process_create_withdraw_verifier(
     }
     if !verifier_info.try_data_is_empty()? {
         // clear verifier
+        verifier_info.realloc(0, true);
         process_rent_refund(verifier_info, delegator_info);
     }
     process_optimal_create_account(
