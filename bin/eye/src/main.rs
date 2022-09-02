@@ -14,12 +14,12 @@ use ark_ed_on_bn254::{EdwardsAffine, EdwardsProjective, Fr};
 use ark_ed_on_bls12_381::{EdwardsAffine, Fr};
 
 #[inline]
-fn decrypt(commitment_0: EdwardsAffine, privkey: Fr) -> EdwardsAffine {
+fn decrypt(c0: EdwardsAffine, privkey: Fr) -> EdwardsAffine {
     // pk * C0
-    commitment_0.mul(privkey).into_affine()
+    c0.mul(privkey).into_affine()
 }
 
-fn reveal_commitment<I: Iterator<Item = EdwardsAffine>>(commitment_1: EdwardsAffine, states: I) -> EdwardsAffine {
+fn reveal_commitment<I: Iterator<Item = EdwardsAffine>>(c1: EdwardsAffine, states: I) -> EdwardsAffine {
     // ∑state_i = ∑pk_i * C0 = r * P
     let sum = states
         .into_iter()
@@ -27,7 +27,7 @@ fn reveal_commitment<I: Iterator<Item = EdwardsAffine>>(commitment_1: EdwardsAff
             sum.add_mixed(&state)
         });
     // C1 - r * P = nullifier * G + r * P - r * P = nullifier * G
-    (commitment_1.into_projective() - sum).into_affine()
+    (c1.into_projective() - sum).into_affine()
 }
 
 #[derive(Parser, Debug)]
@@ -43,7 +43,7 @@ enum Opt {
         #[clap(short = 'p', long = "private-key")]
         privkey: String,
         #[clap(short = 'c', long = "commitment-0", value_parser)]
-        commitment_0: String,
+        c0: String,
     },
     Reveal {
         #[clap(short = 'u', long, value_parser, default_value = "https://api.devnet.solana.com")]
@@ -51,7 +51,7 @@ enum Opt {
         #[clap(short = 's', long, value_parser)]
         state: Vec<String>,
         #[clap(short = 'c', long = "commitment-1", value_parser)]
-        commitment_1: String,
+        c1: String,
     }
 }
 
@@ -112,29 +112,29 @@ fn main() {
         }
         Opt::Decrypt {
             privkey,
-            commitment_0,
+            c0,
         } => {
             let privkey = from_hex_string::<Fr>(privkey).expect("invalid private key");
-            let commitment_0 = from_hex_string(commitment_0).expect("invalid commitment 0");
-            let state = decrypt(commitment_0, privkey);
+            let c0 = from_hex_string(c0).expect("invalid commitment 0");
+            let state = decrypt(c0, privkey);
 
             println!("output state is {}", to_hex_string(&state).unwrap());
         }
         Opt::Reveal {
             url,
             state,
-            commitment_1,
+            c1,
         } => {
             let states = state.into_iter().enumerate().map(|(i, s)| {
                 from_hex_string(s).expect(format!("invalid state at {}", i).as_str())
             });
-            let commitment_1 = from_hex_string(commitment_1).expect("invalid commitment 1");
+            let c1 = from_hex_string(c1).expect("invalid commitment 1");
             let client = RpcClient::new_with_commitment(
                 &url,
                 CommitmentConfig::finalized(),
             );
 
-            let nullifier_point = reveal_commitment(commitment_1, states);
+            let nullifier_point = reveal_commitment(c1, states);
             let nullifier_point = to_maze_edwards_affine(nullifier_point);
             let (nullifier, _) = get_nullifier_pda(&nullifier_point, &ID);
             if let Ok(data) = client.get_account_data(&nullifier) {
