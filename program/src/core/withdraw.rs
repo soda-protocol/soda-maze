@@ -3,16 +3,16 @@ use solana_program::{msg, pubkey::Pubkey, program_error::ProgramError};
 
 use crate::params::{verify::ProofType, HEIGHT};
 use crate::{error::MazeError, bn::BigInteger256 as BigInteger};
-use super::{pubkey_to_fr_repr, is_fr_valid, is_affine_valid};
+use super::{pubkey_to_fr_repr, is_fr_valid, is_edwards_affine_valid};
 use super::node::is_updating_nodes_valid;
 use super::commitment::{is_commitment_valid, InnerCommitment};
-use super::{GroupAffine, VanillaData, credential::Credential};
+use super::{EdwardsAffine, VanillaData, credential::Credential};
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct WithdrawVanillaData {
     pub receiver: Pubkey,
     pub withdraw_amount: u64,
-    pub nullifier: GroupAffine,
+    pub nullifier_point: EdwardsAffine,
     pub leaf_index: u64,
     pub leaf: BigInteger,
     pub prev_root: BigInteger,
@@ -25,15 +25,15 @@ impl WithdrawVanillaData {
     pub fn new(
         receiver: Pubkey,
         withdraw_amount: u64,
-        nullifier: GroupAffine,
+        nullifier_point: EdwardsAffine,
         leaf_index: u64,
         leaf: BigInteger,
         prev_root: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
         commitment: InnerCommitment,
     ) -> Result<Self, ProgramError> {
-        if !is_affine_valid(&nullifier) {
-            msg!("nullifier is invalid");
+        if !is_edwards_affine_valid(&nullifier_point) {
+            msg!("nullifier point is invalid");
             return Err(MazeError::InvalidVanillaData.into());
         }
         if leaf_index >= 1 << HEIGHT {
@@ -60,7 +60,7 @@ impl WithdrawVanillaData {
         Ok(Self {
             receiver,
             withdraw_amount,
-            nullifier,
+            nullifier_point,
             leaf_index,
             leaf,
             prev_root,
@@ -83,8 +83,8 @@ impl VanillaData for WithdrawVanillaData {
         inputs.push(BigInteger::from(self.leaf_index));
         inputs.push(self.leaf);
         inputs.push(self.prev_root);
-        inputs.push(self.nullifier.x);
-        inputs.push(self.nullifier.y);
+        inputs.push(self.nullifier_point.x);
+        inputs.push(self.nullifier_point.y);
         inputs.extend(*self.updating_nodes);
         inputs.push(self.commitment.0.x);
         inputs.push(self.commitment.0.y);

@@ -1,7 +1,7 @@
 use ark_std::rc::Rc;
 use anyhow::{anyhow, Result};
 use ark_ff::{PrimeField, BigInteger, FpParameters};
-use ark_ec::{models::{TEModelParameters, twisted_edwards_extended::{GroupProjective, GroupAffine}}, ProjectiveCurve};
+use ark_ec::{models::{TEModelParameters, twisted_edwards_extended::{GroupProjective, GroupAffine}}, ProjectiveCurve, AffineCurve};
 
 use super::hasher::FieldHasher;
 
@@ -66,11 +66,11 @@ where
     let commitment_0 = g.mul(nonce);
     
     // encrypt step 2: nullifier * G + nonce * P
-    let pubkey: GroupProjective<_> = params.pubkey.into();
+    let pubkey = params.pubkey.into_projective();
     let commitment_1 = g.mul(nullifier) + pubkey.mul(nonce);
 
     let pub_in = CommitPublicInputs {
-        commitment: (commitment_0.into(), commitment_1.into()),
+        commitment: (commitment_0.into_affine(), commitment_1.into_affine()),
     };
     let priv_in = CommitPrivateInputs { nonce_bits };
 

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 soda-maze-lib = { path = "../../lib" }
-soda-maze-types = { path = "../../types", optional = true }
+soda-maze-utils = { path = "../../utils", optional = true }
 clap = { version = "3.2", features = ["std", "color", "derive"] }
 arkworks-utils = "0.4.20"
 ark-ff = "0.3.0"
@@ -25,6 +25,6 @@ rand_core = { version = "0.6.3", features = ["std"] }
 
 [features]
 default = ["bn254", "poseidon"]
-bn254 = ["ark-bn254", "ark-ed-on-bn254", "soda-maze-types/bn254"]
-bls12-381 = ["ark-bls12-381", "ark-ed-on-bls12-381", "soda-maze-types/bls12-381"]
-poseidon = ["soda-maze-types/poseidon"]
+bn254 = ["ark-bn254", "ark-ed-on-bn254", "soda-maze-utils/bn254"]
+bls12-381 = ["ark-bls12-381", "ark-ed-on-bls12-381", "soda-maze-utils/bls12-381"]
+poseidon = ["soda-maze-utils/poseidon"]

@@ -4,9 +4,9 @@ use solana_program::pubkey::Pubkey;
 
 use crate::Packer;
 use crate::bn::{BigInteger256, BigInteger};
-use super::{is_affine_valid, GroupAffine};
+use super::{is_edwards_affine_valid, EdwardsAffine};
 
-pub type InnerCommitment = (GroupAffine, GroupAffine);
+pub type InnerCommitment = (EdwardsAffine, EdwardsAffine);
 
 #[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct Commitment {
@@ -35,10 +35,10 @@ impl Packer for Commitment {
 
 #[inline]
 pub fn is_commitment_valid(inner: &InnerCommitment) -> bool {
-    is_affine_valid(&inner.0) && is_affine_valid(&inner.1)
+    is_edwards_affine_valid(&inner.0) && is_edwards_affine_valid(&inner.1)
 }
 
-pub fn get_commitment_pda<'a>(
+pub fn get_commitment_pda(
     leaf: &BigInteger256,
     program_id: &Pubkey,
 ) -> (Pubkey, (Vec<u8>, [u8; 1])) {

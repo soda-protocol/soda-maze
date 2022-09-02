@@ -3,12 +3,11 @@ use ark_ed_on_bn254::EdwardsParameters;
 use borsh::BorshDeserialize;
 use rust_embed::RustEmbed;
 use soda_maze_program::params::HEIGHT;
-
 use soda_maze_lib::vanilla::hasher::{FieldHasher, poseidon::PoseidonHasher};
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
-use soda_maze_types::params::{gen_deposit_const_params, gen_withdraw_const_params};
-use soda_maze_types::{keys::MazeProvingKey, parser::from_hex_string};
+use soda_maze_utils::params::{gen_deposit_const_params, gen_withdraw_const_params};
+use soda_maze_utils::{convert::MazeProvingKey, parser::from_hex_string};
 
 #[derive(RustEmbed)]
 #[folder = "resources/"]

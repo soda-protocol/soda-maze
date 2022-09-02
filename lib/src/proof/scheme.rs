@@ -1,5 +1,5 @@
 use ark_crypto_primitives::snark::SNARK;
-use ark_ec::{TEModelParameters, twisted_edwards_extended::GroupAffine};
+use ark_ec::TEModelParameters;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 
@@ -43,12 +43,10 @@ where
         inputs.extend_from_slice(&pub_in.update_nodes);
 
         if let Some(commit) = &pub_in.commit {
-            let commitment_0: GroupAffine<P> = commit.commitment.0.into();
-            let commitment_1: GroupAffine<P> = commit.commitment.1.into();
-            inputs.push(commitment_0.x);
-            inputs.push(commitment_0.y);
-            inputs.push(commitment_1.x);
-            inputs.push(commitment_1.y);
+            inputs.push(commit.commitment.0.x);
+            inputs.push(commit.commitment.0.y);
+            inputs.push(commit.commitment.1.x);
+            inputs.push(commit.commitment.1.y);
         }
 
         inputs
@@ -126,12 +124,10 @@ where
         inputs.extend_from_slice(&pub_in.update_nodes);
 
         if let Some(commit) = &pub_in.commit {
-            let commitment_0: GroupAffine<P> = commit.commitment.0.into();
-            let commitment_1: GroupAffine<P> = commit.commitment.1.into();
-            inputs.push(commitment_0.x);
-            inputs.push(commitment_0.y);
-            inputs.push(commitment_1.x);
-            inputs.push(commitment_1.y);
+            inputs.push(commit.commitment.0.x);
+            inputs.push(commit.commitment.0.y);
+            inputs.push(commit.commitment.1.x);
+            inputs.push(commit.commitment.1.y);
         }
 
         inputs

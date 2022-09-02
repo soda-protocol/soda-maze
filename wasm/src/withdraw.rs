@@ -13,6 +13,7 @@ use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::WithdrawProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, commit::CommitOriginInputs, VanillaProof};
+use soda_maze_utils::convert::{to_maze_fr_repr, to_maze_edwards_affine, to_maze_proof, from_maze_fr_repr};
 
 use crate::info;
 use crate::utils::*;
@@ -44,11 +45,13 @@ fn gen_withdraw_instructions(
     use soda_maze_program::instruction::*;
 
     let dst_leaf = to_maze_fr_repr(pub_in.dst_leaf);
-    let nullifier_point = to_maze_group_affine(pub_in.nullifier_point);
+    let nullifier_point = to_maze_edwards_affine(pub_in.nullifier_point);
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
         to_maze_fr_repr(node)
     }).collect::<Vec<_>>();
-    let commitment = to_maze_commitment(pub_in.commit.unwrap().commitment);
+    let commitment = pub_in.commit.map(|commit| {
+        (to_maze_edwards_affine(commit.commitment.0), to_maze_edwards_affine(commit.commitment.1))
+    }).unwrap();
     let credential = create_withdraw_credential(
         vault,
         receiver,
@@ -121,7 +124,7 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            from_maze_fr_repr(node.hash)
+            from_maze_fr_repr(node.hash).expect("Error: invalid node hash")
         }
     }).collect::<Vec<_>>();
     assert_eq!(src_neighbor_nodes.len(), HEIGHT, "Error: invalid src neighbors array length");
@@ -132,14 +135,14 @@ pub fn gen_withdraw_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: node data can not unpack");
-            from_maze_fr_repr(node.hash)
+            from_maze_fr_repr(node.hash).expect("Error: invalid node hash")
         }
     }).collect::<Vec<_>>();
     assert_eq!(dst_neighbor_nodes.len(), HEIGHT, "Error: invalid dst neighbors array length");
 
     let const_params = get_withdraw_const_params();
 
-    let receiver_fr = from_maze_fr_repr(pubkey_to_fr_repr(&receiver));
+    let receiver_fr = from_maze_fr_repr(pubkey_to_fr_repr(&receiver)).unwrap();
     let origin_inputs = WithdrawOriginInputs {
         balance,
         withdraw_amount,

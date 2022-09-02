@@ -18,13 +18,13 @@ use crate::params::{verify::ProofType, verify::PreparedVerifyingKey};
 use crate::verifier::{Proof, Verifier, program::Program, prepare_inputs::PrepareInputs};
 
 #[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
-pub struct GroupAffine {
+pub struct EdwardsAffine {
     pub x: BigInteger,
     pub y: BigInteger,
 }
 
 #[inline]
-pub fn is_affine_valid(point: &GroupAffine) -> bool {
+pub fn is_edwards_affine_valid(point: &EdwardsAffine) -> bool {
     is_fr_valid(&point.x) && is_fr_valid(&point.y)
 }
 

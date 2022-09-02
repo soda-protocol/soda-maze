@@ -1,19 +1,18 @@
 use std::rc::Rc;
-use ark_ec::models::twisted_edwards_extended::GroupAffine;
 use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 use soda_maze_lib::vanilla::deposit::DepositConstParams;
 use soda_maze_lib::vanilla::withdraw::WithdrawConstParams;
 use soda_maze_lib::vanilla::commit::CommitConstParams;
 
 #[cfg(feature = "bn254")]
-use ark_ed_on_bn254::{EdwardsParameters, Fq as Fr};
+use ark_ed_on_bn254::{EdwardsParameters, EdwardsAffine, Fq as Fr};
 #[cfg(feature = "bls12-381")]
-use ark_ed_on_bls12_381::{EdwardsParameters, Fq as Fr};
+use ark_ed_on_bls12_381::{EdwardsParameters, EdwardsAffine, Fq as Fr};
 
 #[cfg(all(feature = "bn254", feature = "poseidon"))]
 pub fn gen_deposit_const_params(
     height: usize,
-    pubkey: Option<GroupAffine<EdwardsParameters>>,
+    pubkey: Option<EdwardsAffine>,
 ) -> DepositConstParams<EdwardsParameters, PoseidonHasher<Fr>> {
     use soda_maze_lib::params::poseidon::*;
 
@@ -33,7 +32,7 @@ pub fn gen_deposit_const_params(
 #[cfg(all(feature = "bn254", feature = "poseidon"))]
 pub fn gen_withdraw_const_params(
     height: usize,
-    pubkey: Option<GroupAffine<EdwardsParameters>>,
+    pubkey: Option<EdwardsAffine>,
 ) -> WithdrawConstParams<EdwardsParameters, PoseidonHasher<Fr>> {
     use soda_maze_lib::params::poseidon::*;
     

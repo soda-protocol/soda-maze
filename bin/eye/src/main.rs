@@ -1,82 +1,57 @@
 use std::str::FromStr;
-use std::path::PathBuf;
-use ark_ff::{FpParameters, BigInteger256, PrimeField};
-use num_integer::Integer;
-use num_bigint::BigUint;
-use num_bigint_dig::{Sign, BigInt as BigIntDig};
+use ark_ec::{AffineCurve, ProjectiveCurve};
 use clap::Parser;
-use soda_maze_lib::vanilla::encryption::biguint_array_to_biguint;
-use soda_maze_program::{core::{commitment::Commitment, nullifier::{get_nullifier_pda, Nullifier}}, Packer, ID};
-use soda_maze_types::params::{JsonParser, RabinPrimes, RabinParameters};
+use num_traits::Zero;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature, pubkey::Pubkey};
 use solana_transaction_status::{UiTransactionEncoding, EncodedTransaction, UiMessage, UiInstruction, UiParsedInstruction};
+use soda_maze_program::{core::{commitment::Commitment, nullifier::{get_nullifier_pda, Nullifier}}, Packer, ID};
+use soda_maze_utils::{parser::{from_hex_string, to_hex_string}, convert::{from_maze_edwards_affine, to_maze_edwards_affine}};
 
 #[cfg(feature = "bn254")]
-use ark_bn254::Fr;
+use ark_ed_on_bn254::{EdwardsAffine, EdwardsProjective, Fr};
 #[cfg(feature = "bls12-381")]
-use ark_bls12_381::Fr;
+use ark_ed_on_bls12_381::{EdwardsAffine, Fr};
 
-fn rabin_decrypt(cipher: &BigIntDig, modulus: &BigIntDig, p: &BigIntDig, q: &BigIntDig) -> (BigIntDig, BigIntDig, BigIntDig, BigIntDig) {
-    assert_eq!(*modulus, p * q);
-    let (exp_p, rem) = (p + &BigIntDig::from(1u64)).div_rem(&BigIntDig::from(4u64));
-    assert_eq!(rem, BigIntDig::from(0u64));
-    let (exp_q, rem) = (q + &BigIntDig::from(1u64)).div_rem(&BigIntDig::from(4u64));
-    assert_eq!(rem, BigIntDig::from(0u64));
-
-    let mp = cipher.modpow(&exp_p, p);
-    let mq = cipher.modpow(&exp_q, q);
-
-    let egcd = p.extended_gcd(&q);
-    assert_eq!(egcd.gcd, BigIntDig::from(1u64));
-
-    let mut r = (&egcd.x * p * &mq + &egcd.y * q * &mp) % modulus;
-    if r.sign() == Sign::Minus {
-        r += modulus;
-    }
-    let r_neg = modulus - &r;
-
-    let mut s = (&egcd.x * p * &mq - &egcd.y * q * &mp) % modulus;
-    if s.sign() == Sign::Minus {
-        s += modulus;
-    }
-    let s_neg = modulus - &s;
-
-    (r, r_neg, s, s_neg)
+#[inline]
+fn decrypt(commitment_0: EdwardsAffine, privkey: Fr) -> EdwardsAffine {
+    // pk * C0
+    commitment_0.mul(privkey).into_affine()
 }
 
-fn substract_nullifier_pda(preimage: &BigIntDig, len: usize, bit_size: usize) -> Pubkey {
-    use soda_maze_program::bn::BigInteger256;
-
-    let (sign, preimage) = preimage.to_bytes_le();
-    assert_ne!(sign, Sign::Minus);
-    let preimage = BigUint::from_bytes_le(&preimage);
-
-    let mut nullifier_len = <Fr as PrimeField>::Params::MODULUS_BITS as usize / bit_size;
-    if <Fr as PrimeField>::Params::MODULUS_BITS as usize % bit_size != 0 {
-        nullifier_len += 1;
-    }
-    let base = BigUint::from(1u64) << ((len - nullifier_len) * bit_size);
-    let nullifier = Fr::from(preimage / &base);
-
-    let nullifier = BigInteger256::new(nullifier.into_repr().0);
-    let (nullifier_key, _) = get_nullifier_pda(&nullifier, &ID);
-
-    nullifier_key
+fn reveal_commitment<I: Iterator<Item = EdwardsAffine>>(commitment_1: EdwardsAffine, states: I) -> EdwardsAffine {
+    // ∑state_i = ∑pk_i * C0 = r * P
+    let sum = states
+        .into_iter()
+        .fold(EdwardsProjective::zero(), |sum, state| {
+            sum.add_mixed(&state)
+        });
+    // C1 - r * P = nullifier * G + r * P - r * P = nullifier * G
+    (commitment_1.into_projective() - sum).into_affine()
 }
 
 #[derive(Parser, Debug)]
-#[clap(name = "Soda Maze Eye", version = "0.0.1", about = "Reveal illegal deposit informations", long_about = "")]
+#[clap(name = "Soda Maze Eye", version = "0.0.1", about = "Reveal illegal receiver address of deposit/withdraw finalize transaction")]
 enum Opt {
-    RabinReveal {
+    GetCommitment {
         #[clap(short = 'u', long, value_parser, default_value = "https://api.devnet.solana.com")]
         url: String,
-        #[clap(long = "rabin-param", parse(from_os_str))]
-        rabin_params: PathBuf,
-        #[clap(long = "rabin-prime", parse(from_os_str))]
-        rabin_primes: PathBuf,
-        #[clap(short, long, value_parser)]
+        #[clap(short = 's', long, value_parser)]
         signature: String,
+    },
+    Decrypt {
+        #[clap(short = 'p', long = "private-key")]
+        privkey: String,
+        #[clap(short = 'c', long = "commitment-0", value_parser)]
+        commitment_0: String,
+    },
+    Reveal {
+        #[clap(short = 'u', long, value_parser, default_value = "https://api.devnet.solana.com")]
+        url: String,
+        #[clap(short = 's', long, value_parser)]
+        states: Vec<String>,
+        #[clap(short = 'c', long = "commitment-1", value_parser)]
+        commitment_1: String,
     }
 }
 
@@ -84,23 +59,16 @@ fn main() {
     let opt = Opt::parse();
 
     match opt {
-        Opt::RabinReveal {
+        Opt::GetCommitment {
             url,
-            rabin_params,
-            rabin_primes,
             signature,
         } => {
-            let rabin_params = RabinParameters::from_file(&rabin_params).expect("read rabin parameters from file error");
-            let rabin_primes = RabinPrimes::from_file(&rabin_primes).expect("read rabin primes from file error");
-            let p = hex::decode(rabin_primes.prime_a).expect("invalid rabin primes");
-            let q = hex::decode(rabin_primes.prime_b).expect("invalid rabin primes");
-            let modulus = hex::decode(rabin_params.modulus).expect("invalid rabin params");
-
-            let client = &RpcClient::new_with_commitment(
+            let sig = Signature::from_str(&signature).expect("invalid signature");
+            let client = RpcClient::new_with_commitment(
                 &url,
                 CommitmentConfig::finalized(),
             );
-            let sig = Signature::from_str(&signature).expect("invalid signature");
+
             let tx = client.get_transaction(&sig, UiTransactionEncoding::JsonParsed)
                 .expect("get transaction error");
             let commitment_key = match tx.transaction.transaction {
@@ -113,8 +81,14 @@ fn main() {
                                 UiInstruction::Parsed(instruction) => {
                                     match instruction {
                                         UiParsedInstruction::PartiallyDecoded(instruction) => {
-                                            assert_eq!(instruction.accounts.len(), 31);
-                                            Pubkey::from_str(&instruction.accounts[6]).unwrap()
+                                            let data = bs58::decode(&instruction.data).into_vec().unwrap();
+                                            match data[0] {
+                                                // deposit
+                                                3 => Pubkey::from_str(&instruction.accounts[6]).unwrap(),
+                                                // withdraw
+                                                7 => Pubkey::from_str(&instruction.accounts[9]).unwrap(),
+                                                _ => unreachable!("instruction should be deposit or withdraw"),
+                                            }
                                         }
                                         _ => unreachable!("parsed instruction should be partially decoded"),
                                     }
@@ -127,100 +101,51 @@ fn main() {
                 }
                 _ => unreachable!("transaction type should be json"),
             };
-        
+
             let commitment_data = client.get_account_data(&commitment_key).expect("get commitment data failed");
             let commitment = Commitment::unpack(&commitment_data).expect("unpack commitment error");
-            let cipher_array = commitment.cipher.iter().map(|c| {
-                Fr::from_repr(BigInteger256::new(c.0)).unwrap().into()
-            }).collect::<Vec<BigUint>>();
-            let cipher = biguint_array_to_biguint(&cipher_array, rabin_params.bit_size * rabin_params.cipher_batch);
-        
-            let cipher = BigIntDig::from_bytes_le(Sign::Plus, &cipher.to_bytes_le());
-            let p = BigIntDig::from_bytes_le(Sign::Plus, &p);
-            let q =  BigIntDig::from_bytes_le(Sign::Plus, &q);
-            let modulus = BigIntDig::from_bytes_le(Sign::Plus, &modulus);
-            let (v1, v2, v3, v4) = rabin_decrypt(&cipher, &modulus, &p, &q);
+            let commitment_0 = from_maze_edwards_affine(commitment.inner.0).expect("invalid commitment inner 0");
+            let commitment_1 = from_maze_edwards_affine(commitment.inner.1).expect("invalid commitment inner 1");
 
-            let solver = |preimage: &BigIntDig| -> bool {
-                let key = substract_nullifier_pda(preimage, rabin_params.modulus_len, rabin_params.bit_size);
-                let data = client.get_account_data(&key);
-                if let Ok(data) = data {
-                    if let Ok(_) = Nullifier::unpack(&data) {
-                        println!("depositor has withdrawn! nullifier is {}", key);
-                        true
-                    } else {
-                        false
-                    }
+            println!("commitment 0: {}", to_hex_string(&commitment_0).unwrap());
+            println!("commitment 1: {}", to_hex_string(&commitment_1).unwrap());
+        }
+        Opt::Decrypt {
+            privkey,
+            commitment_0,
+        } => {
+            let privkey = from_hex_string::<Fr>(privkey).expect("invalid private key");
+            let commitment_0 = from_hex_string(commitment_0).expect("invalid commitment 0");
+            let state = decrypt(commitment_0, privkey);
+
+            println!("output state is {}", to_hex_string(&state).unwrap());
+        }
+        Opt::Reveal {
+            url,
+            states,
+            commitment_1,
+        } => {
+            let states = states.into_iter().enumerate().map(|(i, state)| {
+                from_hex_string(state).expect(format!("invalid state at {}", i).as_str())
+            });
+            let commitment_1 = from_hex_string(commitment_1).expect("invalid commitment 1");
+            let client = RpcClient::new_with_commitment(
+                &url,
+                CommitmentConfig::finalized(),
+            );
+
+            let nullifier_point = reveal_commitment(commitment_1, states);
+            let nullifier_point = to_maze_edwards_affine(nullifier_point);
+            let (nullifier, _) = get_nullifier_pda(&nullifier_point, &ID);
+            if let Ok(data) = client.get_account_data(&nullifier) {
+                if let Ok(nullifier) = Nullifier::unpack(&data) {
+                    println!("Asset has been withdrawn! receiver is {}", nullifier.receiver);
                 } else {
-                    false
+                    println!("Asset has not been withdrawn yet.");
                 }
-            };
-
-            // 4 solves
-            let ok = solver(&v1);
-            if ok {
-                return;
+            } else {
+                println!("Asset has not been withdrawn yet.");
             }
-            let ok = solver(&v2);
-            if ok {
-                return;
-            }
-            let ok = solver(&v3);
-            if ok {
-                return;
-            }
-            let ok = solver(&v4);
-            if ok {
-                return;
-            }
-            println!("depositor has not withdrawn yet");
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use num_integer::Integer;
-    use num_bigint_dig::{RandPrime, BigUint, BigInt};
-    use rand_core::OsRng;
-
-    #[test]
-    fn test_rabin_decryption() {
-        // use num_bigint::BigUint;
-        use crate::rabin_decrypt;
-
-        let mut rng = OsRng;
-
-        let bit_len = 1488;
-        let (p, q): (BigInt, BigInt);
-        let div = BigUint::from(4u64);
-        let rem = BigUint::from(3u64);
-        loop {
-            let v = rng.gen_prime(bit_len);
-            let (_, r) = v.div_rem(&div);
-            if r == rem {
-                p = v.into();
-                break;
-            }
-        };
-        loop {
-            let v = rng.gen_prime(bit_len);
-            let (_, r) = v.div_rem(&div);
-            if r == rem {
-                q = v.into();
-                break;
-            }
-        };
-
-        let modulus = &p * &q;
-        let preimage = BigInt::from(1u64) << (bit_len - 2);
-        let (_, cipher) = (&preimage * &preimage).div_rem(&modulus);
-
-        let (v1, v2, v3, v4) = rabin_decrypt(&cipher, &modulus, &p, &q);
-        println!("{}", v1.eq(&preimage));
-        println!("{}", v2.eq(&preimage));
-        println!("{}", v3.eq(&preimage));
-        println!("{}", v4.eq(&preimage));
-    }
-
 }

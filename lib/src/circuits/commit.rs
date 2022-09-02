@@ -1,6 +1,6 @@
 use ark_std::{marker::PhantomData, rc::Rc};
-use ark_ec::ProjectiveCurve;
 use ark_ff::{PrimeField, FpParameters};
+use ark_ec::{ProjectiveCurve, AffineCurve};
 use ark_ec::models::{TEModelParameters, twisted_edwards_extended::{GroupAffine, GroupProjective}};
 use ark_r1cs_std::ToBitsGadget;
 use ark_r1cs_std::fields::fp::FpVar;
@@ -105,7 +105,7 @@ where
         point = AffineVar::zero();
         point.precomputed_base_scalar_mul_le(nullifier_bits.into_iter().zip(bases.iter()))?;
 
-        base = self.pubkey.into();
+        base = self.pubkey.into_projective();
         for b in bases.iter_mut() {
             *b = base;
             base.double_in_place();
@@ -149,7 +149,7 @@ mod tests {
         // gen params
         let params = CommitConstParams::<_, PoseidonHasher<_>> {
             nullifier_params: Rc::new(nullifier_params),
-            pubkey: pubkey.into(),
+            pubkey: pubkey.into_affine(),
         };
 
         // gen origin inputs

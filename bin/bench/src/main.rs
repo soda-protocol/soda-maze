@@ -1,5 +1,4 @@
 use ark_std::{collections::BTreeMap, path::PathBuf, UniformRand};
-use ark_ec::models::twisted_edwards_extended::GroupAffine;
 use ark_groth16::Groth16;
 use clap::Parser;
 use soda_maze_lib::proof::{scheme::{DepositProof, WithdrawProof}, ProofScheme};
@@ -7,9 +6,9 @@ use soda_maze_lib::vanilla::{hasher::FieldHasher, VanillaProof};
 use soda_maze_lib::vanilla::withdraw::{WithdrawVanillaProof, WithdrawOriginInputs, WithdrawPublicInputs};
 use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
 use soda_maze_lib::vanilla::commit::{CommitOriginInputs, CommitPublicInputs};
-use soda_maze_types::{keys::{MazeProvingKey, MazeVerifyingKey}, parser::to_hex_string};
-use soda_maze_types::params::{gen_deposit_const_params, gen_withdraw_const_params};
-use soda_maze_types::parser::{JsonParser, from_hex_string, borsh_de_from_file};
+use soda_maze_utils::{convert::{MazeProvingKey, MazeVerifyingKey}, parser::to_hex_string};
+use soda_maze_utils::params::{gen_deposit_const_params, gen_withdraw_const_params};
+use soda_maze_utils::parser::{JsonParser, from_hex_string, borsh_de_from_file};
 use rand_core::OsRng;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "poseidon")]
@@ -19,15 +18,14 @@ use soda_maze_lib::vanilla::hasher::poseidon::PoseidonHasher;
 #[cfg(feature = "poseidon")]
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 
-
 #[cfg(feature = "bn254")]
-use ark_bn254::{Bn254, Fr};
+use ark_bn254::Bn254;
 #[cfg(feature = "bn254")]
-use ark_ed_on_bn254::{EdwardsParameters, Fr as Frr};
+use ark_ed_on_bn254::{EdwardsParameters, EdwardsAffine, Fq as Fr, Fr as Frr};
 #[cfg(feature = "bls12-381")]
-use ark_bls12_381::{Bls12_381, Fr};
+use ark_bls12_381::Bls12_381;
 #[cfg(feature = "bls12-381")]
-use ark_ed_on_bls12_381::{EdwardsParameters, Fr as Frr};
+use ark_ed_on_bls12_381::{EdwardsParameters, EdwardsAffine, Fq as Fr, Fr as Frr};
 
 #[cfg(all(feature = "bn254", feature = "poseidon"))]
 type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
@@ -201,7 +199,7 @@ fn main() {
             let rng = &mut OsRng;
 
             let pubkey = pubkey.map(|pubkey| {
-                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+                from_hex_string::<EdwardsAffine>(pubkey).expect("invalid viewing pubkey")
             });
             let const_params = gen_deposit_const_params(
                 height,
@@ -260,7 +258,7 @@ fn main() {
             let rng = &mut OsRng;
 
             let pubkey = pubkey.map(|pubkey| {
-                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+                from_hex_string::<EdwardsAffine>(pubkey).expect("invalid viewing pubkey")
             });
             let const_params = gen_withdraw_const_params(
                 height,

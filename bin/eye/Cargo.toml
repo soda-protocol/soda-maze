@@ -6,17 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-soda-maze-lib = { path = "../../lib" }
-soda-maze-types = { path = "../../types" }
-soda-maze-program = { path = "../../program" }
+bs58 = "0.4.0"
+soda-maze-utils = { path = "../../utils", optional = true }
+soda-maze-program = { path = "../../program", features = ["no-entrypoint"] }
 clap = { version = "3.2", features = ["std", "color", "derive"] }
-ark-ff = "0.3.0"
-ark-bn254 = { version = "0.3.0", optional = true }
-ark-bls12-381 = { version = "0.3.0", optional = true }
-num-integer = "0.1.45"
-num-bigint = "0.4.3"
-num-bigint-dig = { version = "0.8.1", features = ["prime"] }
-hex = "0.4.3"
+ark-ec = "0.3.0"
+ark-ed-on-bn254 = { version = "0.3.0", optional = true }
+ark-ed-on-bls12-381 = { version = "0.3.0", optional = true }
+num-traits = "0.2.15"
 solana-client = "1.11.7"
 solana-sdk = "1.11.7"
 solana-transaction-status = "1.11.7"
@@ -26,5 +23,5 @@ rand_core = { version = "0.6.3", features = ["std"] }
 
 [features]
 default = ["bn254"]
-bn254 = ["ark-bn254"]
-bls12-381 = ["ark-bls12-381"]
+bn254 = ["ark-ed-on-bn254", "soda-maze-utils/bn254"]
+bls12-381 = ["ark-ed-on-bls12-381", "soda-maze-utils/bls12-381"]

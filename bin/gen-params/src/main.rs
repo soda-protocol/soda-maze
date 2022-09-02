@@ -1,15 +1,15 @@
 use std::{fs::OpenOptions, path::PathBuf, io::{Write, Result}};
-use ark_ec::{AffineCurve, ProjectiveCurve, models::twisted_edwards_extended::{GroupAffine, GroupProjective}};
+use ark_ec::{AffineCurve, ProjectiveCurve};
 use ark_ff::{PrimeField, UniformRand};
 use ark_crypto_primitives::snark::*;
 use ark_groth16::{Groth16, PreparedVerifyingKey};
 use clap::Parser;
 use soda_maze_lib::proof::{ProofScheme, scheme::{DepositProof, WithdrawProof}};
 use soda_maze_lib::vanilla::hasher::FieldHasher;
-use soda_maze_types::keys::{MazeProvingKey, MazeVerifyingKey};
-use soda_maze_types::parser::{to_hex_string, from_hex_string, borsh_se_to_file};
-use soda_maze_types::params::{gen_deposit_const_params, gen_withdraw_const_params};
-use soda_maze_types::rand::get_xorshift_rng;
+use soda_maze_utils::convert::{MazeProvingKey, MazeVerifyingKey};
+use soda_maze_utils::parser::{to_hex_string, from_hex_string, borsh_se_to_file};
+use soda_maze_utils::params::{gen_deposit_const_params, gen_withdraw_const_params};
+use soda_maze_utils::rand::get_xorshift_rng;
 
 #[cfg(feature = "poseidon")]
 use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
@@ -21,11 +21,11 @@ use soda_maze_lib::params::poseidon::get_poseidon_bn254_for_merkle;
 #[cfg(feature = "bn254")]
 use ark_bn254::{Bn254, Fr};
 #[cfg(feature = "bn254")]
-use ark_ed_on_bn254::{EdwardsParameters, Fr as Frr};
+use ark_ed_on_bn254::{EdwardsParameters, EdwardsAffine, EdwardsProjective, Fr as Frr};
 #[cfg(feature = "bls12-381")]
 use ark_bls12_381::{Bls12_381, Fr};
 #[cfg(feature = "bls12-381")]
-use ark_ed_on_bls12_381::{EdwardsParameters, Fr as Frr};
+use ark_ed_on_bls12_381::{EdwardsParameters, EdwardsAffine, EdwardsProjective, Fr as Frr};
 
 #[cfg(all(feature = "bn254", feature = "poseidon"))]
 type DepositInstant = DepositProof::<EdwardsParameters, PoseidonHasher<Fr>, PoseidonHasherGadget<Fr>, Groth16<Bn254>>;
@@ -190,9 +190,8 @@ fn main() {
             let rng = &mut get_xorshift_rng(seed);
 
             let privkey = Frr::rand(rng);
-            let privkey_int: <Frr as PrimeField>::BigInt = privkey.into();
-            let generator = GroupProjective::<EdwardsParameters>::prime_subgroup_generator();
-            let pubkey: GroupAffine<_> = generator.mul(&privkey_int).into();
+            let generator = EdwardsProjective::prime_subgroup_generator();
+            let pubkey = generator.into_affine().mul(privkey).into_affine();
 
             println!("private key: {}", to_hex_string(&privkey).unwrap());
             println!("public key: {}", to_hex_string(&pubkey).unwrap());
@@ -221,7 +220,7 @@ fn main() {
             pvk_path,
         } => {
             let pubkey = pubkey.map(|pubkey| {
-                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+                from_hex_string::<EdwardsAffine>(pubkey).expect("invalid viewing pubkey")
             });
             let const_params = gen_deposit_const_params(
                 height,
@@ -250,7 +249,7 @@ fn main() {
             pvk_path,
         } => {
             let pubkey = pubkey.map(|pubkey| {
-                from_hex_string::<GroupAffine<EdwardsParameters>>(pubkey).expect("invalid viewing pubkey")
+                from_hex_string::<EdwardsAffine>(pubkey).expect("invalid viewing pubkey")
             });
             let const_params = gen_withdraw_const_params(
                 height,

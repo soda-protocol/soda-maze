@@ -13,6 +13,7 @@ use soda_maze_lib::circuits::poseidon::PoseidonHasherGadget;
 use soda_maze_lib::proof::{ProofScheme, scheme::DepositProof};
 use soda_maze_lib::vanilla::deposit::{DepositVanillaProof, DepositOriginInputs, DepositPublicInputs};
 use soda_maze_lib::vanilla::{hasher::poseidon::PoseidonHasher, commit::CommitOriginInputs, VanillaProof};
+use soda_maze_utils::convert::{to_maze_fr_repr, to_maze_edwards_affine, to_maze_proof, from_maze_fr_repr};
 
 use crate::info;
 use crate::utils::*;
@@ -44,7 +45,9 @@ fn gen_deposit_instructions(
     let updating_nodes = pub_in.update_nodes.into_iter().map(|node| {
         to_maze_fr_repr(node)
     }).collect::<Vec<_>>();
-    let commitment = to_maze_commitment(pub_in.commit.unwrap().commitment);
+    let commitment = pub_in.commit.map(|commit| {
+        (to_maze_edwards_affine(commit.commitment.0), to_maze_edwards_affine(commit.commitment.1))
+    }).unwrap();
     let credential = create_deposit_credential(
         vault,
         depositor,
@@ -100,7 +103,7 @@ pub fn gen_deposit_proof(
             nodes_hashes[layer]
         } else {
             let node = MerkleNode::unpack(&data).expect("Error: merkle node data can not unpack");
-            from_maze_fr_repr(node.hash)
+            from_maze_fr_repr(node.hash).expect("Error: invalid node hash")
         }
     }).collect::<Vec<_>>();
     assert_eq!(neighbor_nodes.len(), HEIGHT, "Error: invalid neighbors array length");

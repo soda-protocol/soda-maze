@@ -10,7 +10,7 @@ use crate::{
     verifier::{Proof, Verifier, get_verifier_pda},
     core::{
         VanillaData,
-        GroupAffine,
+        EdwardsAffine,
         nullifier::{get_nullifier_pda, Nullifier},
         commitment::{get_commitment_pda, Commitment, InnerCommitment},
         credential::{get_deposit_credential_pda, get_withdraw_credential_pda},
@@ -52,11 +52,11 @@ pub fn process_instruction(
         MazeInstruction::CreateWithdrawCredential {
             withdraw_amount,
             receiver,
-            nullifier,
+            nullifier_point,
             leaf,
             updating_nodes,
             commitment,
-        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, receiver, nullifier, leaf, updating_nodes, commitment),
+        } => process_create_withdraw_credential(program_id, accounts, withdraw_amount, receiver, nullifier_point, leaf, updating_nodes, commitment),
         MazeInstruction::CreateWithdrawVerifier {
             proof,
         } => process_create_withdraw_verifier(program_id, accounts, proof),
@@ -392,7 +392,7 @@ fn process_create_withdraw_credential(
     accounts: &[AccountInfo],
     withdraw_amount: u64,
     receiver: Pubkey,
-    nullifier: GroupAffine,
+    nullifier_point: EdwardsAffine,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
     commitment: InnerCommitment,
@@ -443,7 +443,7 @@ fn process_create_withdraw_credential(
     let vanilla_data = WithdrawVanillaData::new(
         receiver,
         withdraw_amount,
-        nullifier,
+        nullifier_point,
         vault.index,
         leaf,
         vault.root,
@@ -625,7 +625,7 @@ fn process_finalize_withdraw(
     verifier.program.check_verified()?;
 
     let (nullifier_key, (seed_1, seed_2, seed_3)) = get_nullifier_pda(
-        &credential.vanilla_data.nullifier,
+        &credential.vanilla_data.nullifier_point,
         program_id,
     );
     if &nullifier_key != nullifier_info.key {

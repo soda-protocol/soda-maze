@@ -1,13 +1,10 @@
 use aes::{Aes256Enc, Aes256Dec, cipher::{generic_array::GenericArray, KeyInit, BlockEncrypt, BlockDecrypt}};
-use ark_bn254::Bn254;
-use ark_ec::{twisted_edwards_extended::{GroupProjective, GroupAffine}, ProjectiveCurve};
-use ark_ed_on_bn254::{Fq as Fr, Fr as Frr, EdwardsParameters};
+use ark_ec::ProjectiveCurve;
+use ark_ed_on_bn254::{Fq as Fr, Fr as Frr, EdwardsProjective};
 use ark_ff::{PrimeField, BigInteger, BigInteger256, FpParameters, UniformRand};
-use ark_groth16::Proof;
 use rand_core::OsRng;
 use solana_program::{pubkey::Pubkey, hash::hash};
-use soda_maze_program::core::{GroupAffine as MazeGroupAffine, commitment::InnerCommitment};
-use soda_maze_program::{verifier::Proof as MazeProof, bn::BigInteger256 as MazeBigInteger};
+use soda_maze_utils::convert::to_maze_edwards_affine;
 use solana_sdk::signature::Signature;
 
 pub fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
@@ -22,9 +19,9 @@ pub fn get_nullifier_pubkey(leaf_index: u64, secret: Fr) -> Pubkey {
     nullifier_bits.truncate(<<Frr as PrimeField>::Params as FpParameters>::CAPACITY as usize);
     let nullifier: <Frr as PrimeField>::BigInt = <<Frr as PrimeField>::BigInt as BigInteger>::from_bits_le(&nullifier_bits);
     // nullifier_point = nullifier * G
-    let nullifier_point: GroupAffine<EdwardsParameters> = GroupProjective::prime_subgroup_generator().mul(nullifier).into();
+    let nullifier_point = EdwardsProjective::prime_subgroup_generator().mul(nullifier).into_affine();
 
-    let nullifier_point = to_maze_group_affine(nullifier_point);
+    let nullifier_point = to_maze_edwards_affine(nullifier_point);
     let (nullifier, _) = get_nullifier_pda(&nullifier_point, &ID);
     nullifier
 }
@@ -71,57 +68,57 @@ pub fn gen_utxo_key(sig: &Signature, vault: &Pubkey, nonce: u64) -> [u8; 32] {
     key.to_bytes()
 }
 
-#[inline]
-pub fn from_maze_fr_repr(fr: MazeBigInteger) -> Fr {
-    Fr::from_repr(BigInteger256::new(fr.0)).expect("Error: invalid fr repr")
-}
+// #[inline]
+// pub fn from_maze_fr_repr(fr: MazeBigInteger) -> Fr {
+//     Fr::from_repr(BigInteger256::new(fr.0)).expect("Error: invalid fr repr")
+// }
 
-#[inline]
-pub fn to_maze_fr_repr(fr: Fr) -> MazeBigInteger {
-    MazeBigInteger::new(fr.into_repr().0)
-}
+// #[inline]
+// pub fn to_maze_fr_repr(fr: Fr) -> MazeBigInteger {
+//     MazeBigInteger::new(fr.into_repr().0)
+// }
 
-#[inline]
-pub fn to_maze_group_affine(g: GroupAffine<EdwardsParameters>) -> MazeGroupAffine {
-    MazeGroupAffine {
-        x: to_maze_fr_repr(g.x),
-        y: to_maze_fr_repr(g.y),
-    }
-}
+// #[inline]
+// pub fn to_maze_group_affine(g: GroupAffine<EdwardsParameters>) -> MazeGroupAffine {
+//     MazeGroupAffine {
+//         x: to_maze_fr_repr(g.x),
+//         y: to_maze_fr_repr(g.y),
+//     }
+// }
 
-#[inline]
-pub fn to_maze_commitment(c: (GroupAffine<EdwardsParameters>, GroupAffine<EdwardsParameters>)) -> InnerCommitment {
-    (to_maze_group_affine(c.0), to_maze_group_affine(c.1))
-}
+// #[inline]
+// pub fn to_maze_commitment(c: (GroupAffine<EdwardsParameters>, GroupAffine<EdwardsParameters>)) -> InnerCommitment {
+//     (to_maze_group_affine(c.0), to_maze_group_affine(c.1))
+// }
 
-#[inline]
-pub fn to_maze_proof(p: Proof<Bn254>) -> MazeProof {
-    use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
+// #[inline]
+// pub fn to_maze_proof(p: Proof<Bn254>) -> MazeProof {
+//     use soda_maze_program::params::bn::{Fq, Fq2, G1Affine254, G2Affine254};
 
-    MazeProof {
-        a: G1Affine254::new(
-            Fq::new(MazeBigInteger::new(p.a.x.0.0)),
-            Fq::new(MazeBigInteger::new(p.a.y.0.0)),
-            p.a.infinity,
-        ),
-        b: G2Affine254::new(
-            Fq2::new(
-                Fq::new(MazeBigInteger::new(p.b.x.c0.0.0)),
-                Fq::new(MazeBigInteger::new(p.b.x.c1.0.0)),
-            ),
-            Fq2::new(
-                Fq::new(MazeBigInteger::new(p.b.y.c0.0.0)),
-                Fq::new(MazeBigInteger::new(p.b.y.c1.0.0)),
-            ),
-            p.b.infinity,
-        ),
-        c: G1Affine254::new(
-            Fq::new(MazeBigInteger::new(p.c.x.0.0)),
-            Fq::new(MazeBigInteger::new(p.c.y.0.0)),
-            p.c.infinity,
-        ),
-    }
-}
+//     MazeProof {
+//         a: G1Affine254::new(
+//             Fq::new(MazeBigInteger::new(p.a.x.0.0)),
+//             Fq::new(MazeBigInteger::new(p.a.y.0.0)),
+//             p.a.infinity,
+//         ),
+//         b: G2Affine254::new(
+//             Fq2::new(
+//                 Fq::new(MazeBigInteger::new(p.b.x.c0.0.0)),
+//                 Fq::new(MazeBigInteger::new(p.b.x.c1.0.0)),
+//             ),
+//             Fq2::new(
+//                 Fq::new(MazeBigInteger::new(p.b.y.c0.0.0)),
+//                 Fq::new(MazeBigInteger::new(p.b.y.c1.0.0)),
+//             ),
+//             p.b.infinity,
+//         ),
+//         c: G1Affine254::new(
+//             Fq::new(MazeBigInteger::new(p.c.x.0.0)),
+//             Fq::new(MazeBigInteger::new(p.c.y.0.0)),
+//             p.c.infinity,
+//         ),
+//     }
+// }
 
 // #[cfg(test)]
 // mod tests {

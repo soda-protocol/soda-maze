@@ -12,7 +12,8 @@ use crate::{
         commitment::{get_commitment_pda, InnerCommitment},
         vault::{get_vault_pda, get_vault_authority_pda},
         node::{get_merkle_node_pda, gen_merkle_path_from_leaf_index},
-        utxo::get_utxo_pda, GroupAffine,
+        utxo::get_utxo_pda,
+        EdwardsAffine,
     },
     error::MazeError,
 };
@@ -35,7 +36,7 @@ pub enum MazeInstruction {
     CreateWithdrawCredential {
         withdraw_amount: u64,
         receiver: Pubkey,
-        nullifier: GroupAffine,
+        nullifier_point: EdwardsAffine,
         leaf: BigInteger,
         updating_nodes: Box<Vec<BigInteger>>,
         commitment: InnerCommitment,
@@ -246,7 +247,7 @@ pub fn create_withdraw_credential(
     receiver: Pubkey,
     delegator: Pubkey,
     withdraw_amount: u64,
-    nullifier: GroupAffine,
+    nullifier_point: EdwardsAffine,
     leaf: BigInteger,
     updating_nodes: Box<Vec<BigInteger>>,
     commitment: InnerCommitment,
@@ -256,7 +257,7 @@ pub fn create_withdraw_credential(
     let data = MazeInstruction::CreateWithdrawCredential {
         withdraw_amount,
         receiver,
-        nullifier,
+        nullifier_point,
         leaf,
         updating_nodes,
         commitment,
@@ -328,14 +329,14 @@ pub fn finalize_withdraw(
     delegator: Pubkey,
     leaf_index: u64,
     leaf: BigInteger,
-    nullifier: GroupAffine,
+    nullifier_point: EdwardsAffine,
     utxo: [u8; 32],
     balance_cipher: u128,
 ) -> Result<Instruction, MazeError> {
     let (vault_signer, _) = get_vault_authority_pda(&vault, &ID);
     let (credential, _) = get_withdraw_credential_pda(&vault, &delegator, &receiver, &ID);
     let (verifier, _) = get_verifier_pda(&credential, &ID);
-    let (nullifier, _) = get_nullifier_pda(&nullifier, &ID);
+    let (nullifier, _) = get_nullifier_pda(&nullifier_point, &ID);
     let (commitment, _) = get_commitment_pda(&leaf, &ID);
     let vault_token_account = get_associated_token_address(&vault_signer, &token_mint);
     let user_token_account = get_associated_token_address(&receiver, &token_mint);
@@ -401,7 +402,7 @@ mod tests {
     use ark_std::UniformRand;
 
     use super::{create_vault, create_deposit_credential, create_deposit_verifier, verify_deposit_proof, finalize_deposit, finalize_withdraw};
-    use crate::{core::{commitment::InnerCommitment, GroupAffine}, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::create_withdraw_credential, core::utxo::UTXO};
+    use crate::{core::{commitment::InnerCommitment, EdwardsAffine}, Packer, verifier::Proof, params::bn::{Fq, Fq2, G1Affine254, G2Affine254}, instruction::create_withdraw_credential, core::utxo::UTXO};
     use crate::bn::BigInteger256 as BigInteger;
 
     const USER_KEYPAIR: &str = "5S4ARoj276VxpUVtcTknVSHg3iLEc4TBY1o5thG8TV2FrMS1mqYMTwg1ec8HQxDqfF4wfkE8oshncqG75LLU2AuT";
@@ -530,11 +531,11 @@ mod tests {
             BigInteger::new([7973243436672073066, 16221803217086044779, 1982661521783632814, 1972000485319446447]),
         ];
         let commitment = (
-            GroupAffine {
+            EdwardsAffine {
                 x: BigInteger::new([4426581770956920, 3780038317459993260, 5978800350633987884, 311273432824146036]),
                 y: BigInteger::new([8863000400804113423, 1348204775686030698, 8545119952742531791, 2800637279200743611]),
             },
-            GroupAffine {
+            EdwardsAffine {
                 x: BigInteger::new([7215792706979548681, 9873107139232219479, 865173140646005947, 1248029139033987868]),
                 y: BigInteger::new([17291355517249880028, 3312550530945056926, 17870307985785161756, 610666079189054042]),
             },
