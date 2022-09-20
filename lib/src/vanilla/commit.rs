@@ -1,7 +1,7 @@
 use ark_std::rc::Rc;
 use anyhow::{anyhow, Result};
 use ark_ff::{PrimeField, BigInteger, FpParameters};
-use ark_ec::{models::{TEModelParameters, twisted_edwards_extended::{GroupProjective, GroupAffine}}, ProjectiveCurve, AffineCurve};
+use ark_ec::{TEModelParameters, twisted_edwards_extended::{GroupProjective, GroupAffine}, ProjectiveCurve, AffineCurve};
 
 use super::hasher::FieldHasher;
 
@@ -61,11 +61,12 @@ where
     nullifier_bits.truncate(scalar_bits);
     let nullifier: <P::ScalarField as PrimeField>::BigInt = <<P::ScalarField as PrimeField>::BigInt as BigInteger>::from_bits_le(&nullifier_bits);
 
-    // encrypt step 1: nonce * G
+    // encrypt nullifier by `Elgamal` algorithm.
+    // compute commitment_0 = nonce * G
     let g = GroupProjective::prime_subgroup_generator();
     let commitment_0 = g.mul(nonce);
     
-    // encrypt step 2: nullifier * G + nonce * P
+    // compute commitment_1 = nullifier * G + nonce * P
     let pubkey = params.pubkey.into_projective();
     let commitment_1 = g.mul(nullifier) + pubkey.mul(nonce);
 

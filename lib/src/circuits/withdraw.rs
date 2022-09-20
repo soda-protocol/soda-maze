@@ -70,6 +70,7 @@ where
         )?;
         let rest_amount = &balance - withdraw_amount;
 
+        // compute nullifier and mapping nullfier to curve point
         {
             let scalar_bits = <<P::ScalarField as PrimeField>::Params as FpParameters>::CAPACITY as usize;
 
@@ -95,6 +96,7 @@ where
             point.enforce_equal(&nullifier_point)?;
         }
 
+        // prove src leaf existance
         {
             // hash leaf: hash(leaf_index | balance | secret)
             let src_leaf = FHG::hash_gadget(
@@ -110,6 +112,7 @@ where
             )?;
         }
 
+        // insert assets into a new leaf 
         {
             // hash new back deposit data leaf: hash(leaf_index | rest_amount | secret)
             let dst_leaf = FHG::hash_gadget(

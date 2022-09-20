@@ -1,7 +1,7 @@
 use ark_std::{marker::PhantomData, rc::Rc};
 use ark_ff::{PrimeField, FpParameters};
 use ark_ec::{ProjectiveCurve, AffineCurve};
-use ark_ec::models::{TEModelParameters, twisted_edwards_extended::{GroupAffine, GroupProjective}};
+use ark_ec::{TEModelParameters, twisted_edwards_extended::{GroupAffine, GroupProjective}};
 use ark_r1cs_std::ToBitsGadget;
 use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::groups::{curves::twisted_edwards::AffineVar, CurveVar};
@@ -88,7 +88,8 @@ where
         let mut nullifier_bits = nullifier.to_bits_le()?;
         nullifier_bits.truncate(scalar_bits);
 
-        // encrypt step 1: nonce * G
+        // encrypt nullifier by `Elgamal` algorithm.
+        // compute commitment_0 = nonce * G
         let mut base = GroupProjective::prime_subgroup_generator();
         let mut bases = Vec::with_capacity(scalar_bits);
         for _ in 0..scalar_bits {
@@ -101,7 +102,7 @@ where
         // constrain point = commitment_0
         point.enforce_equal(&commitment_0)?;
 
-        // encrypt step 2: nullifier * G + nonce * P
+        // compute commitment_1 = nullifier * G + nonce * P
         point = AffineVar::zero();
         point.precomputed_base_scalar_mul_le(nullifier_bits.into_iter().zip(bases.iter()))?;
 
