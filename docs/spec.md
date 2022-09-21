@@ -19,7 +19,7 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 
 ## Circuits
 
-### Leaf existance
+### Leaf Existance Circuit
 
 *Prove the leaf node exists in Merkle Tree.*
 
@@ -29,7 +29,7 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 - Use **leaf hash**, **position array**, **neighbor nodes** to generate merkle path.
 - The last element in generated merkle path should equal to the input **root**.
 
-### Add Leaf
+### Add Leaf Circuit
 
 *There are 2 ways to prove replacing an empty leaf hash with a new leaf hash in Merkle Tree:*
 *1. Provide all neighbour nodes and root hash as public inputs. Compute the updated merkle path with the new leaf hash.*
@@ -44,10 +44,39 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 - Use **leaf hash**, **position array**, **neighbor nodes** to generate new merkle path.
 - The input **updated nodes** should equal to generated merkle path in order.
 
-### Commit
+### Commit Circuit
 
-*Commit is a process that encrypt the nullifier*
+*Commit is a process that encrypt the nullifier to commitment with viewing public key by Elgamal Algorithm.*
 
 ![commit](assets/commit.png)
 
+- Compute **nullifier** = hash(**leaf index** | **secret**)
+- Convert **nullifier** to **nullifier bits**, truncate **nullifier bits** to satisfy in Jubjub scalar field.
+- Scalar multiply **nonce bits** with generator, get **commitment 0**.
+- Scalar multiply **nullifier bits** with generator, scalar multiply **nonce bits** with **public key**, sum together and get **commitment 1**.
+- The pair of **commitment 0** and **commitment 1** is commitment.
 
+### Deposit Circuit
+
+*A commitment is a reserved field to reveal the nullifier in special circumstances, which is equivalent to assets flowing direction.*
+*Hash asset to leaf and insert in Merkle Tree, then compute commitment.*
+
+![deposit](assets/deposit.png)
+
+- **leaf index** is current index of the next available empty leaf captured from blockchain.
+- Compute **leaf hash** = hash(**leaf index** | **deposit amount** | **secret**).
+- Use `Add Leaf Circuit` with **leaf index**, **leaf hash** and **prev root**.
+- Use `Commit Circuit` with **leaf index** and **secret**.
+
+### Withdraw Circuit
+
+*Prove the withdrawing asset exists in Merkle Tree and compute nullifier, hash rest asset and insert back into Merkle Tree as UTXO style, then compute commitment.*
+
+![withdraw](assets/withdraw.png)
+
+- User needs to find out **src leaf index** and **balance**, which are source asset infos to withdraw from.
+- Compute **src leaf hash** = hash(**src leaf index** | **balance** | **secret**).
+- Use `Leaf Existance Circuit` with **src leaf index**, **src leaf hash** and **prev root**.
+- Compute **rest amount** = **balance** - **withdraw amount**.
+- Compute **dst leaf hash** = hash(**dst leaf index** | **rest amount** | **secret**).
+- 
