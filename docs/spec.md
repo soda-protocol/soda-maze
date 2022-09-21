@@ -1,6 +1,6 @@
 # Soda Maze Spec
 
-Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and auditable designing.
+Soda Maze is a coins mixing protocol with supporting arbitrary amount deposit/withdraw and auditable designing.
 
 ## Data Structure
 
