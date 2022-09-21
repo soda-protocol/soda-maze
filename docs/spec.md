@@ -17,7 +17,15 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 - A withdrawed UTXO-style asset will be computed as a `nullifier` and stored on chain to avoid double spending.
 - The `nullifier` corresponding to a UTXO-style asset will be encrypted as a `commitment` with viewing public key by Elgamal and stored on chain, in case of revealing the `commitment` to `nullifier` with the viewing private key for compliance audit in special circumstances, like money laudering by hackers.
 
+![architecture](assets/architecture.png)
+
 ## Circuits
+
+### Variables
+
+We assumpts variables types as following:
+
+![variables](assets/variables.png)
 
 ### Leaf Existance Circuit
 
@@ -51,7 +59,7 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 ![commit](assets/commit.png)
 
 - Compute **nullifier** = hash(**leaf index** | **secret**)
-- Convert **nullifier** to **nullifier bits**, truncate **nullifier bits** to satisfy in Jubjub scalar field.
+- Convert **nullifier** to **nullifier bits**, truncate **nullifier bits** to satisfy Jubjub scalar field.
 - Scalar multiply **nonce bits** with generator, get **commitment 0**.
 - Scalar multiply **nullifier bits** with generator, scalar multiply **nonce bits** with **public key**, sum together and get **commitment 1**.
 - The pair of **commitment 0** and **commitment 1** is commitment.
@@ -77,6 +85,10 @@ Soda Maze is a coins mixing protocol with arbitrary amount deposit/withdraw and 
 - User needs to find out **src leaf index** and **balance**, which are source asset infos to withdraw from.
 - Compute **src leaf hash** = hash(**src leaf index** | **balance** | **secret**).
 - Use `Leaf Existance Circuit` with **src leaf index**, **src leaf hash** and **prev root**.
+- Compute **nullifier** = hash(**leaf index** | **secret**)
+- Convert **nullifier** to **nullifier bits**, truncate **nullifier bits** to satisfy Jubjub scalar field.
+- Scalar multiply **nullifier bits** with generator, get **nullifier point**.
 - Compute **rest amount** = **balance** - **withdraw amount**.
 - Compute **dst leaf hash** = hash(**dst leaf index** | **rest amount** | **secret**).
-- 
+- Use `Add Leaf Circuit` with **dst leaf index**, **dst leaf hash** and **prev root**.
+- Use `Commit Circuit` with **dst leaf index** and **secret**.
